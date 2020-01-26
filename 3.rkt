@@ -6,8 +6,8 @@
 
 
 (define-language Lc
-
-  (e ::= (e e) v x)
+  (p ::= (e ...))
+  (e ::= (e e) (+ e ...)  v x)
   (v ::= (λ (x t) e) n)
   (n ::= number)
   (t ::= (t → t) num bool)
@@ -17,6 +17,7 @@
   (x ::= variable-not-otherwise-mentioned))
 
 
+;(redex-match Lc e (term (2 5 1)))
 
 (define-metafunction Lc 
   set-contains? : (x ...) x -> boolean 
@@ -45,7 +46,7 @@
 (define-judgment-form Lc
   #:contract (types Γ e t)
   #:mode (types I I O)
-
+  
   [(types (extend Γ x t_1) e t_2)
    --------------------------------------------------"λ-abstraction" 
    (types Γ (λ (x t_1) e) (t_1 → t_2))]
@@ -55,13 +56,33 @@
    ------------------------"λ-app"
    (types Γ (e_1 e_2) t_3)]
 
+  [(types Γ e num) ...
+   -----------------------"+"
+   (types Γ (+ e ...) num)]
+
   [-------------"var"
    (types Γ x (lookup Γ x) )]
 
   [------------- "num"
    (types Γ number num)])
 
+(define-judgment-form Lc
+  #:contract (types-expressions Γ p (t ...))
+  #:mode (types-expressions I I O)
 
+  [(types Γ e t) 
+   ----------------------------------"e-list-last"
+   (types-expressions Γ (e) (t))]
+
+  [(types Γ e_1 t_1) 
+   (types-expressions Γ (e_2 ...) (t_2 ...))
+   -------------------------------------"e-list"
+   (types-expressions Γ (e_1 e_2 ...) (t_1 t_2 ...))])
+
+
+
+
+  
 
 
 ; get leftmost matching variable in the context.
@@ -75,6 +96,20 @@
 (define-metafunction Lc
   extend : Γ x t -> Γ
   [(extend ((x_0 t_0) ...) x t) ((x t) (x_0 t_0) ...)])
+
+;(define x (build-derivations (types () ((λ (y num) (λ (y num) y)) 3) t)))
+;(show-pict (derivation->pict Lc (car x)))
+
+;(define x (build-derivations (types () (+ 1 4 5 3) t)))
+
+
+
+;(judgment-holds (types-expressions () (1 4 3 2) (t ...)))
+(define x (build-derivations (types-expressions () (1 (λ (z num) z) 5 3) (t ...))))
+(show-pict (derivation->pict Lc (car x)))
+
+
+
   
 
 (test-equal (term (lookup ((a num) (b num) (x num) (c num)) x)) (term num))
@@ -97,8 +132,6 @@
 ;(judgment-holds (types () (λ (y num) (λ (x num) x)) t) t)
 
 
-(define x (build-derivations (types () (λ (y num) (λ (y bool) y))   t)))
-(show-pict (derivation->pict Lc (car x)))
 
 (define-metafunction Lc
   vars-append : (x ...) (x ...) -> (x ...)
