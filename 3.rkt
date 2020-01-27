@@ -13,7 +13,7 @@
 
   (V ::= ((x any) ...)) 
   (P ::=  (v ... E o ...))
-  (E ::= (E e) (v E) hole)
+  (E ::= (v E) (E e) (+ v ... E e ...) (define x E) hole)
   (arithop ::= + - * /)
 
   (Γ ::= ((x t) ... G (x t) ...))
@@ -47,6 +47,8 @@
 
 
 
+
+;(redex-match Lc (e_1 ... x e_2 ...) (term ((y y) (x x) x (z z) y (m m))))
 
 
 ;(redex-match Lc G (term ((b num) (z (num → num)  ))))
@@ -230,10 +232,25 @@
 (test-equal (term (do-arith / (2 4 5))) (term 1/10))
 (test-equal (term (do-arith * (2 4 5))) (term 40))
 
+
+(define-metafunction Lc
+  extract-variables : (e ...) -> (x ...)
+  [(extract-variables (x e ...)) (union-sets (x) (extract-variables (e ...)))]
+  [(extract-variables (e_1 e_2 ...)) (extract-variables (e_2 ...))]
+  [(extract-variables ()) ()])
+
+
+(test-equal (term (extract-variables (1 2 x (λ (p num) z) y m 1))) (term (x y m)))
+(test-equal (term (extract-variables (1 2 (λ (p num) z) (p q)))) (term ()))
+(test-equal (term (extract-variables ())) (term ()))
+
+
+
 (define-metafunction Lc 
   fv : e ->  (x ...)
   [(fv n) () ]
   [(fv x) (x)]
+  [(fv (+ e ...)) (extract-variables (e ...))]
   [(fv (e_1 e_2)) 
    (make-set (vars-append (fv e_1) (fv e_2)))]
   [(fv (λ (x t) e)) 
@@ -243,11 +260,39 @@
 (test-equal (term (fv z)) (term (z)))
 (test-equal (term (fv (a 2))) (term (a)))
 (test-equal (term (fv (a b))) (term (a b)))
+(test-equal (term (fv (+ a b 3 c))) (term (a b c)))
 (test-equal (term (fv (λ (x num) (a b)))) (term (a b)))
 (test-equal (term (fv (λ (x num) (a (b x))))) (term (a b)))
 (test-equal (term (fv (λ (y num) (x (λ (x num) (x y)))))) (term (x)))
+(test-equal (term (fv (λ (y num) (λ (x num) (+ x y z 2 t))))) (term (z t)))
 
 
+(define-metafunction Lc 
+  e-append : (e ...) (e ...) -> (e ...)
+  [(e-append (e_1 ...) (e_2 ...)) (e_1 ... e_2 ...)])
+
+(test-equal (term (e-append (1) (x))) (term (1 x)))
+(test-equal (term (e-append ()  (x))) (term (x)))
+(test-equal (term (e-append ((λ (x num) x))  ())) (term ((λ (x num) x))))
+
+(define-metafunction Lc 
+  e-contains? : (e ...) e -> boolean 
+  [(e-contains? (e_0 ... e e_1 ...) e) #t ]
+  [(e-contains? (e_0 ...) e) #f ])
+
+(test-equal (term (e-contains? (2 4 x 1) x)) #t)
+(test-equal (term (e-contains? (2 4 (λ (x num) x) 1) x)) #f)
+(test-equal (term (e-contains? (2 4 (λ (x num) x) 1) (λ (x num) x))) #t)
+
+(define-metafunction Lc 
+  e-subs : x e (e ...) -> (e ...)
+  [(e-subs x e (e_1 ... x e_2 ...))
+   (e-append (e_1 ... e) (e-subs x e (e_2 ...)))
+   (side-condition (equal? #f (term (e-contains? (e_1 ...) x))))]
+  [(e-subs x e (e_1 ...)) (e_1 ...)])
+
+(test-equal (term (e-subs z 1337 (2 (λ (z num) z) x z 1 z (z 1)))) (term (2 (λ (z num) z) x 1337 1 1337 (z 1))) )
+(test-equal (term (e-subs z 1337 (2 (λ (z num) z) x z 1 z z))) (term (2 (λ (z num) z) x 1337 1 1337 1337)))
 
 ; Capture avoiding subsitution.
 ; (1) x[x → e] = e
@@ -262,11 +307,9 @@
   [(subs x e x) e]
   [(subs x_0 e x_1) x_1]
   [(subs x e (e_1 e_2)) ((subs x e e_1) (subs x e e_2))]
-  [(subs x e (+ any_1 ... x any_2 ...)) (+ any_1 ... e any_2 ...)]
-  [(subs x e (+ any_1 ...)) (+ any_1 ...)]
-
-
-
+  [(subs x e (+ e_1 ...)) 
+   (+ e_r ...)
+   (where (e_r ...) (e-subs x e (e_1 ...)))]
   [(subs x e (λ (x t) e_1)) (λ (x t) e_1)]
   [(subs x_0 e_0 (λ (x_1 t) e_1)) 
    (λ (x_1 t) e_2)
@@ -281,10 +324,13 @@
 (test-equal (term (subs x y x)) (term y))
 (test-equal (term (subs x y z)) (term z))
 (test-equal (term (subs x y (a x))) (term (a y)))
+(test-equal (term (subs x y (+ a x 1 4 x))) (term (+ a y 1 4 y)))
 (test-equal (term (subs x y (a z))) (term (a z)))
 (test-equal (term (subs x y (λ (x num) b))) (term (λ (x num) b)))
 (test-equal (term (subs x m (λ (y num) (x y)))) (term (λ (y num) (m y))))
 (test-equal (term (subs x y (λ (y num) (x y)))) (term (λ (r num) (y r))))
+(test-equal (term (subs x m (λ (y num) (+ x y 1 x 4 x)))) (term (λ (y num) (+ m y 1 m 4 m))))
+(test-equal (term (subs x y (λ (y num) (+ x y 1 x 4 x)))) (term (λ (r num) (+ y r 1 y 4 y))))
 
 
 (define red 
@@ -296,23 +342,20 @@
     (--> (V (in-hole P (+ n ...)))
          (V (in-hole P (do-arith + (n ...))))
          "arith-op")
+    ;(--> (V (in-hole P (define x v)))
+    ;     "define-var")
     (--> (V (in-hole P x))
          (V (in-hole P 4))
          "var")))
-
-(define t 
-  (term 
-    ((
-      (λ x (λ y (x y)))
-      ((λ x (λ y (x y) )) y)) z)))
 
 
 ;(traces red (term ((λ x 5) m)))
 ;(traces red (term (5 4)))
 
-;(traces red (term ((λ x (λ y (λ z ((x z) x)))) m)))
 
-(traces red (term ( () (((λ (x num) (+ 1 x 5)) 1337)))))
-;(traces red (term ( () ((+ 1 3 5)  ))))
+;(traces red (term (() ((((λ (x num) (λ (y num) (+ 2 x y))) 5) 6)))))
+(traces red (term (() ((((λ (x num) (λ (x num) (+ 2 x z x z))) 5) 6)))))
+
+
 
 ;(traces red (term (() (((λ (x num) (λ (y num) (x y))) y)))))
