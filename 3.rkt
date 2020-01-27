@@ -3,27 +3,26 @@
 (require pict)
 (require redex/pict)
 
-
-
 (define-language Lc
-  (p ::= (e ...))
-  (e ::= (e e) (+ e ...)  v x)
-  (v ::= (λ (x t) e) n)
+  (p ::= (V (o ...)))
+  (o ::= (define x e) e) ; top level expressions.
+  (e ::= (e e) (+ e ...) v x)
+  (v ::= (λ (x t) e) n void)
   (n ::= number)
-  (t ::= (t → t) num bool)
+  (t ::= (t → t) num bool void)
+
+  (V ::= ((x any) ...)) 
+  (P ::=  (v ... E o ...))
   (E ::= (E e) (v E) hole)
+  (arithop ::= + - * /)
 
-  (Γ ::= ((x t) ...))
+  (Γ ::= ((x t) ... G (x t) ...))
   (x ::= variable-not-otherwise-mentioned))
-
-
-;(redex-match Lc e (term (2 5 1)))
 
 (define-metafunction Lc 
   set-contains? : (x ...) x -> boolean 
   [(set-contains? (x_0 ... x x_1 ...) x) #t ]
   [(set-contains? (x_0 ...) x) #f ])
-
 
 (test-equal (term (set-contains? () a)) #f)
 (test-equal (term (set-contains? (a) a)) #t)
@@ -32,7 +31,22 @@
 (test-equal (term (set-contains? (a b c) b)) #t)
 
 
-;(redex-match Lc ((x_0 t_0) ... (z t) (x_1 t_1) ...) (term ((b num) (z num) (a num) (c num) (z bool) (d num))))
+(define-metafunction Lc 
+  store-variable : V x v -> V
+  [(store-variable ((x_0 any_0) ... (x any_1) (x_2 any_2) ...) x v)
+   ((x_0 any_0) ... (x v) (x_2 any_2) ...)]
+  [(store-variable ((x_0 any_0) ...) x v)
+   ((x_0 any_0) ... (x v))])
+
+
+
+(test-equal (term (store-variable ((x 3) (y 6) (z 1)) y 3)) (term ((x 3) (y 3) (z 1))))
+(test-equal (term (store-variable ((x 3) (y 6) (z 1)) z 3)) (term ((x 3) (y 6) (z 3))))
+(test-equal (term (store-variable ((x 3) (y 6)) z 3)) (term ((x 3) (y 6) (z 3))))
+  
+
+
+
 
 
 ;(redex-match Lc G (term ((b num) (z (num → num)  ))))
@@ -71,31 +85,51 @@
   #:mode (types-expressions I I O)
 
   [(types Γ e t) 
-   ----------------------------------"e-list-last"
+   ----------------------------------"o-list-last"
    (types-expressions Γ (e) (t))]
 
+  [(types Γ e t_1) 
+   (types-expressions (define-global Γ x t_1) (o_2 ...) (t_2 ...))
+   -----------------------------------------------------------------"o-list-define"
+   (types-expressions Γ ((define x e) o_2 ...) (t_1 t_2 ...))]
+
   [(types Γ e_1 t_1) 
-   (types-expressions Γ (e_2 ...) (t_2 ...))
-   -------------------------------------"e-list"
-   (types-expressions Γ (e_1 e_2 ...) (t_1 t_2 ...))])
-
-
-
-
-  
+   (types-expressions Γ (o_2 ...) (t_2 ...))
+   -------------------------------------"o-list"
+   (types-expressions Γ (e_1 o_2 ...) (t_1 t_2 ...))])
 
 
 ; get leftmost matching variable in the context.
 (define-metafunction Lc
   lookup : Γ x -> t 
-  [(lookup ((x_0 t_0) ... (x t) (x_1 t_1) ...) x) 
+  [(lookup ((x_0 t_0) ... (x t) (x_1 t_1) ... G (x_2 t_2) ...) x) 
    t
    (side-condition (equal? #f (term (set-contains? (x_0 ...) x))))]
-  [(lookup ((x_0 t_0) ...) x) ,(error 'lookup "not found ~e" (term x))])
+  [(lookup ((x_0 t_0) ... G (x_1 t_1) ... (x t) (x_2 t_2) ...) x) 
+   t
+   (side-condition (equal? #f (term (set-contains? (x_1 ...) x))))]
+  [(lookup ((x_0 t_0) ... G (x_1 t_1) ...) x) ,(error 'lookup "not found ~e" (term x))])
+
+(test-equal (term (lookup ((a num) (b num) (x num) G (c num)) x)) (term num))
+(test-equal (term (lookup ((a num) (b num) (x bool) (c num) (d num) (x num) (e num) G) x)) (term bool))
+(test-equal (term (lookup ((a num) (b num) (x bool) G (c num) (d num) (x num) (e num)) x)) (term bool))
+(test-equal (term (lookup ((a num) (b num)  G (c num) (d num) (x num) (e num)) x)) (term num))
 
 (define-metafunction Lc
   extend : Γ x t -> Γ
-  [(extend ((x_0 t_0) ...) x t) ((x t) (x_0 t_0) ...)])
+  [(extend ((x_0 t_0) ... G (x_1 t_1) ...) x t) ((x t) (x_0 t_0) ... G (x_1 t_1) ...)])
+
+(define-metafunction Lc
+  define-global : Γ x t -> Γ
+  [(define-global ((x_0 t_0) ... G (x_1 t_1) ... (x t_3) (x_2 t_2) ...) x t)
+   ,(error 'define-global "global ~e is already defined" (term x))]
+  [(define-global ((x_0 t_0) ... G (x_1 t_1) ...) x t)
+   ((x_0 t_0) ... G (x_1 t_1) ... (x t))])
+
+(test-equal (term (define-global ((x num) G (a num) (b num) (c num)) x bool)) (term ((x num) G (a num) (b num) (c num) (x bool)))) 
+; this is expected to fail.
+;(test-equal (term (define-global (G (a num) (b num) (x num) (c num)) x bool)) (term num)) 
+
 
 ;(define x (build-derivations (types () ((λ (y num) (λ (y num) y)) 3) t)))
 ;(show-pict (derivation->pict Lc (car x)))
@@ -105,15 +139,11 @@
 
 
 ;(judgment-holds (types-expressions () (1 4 3 2) (t ...)))
-(define x (build-derivations (types-expressions () (1 (λ (z num) z) 5 3) (t ...))))
-(show-pict (derivation->pict Lc (car x)))
-
-
-
+;(define x (build-derivations (types-expressions (G) (1 (λ (z num) z) 5 3) (t ...))))
+;l(define x (build-derivations (types-expressions (G) ((define var 4) ((λ (x num) (+ var x)) 5)) (t ...))))
+;(show-pict (derivation->pict Lc (car x)))
   
 
-(test-equal (term (lookup ((a num) (b num) (x num) (c num)) x)) (term num))
-(test-equal (term (lookup ((a num) (b num) (x bool) (c num) (d num) (x num) (e num)) x)) (term bool))
 
 ;(test-equal (term (extend ((a num) (b num) (x num) (c num)) x num)) (term ()))
 ;(test-equal (term (extend ((a num) (b num) (c num)) x num)) (term ((a num) (b num) (c num) (x num))))
@@ -188,23 +218,34 @@
 (test-equal (term (union-sets (a b c) (x y a i b z))) (term (a b c x y i z)))
 
 
-   
+(define-metafunction Lc 
+  do-arith : arithop (n ...) -> n 
+  [(do-arith + (n ...)) ,(apply + (term (n ...)))]
+  [(do-arith - (n ...)) ,(apply - (term (n ...)))]
+  [(do-arith * (n ...)) ,(apply * (term (n ...)))]
+  [(do-arith / (n_0 ... 0 n_1 ...)) ,(error 'arith-op "division by zero")]
+  [(do-arith / (n ...)) ,(apply / (term (n ...)))])
+
+(test-equal (term (do-arith + (1 2 3))) (term 6))
+(test-equal (term (do-arith / (2 4 5))) (term 1/10))
+(test-equal (term (do-arith * (2 4 5))) (term 40))
+
 (define-metafunction Lc 
   fv : e ->  (x ...)
   [(fv n) () ]
   [(fv x) (x)]
   [(fv (e_1 e_2)) 
    (make-set (vars-append (fv e_1) (fv e_2)))]
-  [(fv (λ x e)) 
+  [(fv (λ (x t) e)) 
    (remove-from-set (make-set (fv e)) x)])
 
-;(test-equal (term (fv 4)) (term ()))
-;(test-equal (term (fv z)) (term (z)))
-;(test-equal (term (fv (a 2))) (term (a)))
-;(test-equal (term (fv (a b))) (term (a b)))
-;(test-equal (term (fv (λ x (a b)))) (term (a b)))
-;(test-equal (term (fv (λ x (a (b x))))) (term (a b)))
-;(test-equal (term (fv (λ y (x (λ x (x y)))))) (term (x)))
+(test-equal (term (fv 4)) (term ()))
+(test-equal (term (fv z)) (term (z)))
+(test-equal (term (fv (a 2))) (term (a)))
+(test-equal (term (fv (a b))) (term (a b)))
+(test-equal (term (fv (λ (x num) (a b)))) (term (a b)))
+(test-equal (term (fv (λ (x num) (a (b x))))) (term (a b)))
+(test-equal (term (fv (λ (y num) (x (λ (x num) (x y)))))) (term (x)))
 
 
 
@@ -221,33 +262,42 @@
   [(subs x e x) e]
   [(subs x_0 e x_1) x_1]
   [(subs x e (e_1 e_2)) ((subs x e e_1) (subs x e e_2))]
-  [(subs x e (λ x e_1)) (λ x e_1)]
-  [(subs x_0 e_0 (λ x_1 e_1)) 
-   (λ x_1 e_2)
+  [(subs x e (+ any_1 ... x any_2 ...)) (+ any_1 ... e any_2 ...)]
+  [(subs x e (+ any_1 ...)) (+ any_1 ...)]
+
+
+
+  [(subs x e (λ (x t) e_1)) (λ (x t) e_1)]
+  [(subs x_0 e_0 (λ (x_1 t) e_1)) 
+   (λ (x_1 t) e_2)
    (where e_2  (subs x_0 e_0 e_1))
    (side-condition (equal? #f (term (set-contains? (fv e_0) x_1))))]
-  [(subs x_0 e_0 (λ x_1 e_1))
-   (λ x_fresh (subs x_0 e_0 (subs x_1 x_fresh e_1)))
+  [(subs x_0 e_0 (λ (x_1 t) e_1))
+   (λ (x_fresh t) (subs x_0 e_0 (subs x_1 x_fresh e_1)))
    (where x_fresh ,(variable-not-in (term (union-sets (fv e_0) (fv e_1))) (term r)))])
 
-;(test-equal (term (subs x 4 x)) (term 4))
-;(test-equal (term (subs x 4 z)) (term z))
-;(test-equal (term (subs x y x)) (term y))
-;(test-equal (term (subs x y z)) (term z))
-;(test-equal (term (subs x y (a x))) (term (a y)))
-;(test-equal (term (subs x y (a z))) (term (a z)))
-;(test-equal (term (subs x y (λ x b))) (term (λ x b)))
-;(test-equal (term (subs x m (λ y (x y)))) (term (λ y (m y))))
-;(test-equal (term (subs x y (λ y (x y)))) (term (λ r (y r))))
+(test-equal (term (subs x 4 x)) (term 4))
+(test-equal (term (subs x 4 z)) (term z))
+(test-equal (term (subs x y x)) (term y))
+(test-equal (term (subs x y z)) (term z))
+(test-equal (term (subs x y (a x))) (term (a y)))
+(test-equal (term (subs x y (a z))) (term (a z)))
+(test-equal (term (subs x y (λ (x num) b))) (term (λ (x num) b)))
+(test-equal (term (subs x m (λ (y num) (x y)))) (term (λ (y num) (m y))))
+(test-equal (term (subs x y (λ (y num) (x y)))) (term (λ (r num) (y r))))
 
 
 (define red 
-  (reduction-relation Lc #:domain e
-    (--> (in-hole E ((λ x e) v))
-         (in-hole E (subs x v e))
+  (reduction-relation Lc 
+    #:domain p
+    (--> (V (in-hole P ((λ (x t) e) v)))
+         (V (in-hole P (subs x v e)))
          "λapp")
-    (--> (in-hole E x)
-         (in-hole E 4)
+    (--> (V (in-hole P (+ n ...)))
+         (V (in-hole P (do-arith + (n ...))))
+         "arith-op")
+    (--> (V (in-hole P x))
+         (V (in-hole P 4))
          "var")))
 
 (define t 
@@ -262,5 +312,7 @@
 
 ;(traces red (term ((λ x (λ y (λ z ((x z) x)))) m)))
 
-;(traces red (term ((λ x (λ y (x y))) y)))
-;(traces red t)
+(traces red (term ( () (((λ (x num) (+ 1 x 5)) 1337)))))
+;(traces red (term ( () ((+ 1 3 5)  ))))
+
+;(traces red (term (() (((λ (x num) (λ (y num) (x y))) y)))))
