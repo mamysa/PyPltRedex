@@ -1,6 +1,9 @@
 import enum
 import re
 
+import astdefs as ast
+
+
 def is_whitespace(c):
     return c == ' ' or c == '\t' or c == '\n' or c == '\r'
 
@@ -18,19 +21,9 @@ class TokenKind(enum.Enum):
     Ident   = 4
     LParen  = 5
     RParen  = 6
-
-class Literal:
-    def __init__(self, value, kind):
-        self.value = value
-        self.kind = kind
-
-    def __repr__(self):
-        return 'Literal({}, {})'.format(self.value, self.kind)
-
-#print( repr(Literal("343", LiteralKind.Number)))
-
+    
+    
 class RedexSpecParser:
-
     # Essentially is reimplementation of redex_spec.split()  but split is not adequate enough 
     # for comments and literal strings.
     # In case of comments, discard all tokens until the newline.
@@ -191,35 +184,41 @@ class RedexSpecParser:
     def pattern(self):
         tokenkind, tokenvalue = self.peekv()
         
-        if tokenkind == TokenKind.Ident:
-            if tokenvalue == 'number': 
-                self.expect(TokenKind.Ident)
-                return 'number'
-            if tokenvalue == 'variable-not-otherwise-mentioned':
-                self.expect(TokenKind.Ident)
-                return 'variable-not-otherwise-mentioned'
-
         if tokenkind == TokenKind.LParen:
             return self.pattern_sequence()
-
         if tokenkind == TokenKind.Integer: 
             ident = self.expect(tokenkind)
-            return Literal(ident, TokenKind.Integer)
+            return ast.Lit(ident, ast.LitKind.Integer)
         if tokenkind == TokenKind.Decimal: 
             ident = self.expect(tokenkind)
-            return Literal(ident, TokenKind.Decimal)
+            return ast.Lit(ident, ast.LitKind.Decimal)
         if tokenkind == TokenKind.String : 
             ident = self.expect(tokenkind)
-            return Literal(ident, TokenKind.String)
+            return ast.Lit(ident, ast.LitKind.String)
         if tokenkind == TokenKind.Boolean: 
             ident = self.expect(tokenkind)
-            return Literal(ident, TokenKind.Boolean)
+            return ast.Lit(ident, ast.LitKind.Boolean)
         else:
             # not an obvious case, could be either non-terminal or literal,
             # need a set of non-terminals to decide.
             self.expect(TokenKind.Ident)
-            return tokenvalue 
-
+            prefix = self.extract_prefix(tokenvalue)
+            try:
+                case = ast.BuiltInPatKind(prefix).name
+                return ast.BuiltInPat(ast.BuiltInPatKind[case], tokenvalue)
+            except ValueError:
+                return ast.UnresolvedSym(prefix, tokenvalue)
+            
+    def extract_prefix(self, token):
+        # extract prefix i.e. given symbol n_1 retrieve n.
+        # in case of no underscore return token itself
+        # So far we are not supporting patterns such as _!_ so this method may work.
+        idx = token.find('_')
+        if idx == 0:
+            raise Exception('define-language: before underscore must be either a non-terminal or build-in pattern {}'.format(tokenvalue))
+        if idx == -1:
+            return token
+        return token[:idx]
 
     # pattern-sequence : ( pattern(_id)? (literal ...)?  )
     # FIXME perhaps (_id) should be applied outside pattern_sequence?
@@ -228,24 +227,11 @@ class RedexSpecParser:
         sequence = []
         while self.peek() != TokenKind.RParen:
             pat = self.pattern()
-            
-            """
-            underscore = pat.find('_')
-            if underscore != -1:
-                ident = pat[underscore:]
-                print(ident)
-                if not is_ident(ident):
-                    assert False, 'invalid expression after underscore'
-                sequence.append(pat[:underscore])
-                sequence.append(pat[underscore:])
-            else:
-                sequence.append(pat)
-            """
-            sequence.append(pat)
             tokenkind, tokenvalue = self.peekv()
             if tokenvalue == '...':
                 self.expect(TokenKind.Ident)
-                sequence.append(tokenvalue)
+                pat = ast.Repeat(pat)
+            sequence.append(pat)
         self.expect(TokenKind.RParen)
         return sequence
 
@@ -258,13 +244,4 @@ class RedexSpecParser:
             return self.define_language()
 
 
-
-
-
-
 print(RedexSpecParser("test2.rkt").parse())
-    
-
-
-
-
