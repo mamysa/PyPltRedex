@@ -3,6 +3,8 @@ import re
 
 import astdefs as ast
 
+import preprocdefinelang
+
 
 def is_whitespace(c):
     return c == ' ' or c == '\t' or c == '\n' or c == '\r'
@@ -165,7 +167,7 @@ class RedexSpecParser:
         while self.peek() != TokenKind.RParen:
             nts.append(self.non_terminal_def())
         self.expect(TokenKind.RParen)
-        return (lang_name, nts)
+        return ast.DefineLanguage(lang_name, nts)
 
     # non-terminal-def = (non-terminal-name ::= pattern ...+)
     def non_terminal_def(self):
@@ -178,7 +180,7 @@ class RedexSpecParser:
         while self.peek() != TokenKind.RParen:
             patterns.append(self.pattern())
         self.expect(TokenKind.RParen)
-        return (not_terminal_name, patterns)
+        return ast.Nt(not_terminal_name, patterns)
 
     # pattern = number 
     def pattern(self):
@@ -205,7 +207,7 @@ class RedexSpecParser:
             prefix = self.extract_prefix(tokenvalue)
             try:
                 case = ast.BuiltInPatKind(prefix).name
-                return ast.BuiltInPat(ast.BuiltInPatKind[case], tokenvalue)
+                return ast.BuiltInPat(ast.BuiltInPatKind[case], prefix, tokenvalue)
             except ValueError:
                 return ast.UnresolvedSym(prefix, tokenvalue)
             
@@ -233,7 +235,7 @@ class RedexSpecParser:
                 pat = ast.Repeat(pat)
             sequence.append(pat)
         self.expect(TokenKind.RParen)
-        return sequence
+        return ast.PatSequence(sequence) 
 
     def parse(self):
         self.expect(TokenKind.LParen)
@@ -244,4 +246,8 @@ class RedexSpecParser:
             return self.define_language()
 
 
-print(RedexSpecParser("test2.rkt").parse())
+tree = RedexSpecParser("test2.rkt").parse()
+tree, ntsyms = preprocdefinelang.NtUnderscoreChecker().run(tree)
+tree = preprocdefinelang.NtResolver(ntsyms).transform(tree)
+print(tree)
+
