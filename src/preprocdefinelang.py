@@ -16,48 +16,35 @@ import astdefs as ast
 #     containing n, greedy matching can be done.
 # (5) Introduce underscores back into right-handside patterns; id after each underscore must be unique.
 
-class NtUnderscoreChecker(ast.AstIdentityTransformer):
-    def __init__(self):
-        super().__init__()
-        self.ntsyms = set([])
+def check_underscores(node):
+    assert isinstance(node, ast.DefineLanguage)
+    ntsyms = set([])
+    for nt in node.nts:
+        if nt.ntsym.find('_') != -1:
+            raise Exception('define-language: cannot use _ in a non-terminal name {}'.format(nt.ntsym))
+        if nt.ntsym in ntsyms:
+            raise Exception('define-language: same non-terminal defined twice {}'.format(nt.ntsym))
+        ntsyms.add(nt.ntsym)
+    return ntsyms
 
-    def run(self, node):
-        assert isinstance(node, ast.AstNode)
-        return self.transform(node), self.ntsyms
+def resolve_ntref(node, ntsyms):
+    assert isinstance(node, ast.DefineLanguage)
+    variables = set([])
 
-    def transformNt(self, node):
-        assert isinstance(node, ast.Nt)
-        if node.ntsym.find('_') != -1:
-            raise Exception('define-language: cannot use _ in a non-terminal name {}'.format(node.ntsym))
+    class NtResolver(ast.PatternTransformer):
+        def transformUnresolvedSym(self, node):
+            assert isinstance(node, ast.UnresolvedSym)
+            if node.prefix in ntsyms:
+                return ast.NtRef(node.prefix, node.sym)
+            # not nt, check if there's underscore
+            if node.prefix != node.sym:
+                raise Exception('define-language: before underscore must be either a non-terminal or build-in pattern {}'.format(node.sym))
 
-        if node.ntsym in self.ntsyms:
-            raise Exception('define-language: same non-terminal defined twice {}'.format(node.ntsym))
+            variables.add(node.sym) # for variable-not-defined patterns.
+            return ast.Lit(node.sym, ast.LitKind.Variable)
 
-        self.ntsyms.add(node.ntsym)
-        return node
-
-
-class NtResolver(ast.AstIdentityTransformer):
-    def __init__(self, ntsyms):
-        self.ntsyms = ntsyms
-        self.variables = set([])
-
-    def transformUnresolvedSym(self, node):
-        assert isinstance(node, ast.UnresolvedSym)
-
-        if node.prefix in self.ntsyms:
-            return ast.NtRef(node.prefix, node.sym)
-
-        # not nt, check if there's underscore
-        if node.prefix != node.sym:
-            raise Exception('define-language: before underscore must be either a non-terminal or build-in pattern {}'.format(node.sym))
-
-        self.variables.add(node.sym) # for variable-not-defined patterns.
-        return ast.Lit(node.sym, ast.LitKind.Variable)
-
-
-
-
-
-
-
+    resolver = NtResolver()
+    for nt in node.nts:
+        for i, pat in enumerate(nt.patterns):
+            nt.patterns[i] = resolver.transform(pat)
+    return node, variables

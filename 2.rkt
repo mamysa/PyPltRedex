@@ -2,6 +2,7 @@
 (require redex)
 
 
+
 (define-language Lc
   (e ::= (e e) v)
   (v ::= (λ x e) x)
@@ -136,5 +137,7 @@
       ((λ x (λ y (x y) )) y)) z)))
 
 
-;(traces red (term ((λ x (λ y (x y))) y)))
-(traces red t)
+;(traces red (term ((λ x (λ y (λ z ((x z) x)))) m)))
+
+(apply-reduction-relation* red (term ((λ x (λ y (x y))) y)))
+;(traces red t)

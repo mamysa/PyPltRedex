@@ -209,6 +209,8 @@ class RedexSpecParser:
                 case = ast.BuiltInPatKind(prefix).name
                 return ast.BuiltInPat(ast.BuiltInPatKind[case], prefix, tokenvalue)
             except ValueError:
+                if tokenvalue.startswith('...'):
+                    raise Exception('found ellipsis outside of a sequence')
                 return ast.UnresolvedSym(prefix, tokenvalue)
             
     def extract_prefix(self, token):
@@ -247,7 +249,8 @@ class RedexSpecParser:
 
 
 tree = RedexSpecParser("test2.rkt").parse()
-tree, ntsyms = preprocdefinelang.NtUnderscoreChecker().run(tree)
-tree = preprocdefinelang.NtResolver(ntsyms).transform(tree)
-print(tree)
+ntsyms = preprocdefinelang.check_underscores(tree)
+tree, variables = preprocdefinelang.resolve_ntref(tree, ntsyms)
+print(ntsyms)
+print(tree, variables)
 

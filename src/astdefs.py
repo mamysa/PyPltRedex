@@ -54,7 +54,7 @@ class Lit(Pat):
     def __repr__(self):
         return 'Lit({}, {})'.format(self.lit, self.kind)
 
-class Nt(Pat):
+class Nt(AstNode):
     """
     Represents non-terminal expression in define-language expression.
     """
@@ -126,7 +126,7 @@ class DefineLanguage(AstNode):
     def __repr__(self):
         return 'DefineLanguage({}, {})'.format(self.name, self.nts)
 
-class AstIdentityTransformer:
+class PatternTransformer:
     """
     AstNode to AstNode transformer. Returns tree equal to the one being transformed. (i.e. does absolutely nothing!)
     Override required methods to do something useful.
@@ -137,26 +137,12 @@ class AstIdentityTransformer:
         method_ref = getattr(self, method_name)
         return method_ref(element)
 
-    def transformDefineLanguage(self, node):
-        assert isinstance(node, DefineLanguage)
-        nts = []
-        for nt in node.nts:
-            nts.append(self.transform(nt))
-        return DefineLanguage(node.name, nts)
-
     def transformPatSequence(self, node):
         assert isinstance(node, PatSequence)
         seq = []
         for node in node.seq:
             seq.append(self.transform(node))
         return PatSequence(seq)
-
-    def transformNt(self, node):
-        assert isinstance(node, Nt)
-        pats = []
-        for pat in node.patterns:
-            pats.append(self.transform(pat))
-        return Nt(node.ntsym, pats)
 
     def transformRepeat(self, node):
         assert isinstance(node, Repeat)

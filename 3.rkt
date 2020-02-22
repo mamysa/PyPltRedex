@@ -449,13 +449,13 @@
 ;(traces red (term (() ((def x num 21) (if #f x (+ y 1))))))
 
 
+(traces red (term (() ((def x num (+ 1 2 5))))))
 
-
-(traces red (term (() 
-  (
-    (def loop (num → num) (λ (x num)  (if (equal? x 2) x (loop (+ x 1)))))
-    (loop 0)
-    ))))
+;(traces red (term (() 
+;  (
+;    (def loop (num → num) (λ (x num)  (if (equal? x 2) x (loop (+ x 1)))))
+;    (loop 0)
+;    ))))
 
 
 ;(traces red (term (() ((((λ (x num) (λ (y num) (+ 2 x y))) 5) 6)))))
