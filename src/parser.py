@@ -1,9 +1,9 @@
 import enum
 import re
 
-import astdefs as ast
+import src.astdefs as ast
 
-import preprocdefinelang
+import src.preprocdefinelang
 
 
 def is_whitespace(c):
@@ -24,7 +24,6 @@ class TokenKind(enum.Enum):
     LParen  = 5
     RParen  = 6
     
-    
 class RedexSpecParser:
     # Essentially is reimplementation of redex_spec.split()  but split is not adequate enough 
     # for comments and literal strings.
@@ -32,10 +31,13 @@ class RedexSpecParser:
     # In case of string literals, consume all characters until closing double quote is found.
     # FIXME perhaps shouldn't use \0 to indicate eof?
     class RedexSpecTokenizer:
-        def __init__(self, filename):
-            f = open(filename, 'r')
-            self.buf = f.read()
-            f.close()
+        def __init__(self, filename, is_filename):
+            if is_filename:
+                f = open(filename, 'r')
+                self.buf = f.read()
+                f.close()
+            else:
+                self.buf = filename
             # character offsets.
             self.start = 0
             self.end = 0
@@ -122,8 +124,8 @@ class RedexSpecParser:
                 assert False, 'unknown token ' + tok
             return None
     
-    def __init__(self, filename):
-        self.tokenizer = self.RedexSpecTokenizer(filename)
+    def __init__(self, filename, is_filename=True):
+        self.tokenizer = self.RedexSpecTokenizer(filename, is_filename)
         self.nexttoken = self.tokenizer.next()
 
     def peek(self):
@@ -248,9 +250,11 @@ class RedexSpecParser:
             return self.define_language()
 
 
-tree = RedexSpecParser("test2.rkt").parse()
-ntsyms = preprocdefinelang.check_underscores(tree)
-tree, variables = preprocdefinelang.resolve_ntref(tree, ntsyms)
-print(ntsyms)
-print(tree, variables)
+
+
+#tree = RedexSpecParser("test2.rkt", is_filename=True).parse()
+#ntsyms = src.preprocdefinelang.check_underscores(tree)
+#tree, variables = src.preprocdefinelang.resolve_ntref_in_definelanguage(tree, ntsyms)
+#print(ntsyms)
+#print(tree, variables)
 

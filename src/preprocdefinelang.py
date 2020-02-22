@@ -1,7 +1,4 @@
-
-import astdefs as ast
-
-
+import src.astdefs as ast
 
 # Preprocessing define-language construct involves the following steps.
 # (1) Ensure all non-terminals are defined exactly once and contain no underscores.
@@ -27,24 +24,53 @@ def check_underscores(node):
         ntsyms.add(nt.ntsym)
     return ntsyms
 
-def resolve_ntref(node, ntsyms):
+
+class NtResolver(ast.PatternTransformer):
+    def __init__(self, ntsyms):
+        self.ntsyms = ntsyms
+        self.variables = set([])
+
+    def transformUnresolvedSym(self, node):
+        assert isinstance(node, ast.UnresolvedSym)
+        if node.prefix in self.ntsyms:
+            return ast.NtRef(node.prefix, node.sym)
+        # not nt, check if there's underscore
+        if node.prefix != node.sym:
+            raise Exception('define-language: before underscore must be either a non-terminal or build-in pattern {}'.format(node.sym))
+
+        self.variables.add(node.sym) # for variable-not-defined patterns.
+        return ast.Lit(node.sym, ast.LitKind.Variable)
+
+
+def resolve_ntref_in_definelanguage(node, ntsyms):
     assert isinstance(node, ast.DefineLanguage)
-    variables = set([])
-
-    class NtResolver(ast.PatternTransformer):
-        def transformUnresolvedSym(self, node):
-            assert isinstance(node, ast.UnresolvedSym)
-            if node.prefix in ntsyms:
-                return ast.NtRef(node.prefix, node.sym)
-            # not nt, check if there's underscore
-            if node.prefix != node.sym:
-                raise Exception('define-language: before underscore must be either a non-terminal or build-in pattern {}'.format(node.sym))
-
-            variables.add(node.sym) # for variable-not-defined patterns.
-            return ast.Lit(node.sym, ast.LitKind.Variable)
-
-    resolver = NtResolver()
+    resolver = NtResolver(ntsyms)
     for nt in node.nts:
         for i, pat in enumerate(nt.patterns):
             nt.patterns[i] = resolver.transform(pat)
-    return node, variables
+    return node, resolver.variables 
+
+
+
+class EllipsisDepthChecker(ast.PatternTransformer):
+    def __init__(self):
+        self.depth = 0
+        self.vars = {}
+
+    def transformRepeat(self, node):
+        assert isinstance(node, ast.Repeat)
+        self.depth += 1
+        self.transform(node.pat)
+        self.depth -= 1
+
+    def transformNtRef(self, node):
+        assert isinstance(node, ast.NtRef)
+        if node.sym not in self.vars:
+            self.vars[node.sym] = self.depth
+            return node
+        if self.vars[node.sym] != self.depth:
+            raise Exception('found {} under {} ellipses in one place and {} in another'.format(node.sym, self.vars[node.sym], self.depth))
+        return node
+
+    def transformUnresolvedSym(self, node):
+        assert False, 'UnresolvedSym not allowed'
