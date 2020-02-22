@@ -163,11 +163,15 @@ class RedexSpecParser:
         self.expect(TokenKind.Ident, 'define-language')
         lang_name = self.expect(TokenKind.Ident)
 
-        nts = []
-        nts.append(self.non_terminal_def())
+        nts = {}
+        nt, patterns = self.non_terminal_def()
+        nts[nt] = patterns
 
         while self.peek() != TokenKind.RParen:
-            nts.append(self.non_terminal_def())
+            nt, patterns = self.non_terminal_def()
+            if nt in nts.keys():
+                raise Exception('define-language: same non-terminal defined twice {}'.format(nt))
+            nts[nt] = patterns
         self.expect(TokenKind.RParen)
         return ast.DefineLanguage(lang_name, nts)
 
@@ -175,6 +179,9 @@ class RedexSpecParser:
     def non_terminal_def(self):
         self.expect(TokenKind.LParen)
         not_terminal_name = self.expect(TokenKind.Ident) 
+        if not_terminal_name.find('_') != -1:
+            raise Exception('define-language: cannot use _ in a non-terminal name {}'.format(not_terminal_name))
+
         self.expect(TokenKind.Ident, '::=')
 
         patterns = []
@@ -182,7 +189,7 @@ class RedexSpecParser:
         while self.peek() != TokenKind.RParen:
             patterns.append(self.pattern())
         self.expect(TokenKind.RParen)
-        return ast.Nt(not_terminal_name, patterns)
+        return not_terminal_name, patterns
 
     # pattern = number 
     def pattern(self):
@@ -248,13 +255,3 @@ class RedexSpecParser:
         
         if tokenvalue == 'define-language':
             return self.define_language()
-
-
-
-
-#tree = RedexSpecParser("test2.rkt", is_filename=True).parse()
-#ntsyms = src.preprocdefinelang.check_underscores(tree)
-#tree, variables = src.preprocdefinelang.resolve_ntref_in_definelanguage(tree, ntsyms)
-#print(ntsyms)
-#print(tree, variables)
-

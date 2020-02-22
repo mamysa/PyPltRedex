@@ -1,7 +1,8 @@
 import src.astdefs as ast
 
 # Preprocessing define-language construct involves the following steps.
-# (1) Ensure all non-terminals are defined exactly once and contain no underscores.
+# (1) Ensure all non-terminals are defined exactly once and contain no underscores. 
+#     This bit is done at parsing phase.
 # (2) Resolve UnresolvedPat instances to either NtRef or Literal value.
 # (3) In each righthand-side pattern, remove underscores from builtin-patterns / NtRefs.
 #     Current redex behaviour is that all non-terminal patterns in define-language are 
@@ -12,17 +13,6 @@ import src.astdefs as ast
 #     e ::= (n n...) when matching e. Thus, instead computing all possible permutations of lists 
 #     containing n, greedy matching can be done.
 # (5) Introduce underscores back into right-handside patterns; id after each underscore must be unique.
-
-def check_underscores(node):
-    assert isinstance(node, ast.DefineLanguage)
-    ntsyms = set([])
-    for nt in node.nts:
-        if nt.ntsym.find('_') != -1:
-            raise Exception('define-language: cannot use _ in a non-terminal name {}'.format(nt.ntsym))
-        if nt.ntsym in ntsyms:
-            raise Exception('define-language: same non-terminal defined twice {}'.format(nt.ntsym))
-        ntsyms.add(nt.ntsym)
-    return ntsyms
 
 
 class NtResolver(ast.PatternTransformer):

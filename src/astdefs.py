@@ -54,17 +54,6 @@ class Lit(Pat):
     def __repr__(self):
         return 'Lit({}, {})'.format(self.lit, self.kind)
 
-class Nt(AstNode):
-    """
-    Represents non-terminal expression in define-language expression.
-    """
-    def __init__(self, ntsym, patterns):
-        self.ntsym = ntsym
-        self.patterns = patterns
-
-    def __repr__(self):
-        return 'Nt({}, {})'.format(self.ntsym, self.patterns)
-
 class PatSequence(Pat):
     def __init__(self, seq):
         self.seq = seq 
