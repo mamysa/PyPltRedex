@@ -49,7 +49,7 @@ class RedexSpecParser:
             self.matchers = {
                 TokenKind.Integer : re.compile('^-?[0-9]+$'),
                 TokenKind.Decimal : re.compile('^-?[0-9]*\.[0-9]+$'),
-                TokenKind.Boolean : re.compile('^(#t|#f)$'),
+                #TokenKind.Boolean : re.compile('^(#t|#f)$'),
                 TokenKind.Ident   : re.compile('^([^\(\)\[\]{}\"\'`;#|\\\])+$'),
             }
 
@@ -60,6 +60,16 @@ class RedexSpecParser:
             if self.end >= len(self.buf):
                 return '\0'
             return self.buf[self.end]
+
+        def extract_if_contains(self, substr):
+            endidx = self.start + len(substr) 
+            if endidx > len(self.buf):
+                return False
+            if substr == self.buf[self.start:endidx]:
+                self.start = endidx
+                self.end   = endidx
+                return True 
+            return False 
 
         def extract(self):
             token = self.buf[self.start:self.end]
@@ -109,6 +119,10 @@ class RedexSpecParser:
                     self.advance()
                     return (TokenKind.String, self.extract())
 
+                # handle boolean as a separate thing for now
+                if self.extract_if_contains('#t'): return (TokenKind.Boolean, '#t')
+                if self.extract_if_contains('#f'): return (TokenKind.Boolean, '#f')
+
                 # otherwise, read until the next whitespace and identify the token 
                 # can be a number, identifier, etc.
                 # TODO confused as to what #lang is. 
@@ -117,7 +131,6 @@ class RedexSpecParser:
                     if self.peek() == '\0':
                         break
                 tok = self.extract()
-
                 for kind, matcher in self.matchers.items():
                     if matcher.match(tok): 
                         return (kind, tok)
@@ -214,6 +227,7 @@ class RedexSpecParser:
             # need a set of non-terminals to decide.
             self.expect(TokenKind.Ident)
             prefix = self.extract_prefix(tokenvalue)
+            # disregard prefixes in patterns defined in define-language.
             try:
                 case = ast.BuiltInPatKind(prefix).name
                 return ast.BuiltInPat(ast.BuiltInPatKind[case], prefix, tokenvalue)

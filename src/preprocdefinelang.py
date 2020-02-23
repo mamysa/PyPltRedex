@@ -31,16 +31,38 @@ class NtResolver(ast.PatternTransformer):
         self.variables.add(node.sym) # for variable-not-defined patterns.
         return ast.Lit(node.sym, ast.LitKind.Variable)
 
+class UnderscoreRemover(ast.PatternTransformer):
+    """
+    Transformer that removes underscores from all non-terminals / built-in patterns in the pattern.
+    (since underscores in define-language patterns don't matter)
+    This needs to be done AFTER resolving non-terminals and detecting literals containing underscores.
+    """
 
-def resolve_ntref_in_definelanguage(node, ntsyms):
+    def transformBuiltInPat(self, node):
+        node.sym = node.prefix
+        return node
+
+    def transformNtRef(self, node):
+        node.sym = node.prefix
+        return node
+
+def definelanguage_preprocess(node):
+    """
+    Resolves all non-terminal symbols and removes underscores from patterns in define-language.
+    """
     assert isinstance(node, ast.DefineLanguage)
-    resolver = NtResolver(ntsyms)
-    for nt in node.nts:
-        for i, pat in enumerate(nt.patterns):
-            nt.patterns[i] = resolver.transform(pat)
+    resolver = NtResolver(node.ntsyms())
+    remover = UnderscoreRemover()
+    new_nts = {}
+    for nt, patterns in node.nts.items():
+        new_patterns = []
+        for pat in patterns:
+            pat = resolver.transform(pat)
+            pat = remover.transform(pat)
+            new_patterns.append(pat)
+        new_nts[nt] = new_patterns
+    node.nts = new_nts
     return node, resolver.variables 
-
-
 
 class EllipsisDepthChecker(ast.PatternTransformer):
     def __init__(self):
@@ -64,3 +86,47 @@ class EllipsisDepthChecker(ast.PatternTransformer):
 
     def transformUnresolvedSym(self, node):
         assert False, 'UnresolvedSym not allowed'
+
+
+
+class PatternComparator:
+    def compare(self, this, other):
+        assert isinstance(this, ast.Pat)
+        assert isinstance(other, ast.Pat)
+        method_name = 'compare' + this.__class__.__name__
+        method_ref = getattr(self, method_name)
+        return method_ref(this, other)
+
+    def compareUnresolvedSym(self, this, other):
+        assert False, 'not allowed'
+
+    def compareLit(self, this, other):
+        if isinstance(other, ast.Lit):
+            return this.kind == other.kind and this.lit == other.lit
+        return False
+
+    def compareNtRef(self, this, other):
+        if isinstance(other, ast.NtRef):
+            return this.prefix == other.prefix
+        return False
+
+    def compareRepeat(self, this, other):
+        if isinstance(other, ast.Repeat):
+            return self.compare(this.pat, other.pat)
+        return False
+
+    def compareBuiltInPat(self, this, other):
+        if isinstance(other, ast.BuiltInPat):
+            return this.kind == other.kind and this.prefix == other.prefix
+        return False
+
+    def comparePatSequence(self, this, other):
+        if isinstance(other, ast.PatSequence):
+            if len(this) == len(other):
+                match = True
+                for i, elem in enumerate(this):
+                    match = self.compare(elem, other[i])
+                    if not match:
+                        break
+                return match
+        return False
