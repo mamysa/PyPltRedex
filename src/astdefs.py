@@ -61,8 +61,18 @@ class PatSequence(Pat):
     def exchange(self):
         pass
 
+    def __len__(self):
+        return len(self.seq)
+
     def __repr__(self):
         return 'PatSequence({})'.format(self.seq)
+
+    def __iter__(self):
+        return iter(self.seq)
+
+    def __getitem__(self, key):
+        return self.seq[key]
+
 
 class NtRef(Pat):
     """
@@ -111,6 +121,9 @@ class DefineLanguage(AstNode):
     def __init__(self, name, nts):
         self.name = name 
         self.nts = nts
+
+    def ntsyms(self):
+        return set(self.nts.keys())
 
     def __repr__(self):
         return 'DefineLanguage({}, {})'.format(self.name, self.nts)

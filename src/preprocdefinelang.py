@@ -90,6 +90,9 @@ class EllipsisDepthChecker(ast.PatternTransformer):
 
 
 class PatternComparator:
+    """
+    Compares patterns. Underscores are ignored.
+    """
     def compare(self, this, other):
         assert isinstance(this, ast.Pat)
         assert isinstance(other, ast.Pat)
@@ -130,3 +133,61 @@ class PatternComparator:
                         break
                 return match
         return False
+
+class DefineLanguagePatternSimplifier(ast.PatternTransformer):
+    """
+    The goal of this pass is to simplify patterns in define-language. For example, given pattern
+    e ::= (n ... n ... n n ... n) we do not need to match each repitition of n to establish that some term
+    is actually e (and individually matched items aren't bound). 
+    All that is needed is for the term to contain at least two n. Thus,
+    (n ... n ... n n ... n)  ---> (n ... n  n ... n)   [merge two n ...]
+    (n ... n n ... n) --> (n n ... n ... n)            [shuffle]
+    (n n ... n ... n) --> (n n ... n)                  [merge]
+    (n n ... n) --> (n n n...)                         [shuffle]
+    This way, instead of producing multiple matches that no one needs (as required by n ...) 
+    all sub-patterns can be matched 'greedily'.
+    """
+
+    def transformPatSequence(self, node):
+        assert isinstance(node, ast.PatSequence)
+        # not very pythonic....
+        newseq = []
+        for e in node.seq:
+            newseq.append(self.transform(e))
+        
+        i = 0
+        newseq2 = []
+        while i < len(newseq):
+            num_repeats = 0
+            num_required = 0
+
+            if isinstance(newseq[i], ast.Repeat):
+                elem = newseq[i].pat
+                num_repeats += 1
+            else:
+                elem = newseq[i]
+                num_required += 1
+
+            j = i + 1
+            while j < len(newseq):
+                if isinstance(newseq[j], ast.Repeat):
+                    if PatternComparator().compare(elem, newseq[j].pat):
+                        num_repeats += 1
+                    else:
+                        break
+                else:
+                    if PatternComparator().compare(elem, newseq[j]):
+                        num_required += 1
+                    else:
+                        break
+                j += 1
+            i = j
+
+            # push required matches first, optional repetiton after if present in original pattern.
+            for k in range(num_required):
+                newseq2.append(elem)
+            if num_repeats > 0:
+                newseq2.append(ast.Repeat(elem))
+
+        node.seq = newseq2
+        return node
