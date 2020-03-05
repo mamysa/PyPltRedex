@@ -54,3 +54,9 @@ class TestDefineLanguagePatternSimplifier(unittest.TestCase):
         actual = DefineLanguagePatternSimplifier().transform(input_)
         expected = parse_pattern('((7 x ...) ... (6 x ...)  n)', set(['n', 'x']))
         self.assertTrue( PatternComparator().compare(actual, expected) )
+
+    def test_pattern_simplifier_8(self):
+        input_ = parse_pattern('(x ... n r ...)', set(['n', 'x', 'r']))
+        actual = DefineLanguagePatternSimplifier().transform(input_)
+        expected = parse_pattern('(x ... n r ...)', set(['n', 'x', 'r']))
+        self.assertTrue( PatternComparator().compare(actual, expected) )

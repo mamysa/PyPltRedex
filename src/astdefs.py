@@ -74,7 +74,7 @@ class PatSequence(Pat):
         return self.seq[key]
 
 
-class NtRef(Pat):
+class Nt(Pat):
     """
     reference to non-terminal
     """
@@ -82,8 +82,20 @@ class NtRef(Pat):
         self.prefix = prefix
         self.sym = sym
 
+
     def __repr__(self):
-        return 'NtRef({})'.format(self.sym)
+        return 'Nt({})'.format(self.sym)
+
+class NtDefinition(Pat):
+    def __init__(self, nt, patterns):
+        assert isinstance(nt, Nt)
+        self.nt = nt
+        self.patterns = patterns
+
+    def __repr__(self):
+        return 'NtDefinition({}, {})'.format(repr(self.nt), repr(self.patterns))
+
+
 
 class UnresolvedSym(Pat):
     def __init__(self, prefix, sym):
@@ -128,6 +140,7 @@ class DefineLanguage(AstNode):
     def __repr__(self):
         return 'DefineLanguage({}, {})'.format(self.name, self.nts)
 
+
 class PatternTransformer:
     """
     AstNode to AstNode transformer. Returns tree equal to the one being transformed. (i.e. does absolutely nothing!)
@@ -156,7 +169,7 @@ class PatternTransformer:
     def transformUnresolvedSym(self, node):
         return node
 
-    def transformNtRef(self, node):
+    def transformNt(self, node):
         return node
 
     def transformLit(self, node):

@@ -14,6 +14,8 @@ import src.astdefs as ast
 #     containing n, greedy matching can be done.
 # (5) Introduce underscores back into right-handside patterns; id after each underscore must be unique.
 
+# TODO Need to check for non-terminal cycles in define-language patterns 
+# such as (y ::= x) (x ::= y) or even (x ::= x)
 
 class NtResolver(ast.PatternTransformer):
     def __init__(self, ntsyms):
@@ -23,7 +25,7 @@ class NtResolver(ast.PatternTransformer):
     def transformUnresolvedSym(self, node):
         assert isinstance(node, ast.UnresolvedSym)
         if node.prefix in self.ntsyms:
-            return ast.NtRef(node.prefix, node.sym)
+            return ast.Nt(node.prefix, node.sym)
         # not nt, check if there's underscore
         if node.prefix != node.sym:
             raise Exception('define-language: before underscore must be either a non-terminal or build-in pattern {}'.format(node.sym))
@@ -42,7 +44,7 @@ class UnderscoreRemover(ast.PatternTransformer):
         node.sym = node.prefix
         return node
 
-    def transformNtRef(self, node):
+    def transformNt(self, node):
         node.sym = node.prefix
         return node
 
@@ -53,16 +55,17 @@ def definelanguage_preprocess(node):
     assert isinstance(node, ast.DefineLanguage)
     resolver = NtResolver(node.ntsyms())
     remover = UnderscoreRemover()
-    new_nts = {}
-    for nt, patterns in node.nts.items():
+    simplifier = DefineLanguagePatternSimplifier()
+    for nt, ntdef in node.nts.items():
+        patterns = ntdef.patterns
         new_patterns = []
         for pat in patterns:
             pat = resolver.transform(pat)
             pat = remover.transform(pat)
+            pat = simplifier.transform(pat)
             new_patterns.append(pat)
-        new_nts[nt] = new_patterns
-    node.nts = new_nts
-    return node, resolver.variables 
+        ntdef.patterns = new_patterns
+    return node    # resolver.variables 
 
 class EllipsisDepthChecker(ast.PatternTransformer):
     def __init__(self):
@@ -75,8 +78,8 @@ class EllipsisDepthChecker(ast.PatternTransformer):
         self.transform(node.pat)
         self.depth -= 1
 
-    def transformNtRef(self, node):
-        assert isinstance(node, ast.NtRef)
+    def transformNt(self, node):
+        assert isinstance(node, ast.Nt)
         if node.sym not in self.vars:
             self.vars[node.sym] = self.depth
             return node
@@ -108,8 +111,8 @@ class PatternComparator:
             return this.kind == other.kind and this.lit == other.lit
         return False
 
-    def compareNtRef(self, this, other):
-        if isinstance(other, ast.NtRef):
+    def compareNt(self, this, other):
+        if isinstance(other, ast.Nt):
             return this.prefix == other.prefix
         return False
 

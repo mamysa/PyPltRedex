@@ -176,15 +176,15 @@ class RedexSpecParser:
         self.expect(TokenKind.Ident, 'define-language')
         lang_name = self.expect(TokenKind.Ident)
 
-        nts = {}
-        nt, patterns = self.non_terminal_def()
-        nts[nt] = patterns
+        nts = {} # TODO decide on a single representation, either use dict or a list of Nt
+        nt, ntdef = self.non_terminal_def()
+        nts[nt] = ntdef
 
         while self.peek() != TokenKind.RParen:
-            nt, patterns = self.non_terminal_def()
+            nt, ntdef = self.non_terminal_def()
             if nt in nts.keys():
                 raise Exception('define-language: same non-terminal defined twice {}'.format(nt))
-            nts[nt] = patterns
+            nts[nt] = ntdef 
         self.expect(TokenKind.RParen)
         return ast.DefineLanguage(lang_name, nts)
 
@@ -202,7 +202,7 @@ class RedexSpecParser:
         while self.peek() != TokenKind.RParen:
             patterns.append(self.pattern())
         self.expect(TokenKind.RParen)
-        return not_terminal_name, patterns
+        return not_terminal_name, ast.NtDefinition(ast.Nt(not_terminal_name, not_terminal_name), patterns)
 
     # pattern = number 
     def pattern(self):
