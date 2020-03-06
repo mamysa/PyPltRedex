@@ -60,6 +60,7 @@ class Binary:
 
 class BinaryOp(enum.Enum):
     Add = '+'
+    And = ' and ' 
     EqEqual = '=='
     NotEqual = '!='
     GrEq = '>='
@@ -81,6 +82,14 @@ class While:
 class ConstantBoolean:
     def __init__(self, value):
         self.value = value
+
+
+class StringLiteral:
+    def __init__(self, value):
+        self.value = value
+
+
+
 
 class TermLength:
     def __init__(self, term):
@@ -155,6 +164,11 @@ class AstDump:
             self.newline()
         self.dedent()
         self.newline()
+
+    def writeStringLiteral(self, expr):
+        self.emit('"')
+        self.emit(expr.value)
+        self.emit('"')
 
     def writeBinary(self, expr):
         assert isinstance(expr, Binary)
@@ -427,7 +441,28 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
             self.modulebuilder.add_function(fb.build())
             return node
 
-            
+        if node.kind == ast.BuiltInPatKind.VariableNotOtherwiseDefined:
+            functionname = 'lang_{}_match_varialbenototherwisedefined'.format(self.definelanguage.name)
+
+            self.processed[repr(node)] = functionname 
+
+            term, head, tail = Var('term'), Var('head'), Var('tail')
+            fb = FunctionBuilder().with_name(functionname)       \
+                                  .with_number_of_parameters(3)  \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Term, term) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail) 
+
+
+            cond = Binary(BinaryOp.EqEqual, TermInvokeMethod(term, 'kind'), ConstantInt(TermKind.Variable))
+            thenbr = [ Assign(head, Binary(BinaryOp.Add, head, ConstantInt(1))),
+                       Return([ConstantBoolean(True),  head, tail]) ]
+            fb.add(If(cond, thenbr, None))
+            fb.add( Return([ConstantBoolean(False), head, tail]) )
+            self.modulebuilder.add_comment(repr(node))
+            self.modulebuilder.add_function(fb.build())
+            return node
+
 
         assert False, 'unknown built-in pattern type'
 
@@ -468,3 +503,31 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
             self.modulebuilder.add_comment(repr(node))
             self.modulebuilder.add_function(fb.build())
 
+
+    def transformLit(self, node):
+        assert isinstance(node, ast.Lit)
+
+        if node.kind == ast.LitKind.Variable:
+            functionname = 'lang_{}_match_lit_{}'.format(self.definelanguage.name, self.symgen.get())
+            self.processed[repr(node)] = functionname 
+
+            term, head, tail = Var('term'), Var('head'), Var('tail')
+            fb = FunctionBuilder().with_name(functionname)       \
+                                  .with_number_of_parameters(3)  \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Term, term) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail) 
+
+
+            cond1 = Binary(BinaryOp.EqEqual, TermInvokeMethod(term, 'kind'), ConstantInt(TermKind.Variable))
+            cond2 = Binary(BinaryOp.EqEqual, TermInvokeMethod(term, 'value'), StringLiteral(node.lit))
+            cond  = Binary(BinaryOp.And, cond1, cond2)
+            thenbr = [ Assign(head, Binary(BinaryOp.Add, head, ConstantInt(1))),
+                       Return([ConstantBoolean(True),  head, tail]) ]
+            fb.add(If(cond, thenbr, None))
+            fb.add( Return([ConstantBoolean(False), head, tail]) )
+            self.modulebuilder.add_comment(repr(node))
+            self.modulebuilder.add_function(fb.build())
+            return node
+        
+        assert False, 'unknown lit kind ' + str(node.kind)

@@ -13,7 +13,7 @@ class Ast:
 class Integer(Ast):
     def __init__(self, value):
         super().__init__(TermKind.Integer)
-        self.value = value
+        self.__value = value
 
     def __repr__(self):
         return 'Integer({})'.format(self.value)
@@ -21,7 +21,10 @@ class Integer(Ast):
 class Variable(Ast):
     def __init__(self, value):
         super().__init__(TermKind.Variable)
-        self.value = value
+        self.__value = value
+
+    def value(self):
+        return self.__value
 
     def __repr__(self):
         return 'Variable({})'.format(self.value)
