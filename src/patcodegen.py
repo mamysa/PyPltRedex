@@ -1,6 +1,9 @@
 import src.astdefs as ast
 import enum
 
+class Module:
+    def __init__(self, nodes):
+        self.nodes = nodes
 
 class Function:
     def __init__(self, name, parameters, body):
@@ -108,7 +111,7 @@ class AstDump:
 
     def emit(self, string):
         if self.should_insert_tabs:
-            self.buf.append('\t'*self.indents)
+            self.buf.append(' '*self.indents*4)
             self.should_insert_tabs = False
         self.buf.append(string)
 
@@ -126,6 +129,14 @@ class AstDump:
         method_ref = getattr(self, method_name)
         return method_ref(element)
 
+    def writeModule(self, module):
+        for n in module.nodes:
+            self.write(n)
+
+    def writeComment(self, comment):
+        self.emit('# ')
+        self.emit(comment.contents)
+        self.newline()
 
     def writeFunction(self, function):
         assert isinstance(function, Function)
@@ -138,10 +149,12 @@ class AstDump:
         self.newline()
 
         self.indent()
+        print(self.indents)
         for b in function.body:
             self.write(b)
             self.newline()
         self.dedent()
+        self.newline()
 
     def writeBinary(self, expr):
         assert isinstance(expr, Binary)
@@ -241,9 +254,26 @@ class DefineLanguagePatFunctionParameterIndex:
     Head = 1
     Tail = 2
 
+class Comment:
+    def __init__(self, contents):
+        self.contents = contents
+
+class ModuleBuilder:
+    def __init__(self):
+        self.nodes = []
+
+    def add_comment(self, comment):
+        self.nodes.append(Comment(comment))
+        return self
+
+    def add_function(self, f):
+        self.nodes.append(f)
+        return self
+
+    def build(self):
+        return Module(self.nodes)
 
 class FunctionBuilder:
-    
     def __init__(self):
         self.name = None
         self.parameters = None
@@ -279,9 +309,9 @@ def gen_functionname_for(lang, nt):
 
 class DefineLanguagePatternCodegen(ast.PatternTransformer):
     def __init__(self):
+        self.modulebuilder = ModuleBuilder()
         self.processed = {}  # map of repr(pat) -> function-name
         self.symgen = SymGen() 
-        self.functions = []
 
     def transformDefineLanguage(self, node):
         assert isinstance(node, ast.DefineLanguage)
@@ -315,7 +345,9 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
 
 
             fb.add(Return([ConstantBoolean(False), head, tail]))
-            self.functions.append(fb.build())
+
+            self.modulebuilder.add_comment(repr(node))
+            self.modulebuilder.add_function(fb.build())
 
     def transformPatSequence(self, node):
         assert isinstance(node, ast.PatSequence)
@@ -343,7 +375,7 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
 
         #fb.add(Assign(subterm, TermGetField(term, 'get({})'.format(head))))
         fb.add(Assign(subhead, ConstantInt(0)))
-        fb.add(Assign(subtail, TermInvokeMethod(term, 'sequence_length')))
+        fb.add(Assign(subtail, TermInvokeMethod(term, 'length')))
         
         for pat in node.seq:
             self.transform(pat)
@@ -365,7 +397,8 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
         fb.add(Return([ConstantBoolean(True), head, tail]))
 
 
-        self.functions.append(fb.build())
+        self.modulebuilder.add_comment(repr(node))
+        self.modulebuilder.add_function(fb.build())
 
 
     def transformBuiltInPat(self, node):
@@ -390,7 +423,8 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
                        Return([ConstantBoolean(True),  head, tail]) ]
             fb.add(If(cond, thenbr, None))
             fb.add( Return([ConstantBoolean(False), head, tail]) )
-            self.functions.append(fb.build())
+            self.modulebuilder.add_comment(repr(node))
+            self.modulebuilder.add_function(fb.build())
             return node
 
             
@@ -423,12 +457,14 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
             match = fb.get_fresh_local('match')
 
             loop = While(Binary(BinaryOp.Lt, head, tail), [
-                Call([match, head, tail], patfunctionname, [term, head, tail]),
+                Call([match, head, tail], patfunctionname, [TermInvokeMethod(term, 'get', [head]), head, tail]),
                 If(Binary(BinaryOp.NotEqual, match, ConstantBoolean(True)), [
                     Return([ConstantBoolean(True), head, tail])
                 ], None)
             ])
             fb.add(loop)
             fb.add(Return([ConstantBoolean(True), head, tail]))
-            self.functions.append(fb.build())
+
+            self.modulebuilder.add_comment(repr(node))
+            self.modulebuilder.add_function(fb.build())
 

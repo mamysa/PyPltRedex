@@ -5,7 +5,6 @@ import src.astdefs as ast
 
 import src.preprocdefinelang
 
-
 def is_whitespace(c):
     return c == ' ' or c == '\t' or c == '\n' or c == '\r'
 
