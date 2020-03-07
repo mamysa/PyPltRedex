@@ -33,6 +33,7 @@ class LitKind(enum.Enum):
 class BuiltInPatKind(enum.Enum):
     Number = 'number'
     VariableNotOtherwiseDefined = 'variable-not-otherwise-mentioned'
+    VariableExcept = 'variable-except'
 
 class Pat(AstNode):
     """
@@ -127,6 +128,8 @@ class BuiltInPat(Pat):
         self.aux = aux 
 
     def __repr__(self):
+        if self.aux:
+            return 'BuiltInPat({}, {}, {})'.format(self.kind, self.sym, repr(self.aux))
         return 'BuiltInPat({}, {})'.format(self.kind, self.sym)
 
 class DefineLanguage(AstNode):

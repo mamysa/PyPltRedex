@@ -31,6 +31,8 @@ def create_output(module):
 tree = RedexSpecParser("test2.rkt", is_filename=True).parse()
 tree = definelanguage_preprocess(tree)
 
+#print(tree)
+
 codegen = DefineLanguagePatternCodegen()
 codegen.transform(tree)
 

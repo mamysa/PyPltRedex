@@ -18,6 +18,15 @@ class Function:
         self.body.append(stmt)
 
 
+class NewSet:
+    def __init__(self, contents):
+        self.contents = contents
+
+class ItemNotInSet:
+    def __init__(self, key, setobj):
+        self.key = key
+        self.setobj = setobj
+
 class Call:
     def __init__(self, returnvalues, name, arguments):
         self.name = name
@@ -141,6 +150,20 @@ class AstDump:
     def writeModule(self, module):
         for n in module.nodes:
             self.write(n)
+            self.newline()
+
+    def writeNewSet(self, node):
+        assert isinstance(node, NewSet)
+        self.emit('set ')
+        self.emit('(')
+        self.emit(repr(list(node.contents)))
+        self.emit(')')
+
+    def writeItemNotInSet(self, node):
+        assert isinstance(node, ItemNotInSet)
+        self.write(node.key)
+        self.emit(' not in ')
+        self.write(node.setobj)
 
     def writeComment(self, comment):
         self.emit('# ')
@@ -283,6 +306,9 @@ class ModuleBuilder:
     def add_function(self, f):
         self.nodes.append(f)
         return self
+
+    def add_global(self, var, expr):
+        self.nodes.append( Assign(var, expr) )
 
     def build(self):
         return Module(self.nodes)
@@ -441,8 +467,11 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
             self.modulebuilder.add_function(fb.build())
             return node
 
-        if node.kind == ast.BuiltInPatKind.VariableNotOtherwiseDefined:
-            functionname = 'lang_{}_match_varialbenototherwisedefined'.format(self.definelanguage.name)
+        if node.kind == ast.BuiltInPatKind.VariableExcept:
+            functionname = 'lang_{}_match_variable_except'.format(self.definelanguage.name)
+
+            setglobal = Var(self.symgen.get())
+            self.modulebuilder.add_global(setglobal, NewSet(list(node.aux)))
 
             self.processed[repr(node)] = functionname 
 
@@ -454,7 +483,9 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
                                   .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail) 
 
 
-            cond = Binary(BinaryOp.EqEqual, TermInvokeMethod(term, 'kind'), ConstantInt(TermKind.Variable))
+            cond1 = Binary(BinaryOp.EqEqual, TermInvokeMethod(term, 'kind'), ConstantInt(TermKind.Variable))
+            cond2 = ItemNotInSet(TermInvokeMethod(term, 'value'), setglobal)
+            cond  = Binary(BinaryOp.And, cond1, cond2)
             thenbr = [ Assign(head, Binary(BinaryOp.Add, head, ConstantInt(1))),
                        Return([ConstantBoolean(True),  head, tail]) ]
             fb.add(If(cond, thenbr, None))
@@ -464,6 +495,7 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
             return node
 
 
+        assert node.kind != ast.BuiltInPatKind.VariableNotOtherwiseDefined
         assert False, 'unknown built-in pattern type'
 
     def transformNt(self, node):

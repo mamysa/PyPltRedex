@@ -48,6 +48,23 @@ class UnderscoreRemover(ast.PatternTransformer):
         node.sym = node.prefix
         return node
 
+
+class ConvertVariableNotOtherwiseMentioned(ast.PatternTransformer):
+    """
+    Replaces variable-not-otherwise-mentioned pattern with variable-except.
+    """
+
+    def __init__(self, variables):
+        self.variables = variables
+
+    def transformBuiltInPat(self, node):
+        assert isinstance(node, ast.BuiltInPat)
+        if node.kind == ast.BuiltInPatKind.VariableNotOtherwiseDefined:
+            return ast.BuiltInPat(ast.BuiltInPatKind.VariableExcept, ast.BuiltInPatKind.VariableExcept.value,
+                    ast.BuiltInPatKind.VariableExcept.value, self.variables)
+        return node
+
+
 def definelanguage_preprocess(node):
     """
     Resolves all non-terminal symbols and removes underscores from patterns in define-language.
@@ -65,6 +82,16 @@ def definelanguage_preprocess(node):
             pat = simplifier.transform(pat)
             new_patterns.append(pat)
         ntdef.patterns = new_patterns
+
+    converter = ConvertVariableNotOtherwiseMentioned(resolver.variables)
+    for nt, ntdef in node.nts.items():
+        patterns = ntdef.patterns
+        new_patterns = []
+        for pat in patterns:
+            pat = converter.transform(pat)
+            new_patterns.append(pat)
+        ntdef.patterns = new_patterns
+
     return node    # resolver.variables 
 
 class EllipsisDepthChecker(ast.PatternTransformer):
