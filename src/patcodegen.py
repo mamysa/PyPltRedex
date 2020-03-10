@@ -69,6 +69,7 @@ class Binary:
 
 class BinaryOp(enum.Enum):
     Add = '+'
+    Sub = '-'
     And = ' and ' 
     EqEqual = '=='
     NotEqual = '!='
@@ -404,26 +405,37 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
                               .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head) \
                               .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail) 
 
-
-
         fb.add(If(Binary(BinaryOp.NotEqual, TermInvokeMethod(term, 'kind'), ConstantInt(TermKind.TermList)), [Return([ConstantBoolean(False), head, tail])], None))
 
         # need to "enter" term (i.e. extract term at index head), 
         # set new subterm_head = 0 and subterm_tail = len(term[head])
-
         subterm, subhead, subtail = Var('subterm'), Var('subhead'), Var('subtail')
-
-        #fb.add(Assign(subterm, TermGetField(term, 'get({})'.format(head))))
         fb.add(Assign(subhead, ConstantInt(0)))
         fb.add(Assign(subtail, TermInvokeMethod(term, 'length')))
-        
-        for pat in node.seq:
+
+        # ensure number of terms in the sequence is at least equal to number of non-repeated patterns. 
+        # if num_required is zero, condition is always false.
+        num_required = node.get_number_of_nonoptional_matches_between(0, len(node))
+        if num_required != 0: 
+            cond = Binary(BinaryOp.Sub, Binary(BinaryOp.Sub, subtail, subhead), ConstantInt(1))
+            cond = Binary(BinaryOp.Lt, cond, ConstantInt(num_required))
+            fb.add(If(cond, [ Return([ConstantBoolean(False), head, tail]) ], None))
+
+        for i, pat in enumerate(node.seq):
             self.transform(pat)
             patfunctionname = self.processed[repr(pat)]
             subresult, nsubhead, nsubtail = fb.get_fresh_local('subresult'), fb.get_fresh_local('subhead'), fb.get_fresh_local('subtail')
 
             if isinstance(pat, ast.Repeat):
                 fb.add(Call([subresult, nsubhead, nsubtail], patfunctionname, [term, subhead, subtail]))
+
+                # after matching optional repetition, ensure there are still enough terms in sequence
+                # to produce a successful match.
+                num_required = node.get_number_of_nonoptional_matches_between(i, len(node))
+                if len(node) - 1 > i and num_required != 0:
+                    cond = Binary(BinaryOp.Sub, Binary(BinaryOp.Sub, nsubtail, nsubhead), ConstantInt(1))
+                    cond = Binary(BinaryOp.Lt, cond, ConstantInt(num_required))
+                    fb.add(If(cond, [ Return([ConstantBoolean(False), head, tail]) ], None))
             else:
                 fb.add(Call([subresult, nsubhead, nsubtail], patfunctionname, [TermInvokeMethod(term, 'get', [subhead]), subhead, subtail]))
                 fb.add(If(Binary(BinaryOp.NotEqual, subresult, ConstantBoolean(True)), [Return([ConstantBoolean(False), head, tail])], None))

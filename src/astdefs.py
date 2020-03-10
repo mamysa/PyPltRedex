@@ -62,6 +62,21 @@ class PatSequence(Pat):
     def exchange(self):
         pass
 
+    def get_number_of_nonoptional_matches_between(self, head, tail):
+        """
+        Returns a number of patterns excluding repetitions.
+        Args:
+        head - element to start counting from.
+        tail - element to count until, excluding. 
+        """
+        assert head <  len(self.seq), 'out of bounds'
+        assert tail <= len(self.seq), 'out of bounds'
+        num_nonoptional = 0
+        for i in range(head, tail):
+            if not isinstance(self.seq[i], Repeat):
+                num_nonoptional += 1
+        return num_nonoptional
+
     def __len__(self):
         return len(self.seq)
 
@@ -82,7 +97,6 @@ class Nt(Pat):
     def __init__(self, prefix, sym):
         self.prefix = prefix
         self.sym = sym
-
 
     def __repr__(self):
         return 'Nt({})'.format(self.sym)

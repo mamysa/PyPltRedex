@@ -10,9 +10,9 @@ import src.astdefs as ast
 #     anymore... perhaps behaviour has been changed?). Underscores will be re-added later.
 # (4) "Optimize" righthand-side patterns i.e. remove adjacent Repeat elements (recursively) 
 #     when appropriate. For example, patterns like e ::= (n n... n...) can transformed into 
-#     e ::= (n n...) when matching e. Thus, instead computing all possible permutations of lists 
-#     containing n, greedy matching can be done.
-# (5) Introduce underscores back into right-handside patterns; id after each underscore must be unique.
+#     e ::= (n n...) when matching e.  FIXME this does not work as expected.
+# (5) Introduce underscores back into right-handside bindable patterns(i.e. nts and builtin-pats); 
+#     id after each underscore must be unique.
 
 # TODO Need to check for non-terminal cycles in define-language patterns 
 # such as (y ::= x) (x ::= y) or even (x ::= x)
@@ -49,6 +49,32 @@ class UnderscoreRemover(ast.PatternTransformer):
         return node
 
 
+class UnderscoreIdUniquify(ast.PatternTransformer):
+    def __init__(self):
+        self.id = 0
+
+    def transformDefineLanguage(self, node):
+        assert isinstance(node, ast.DefineLanguage)
+        for nt, ntdef in node.nts.items():
+            node.nts[nt] = self.transform(ntdef)
+        return node
+
+    def transformNtDefinition(self, node):
+        assert isinstance(node, ast.NtDefinition)
+        for i, pat in enumerate(node.patterns):
+            node.patterns[i] = self.transform(pat)
+        return node
+
+    def transformBuiltInPat(self, node):
+        node.sym = '{}_{}'.format(node.prefix, self.id)
+        self.id += 1
+        return node
+
+    def transformNt(self, node):
+        node.sym = '{}_{}'.format(node.prefix, self.id)
+        self.id += 1
+        return node
+
 class ConvertVariableNotOtherwiseMentioned(ast.PatternTransformer):
     """
     Replaces variable-not-otherwise-mentioned pattern with variable-except.
@@ -60,10 +86,8 @@ class ConvertVariableNotOtherwiseMentioned(ast.PatternTransformer):
     def transformBuiltInPat(self, node):
         assert isinstance(node, ast.BuiltInPat)
         if node.kind == ast.BuiltInPatKind.VariableNotOtherwiseDefined:
-            return ast.BuiltInPat(ast.BuiltInPatKind.VariableExcept, ast.BuiltInPatKind.VariableExcept.value,
-                    ast.BuiltInPatKind.VariableExcept.value, self.variables)
+            node.aux = self.variables
         return node
-
 
 def definelanguage_preprocess(node):
     """
@@ -72,14 +96,14 @@ def definelanguage_preprocess(node):
     assert isinstance(node, ast.DefineLanguage)
     resolver = NtResolver(node.ntsyms())
     remover = UnderscoreRemover()
-    simplifier = DefineLanguagePatternSimplifier()
+    #simplifier = DefineLanguagePatternSimplifier()
     for nt, ntdef in node.nts.items():
         patterns = ntdef.patterns
         new_patterns = []
         for pat in patterns:
             pat = resolver.transform(pat)
             pat = remover.transform(pat)
-            pat = simplifier.transform(pat)
+            #pat = simplifier.transform(pat)
             new_patterns.append(pat)
         ntdef.patterns = new_patterns
 
@@ -92,6 +116,7 @@ def definelanguage_preprocess(node):
             new_patterns.append(pat)
         ntdef.patterns = new_patterns
 
+    node = UnderscoreIdUniquify().transform(node)
     return node    # resolver.variables 
 
 class EllipsisDepthChecker(ast.PatternTransformer):
@@ -116,8 +141,6 @@ class EllipsisDepthChecker(ast.PatternTransformer):
 
     def transformUnresolvedSym(self, node):
         assert False, 'UnresolvedSym not allowed'
-
-
 
 class PatternComparator:
     """
@@ -164,6 +187,15 @@ class PatternComparator:
                 return match
         return False
 
+# This does not work as expected. For example, 
+# given language (e ::= (e ... n n ...) (+ e e) n) (n ::= number) matching e greedily 
+# in the first pattern also consumes all n if they are present in the term.
+# Matching e ... needs to return all permutations.
+
+# Perhaps we could also do (e ... n n ...) -> ( e ... n ... n) -> (e ... n) (because n is e),
+# match n in the end of the term first and then match e ...  greedily?
+
+# FIXME always return fresh ast node instances.
 class DefineLanguagePatternSimplifier(ast.PatternTransformer):
     """
     The goal of this pass is to simplify patterns in define-language. For example, given pattern
