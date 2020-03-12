@@ -2,6 +2,7 @@ import enum
 import re
 import ast
 import term
+from match import Match
 
 class TokenKind(enum.Enum):
     Integer = 0

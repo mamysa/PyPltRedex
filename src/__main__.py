@@ -1,6 +1,6 @@
 from src.parser import RedexSpecParser
 from src.preprocdefinelang import definelanguage_preprocess
-from src.patcodegen import DefineLanguagePatternCodegen, AstDump
+from src.patcodegen import DefineLanguagePatternCodegen2, AstDump
 
 import os
 import shutil
@@ -13,7 +13,7 @@ def create_output(module):
     os.mkdir(BASEDIR)
     shutil.copy('runtime/parser.py', BASEDIR)
     shutil.copy('runtime/term.py', BASEDIR)
-
+    shutil.copy('runtime/match.py', BASEDIR)
 
     lang = open('{}/lang.py'.format(BASEDIR), 'w')
     dumper = AstDump()
@@ -33,10 +33,10 @@ tree = definelanguage_preprocess(tree)
 
 print(tree)
 
-#codegen = DefineLanguagePatternCodegen()
-#codegen.transform(tree)
+codegen = DefineLanguagePatternCodegen2()
+codegen.transform(tree)
 
-#create_output(codegen.modulebuilder.build())
+create_output(codegen.modulebuilder.build())
 
 
 

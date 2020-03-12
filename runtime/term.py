@@ -16,7 +16,7 @@ class Integer(Ast):
         self.__value = value
 
     def __repr__(self):
-        return 'Integer({})'.format(self.value)
+        return 'Integer({})'.format(self.__value)
 
 class Variable(Ast):
     def __init__(self, value):
@@ -27,7 +27,7 @@ class Variable(Ast):
         return self.__value
 
     def __repr__(self):
-        return 'Variable({})'.format(self.value)
+        return 'Variable({})'.format(self.__value)
 
 class Sequence(Ast):
     def __init__(self, seq):

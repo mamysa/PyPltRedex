@@ -99,7 +99,7 @@ class Nt(Pat):
         self.sym = sym
 
     def __repr__(self):
-        return 'Nt({})'.format(self.sym)
+        return 'Nt({}, {})'.format(self.prefix, self.sym)
 
 class NtDefinition(Pat):
     def __init__(self, nt, patterns):

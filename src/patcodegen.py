@@ -5,6 +5,7 @@ class Module:
     def __init__(self, nodes):
         self.nodes = nodes
 
+
 class Function:
     def __init__(self, name, parameters, body):
         self.name = name
@@ -17,6 +18,25 @@ class Function:
     def add(self, stmt):
         self.body.append(stmt)
 
+class LitArray:
+    def __init__(self, contents):
+        self.contents = contents
+
+class MatchTuple:
+    def __init__(self, match, head, tail):
+        self.match = match
+        self.head  = head
+        self.tail  = tail
+
+class ForEach:
+    def __init__(self, varset, where, stmts):
+        self.vars = varset 
+        self.where = where 
+        self.stmts = stmts 
+
+class LengthOfMatchList:
+    def __init__(self, match):
+        self.match = match
 
 class NewSet:
     def __init__(self, contents):
@@ -28,14 +48,17 @@ class ItemNotInSet:
         self.setobj = setobj
 
 class Call:
-    def __init__(self, returnvalues, name, arguments):
+    def __init__(self, name, arguments):
         self.name = name
         self.arguments = arguments
-        self.returnvalues = returnvalues
 
 class Var:
     def __init__(self, name):
         self.name = name
+
+class NewMatch:
+    def __init__(self, bindables):
+        self.bindables = bindables
 
 class ConstantInt:
     def __init__(self, constant):
@@ -44,6 +67,8 @@ class ConstantInt:
 class Return:
     def __init__(self, returnvalues):
         self.returnvalues = returnvalues 
+
+Null = Var('None')
 
 class SymGen:
     def __init__(self):
@@ -89,6 +114,10 @@ class While:
         self.body = body
 
 
+class ReturnTrueIfNotNull:
+    def __init__(self, matchlist):
+        self.matchlist = matchlist
+
 class ConstantBoolean:
     def __init__(self, value):
         self.value = value
@@ -98,8 +127,15 @@ class StringLiteral:
     def __init__(self, value):
         self.value = value
 
+class ArrayConcat:
+    def __init__(self, array, expr):
+        self.array = array
+        self.expr = expr
 
-
+class ArrayAppend:
+    def __init__(self, array, expr):
+        self.array = array
+        self.expr = expr
 
 class TermLength:
     def __init__(self, term):
@@ -149,6 +185,8 @@ class AstDump:
         return method_ref(element)
 
     def writeModule(self, module):
+        self.emit('from match import Match') # FIXME HANDLE IMPORTS SEPARATELY
+        self.newline()
         for n in module.nodes:
             self.write(n)
             self.newline()
@@ -158,6 +196,53 @@ class AstDump:
         self.emit('set ')
         self.emit('(')
         self.emit(repr(list(node.contents)))
+        self.emit(')')
+
+    def writeMatchTuple(self, node):
+        assert isinstance(node, MatchTuple)
+        self.emit('(')
+        self.comma_separated_list([node.match, node.head, node.tail])
+        self.emit(')')
+
+
+    def writeNewMatch(self, node):
+        assert isinstance(node, NewMatch)
+        self.emit('Match')
+        self.emit('(')
+        self.emit(repr(list(node.bindables)))
+        self.emit(')')
+
+    def writeForEach(self, node):
+        assert isinstance(node, ForEach)
+        self.emit('for ')
+        self.comma_separated_list(node.vars)
+        self.emit(' in ')
+        self.write(node.where)
+        self.emit(':')
+        self.newline()
+        self.indent()
+        for b in node.stmts:
+            self.write(b)
+            self.newline()
+        self.dedent()
+
+    def writeArrayConcat(self, node):
+        assert isinstance(node, ArrayConcat)
+        self.write(node.array)
+        self.emit(' += ') 
+        self.write(node.expr)
+
+    def writeArrayAppend(self, node):
+        assert isinstance(node, ArrayAppend)
+        self.write(node.array)
+        self.emit('.append(') 
+        self.write(node.expr)
+        self.emit(')') 
+
+    def writeLengthOfMatchList(self, node):
+        assert isinstance(node, LengthOfMatchList)
+        self.emit('len(')
+        self.write(node.match)
         self.emit(')')
 
     def writeItemNotInSet(self, node):
@@ -182,7 +267,6 @@ class AstDump:
         self.newline()
 
         self.indent()
-        print(self.indents)
         for b in function.body:
             self.write(b)
             self.newline()
@@ -244,11 +328,14 @@ class AstDump:
             self.newline()
         self.dedent()
 
+    def writeLitArray(self, array):
+        assert isinstance(array, LitArray)
+        self.emit('[')
+        self.comma_separated_list(array.contents)
+        self.emit(']')
+
     def writeCall(self, stmt):
         assert isinstance(stmt, Call)
-
-        self.comma_separated_list(stmt.returnvalues)
-        self.emit(' = ')
         self.emit(stmt.name)
         self.emit('(')
         self.comma_separated_list(stmt.arguments)
@@ -257,6 +344,16 @@ class AstDump:
     def writeReturn(self, stmt):
         self.emit('return ')
         self.comma_separated_list(stmt.returnvalues)
+
+    def writeReturnTrueIfNotNull(self, expr):
+        assert isinstance(expr, ReturnTrueIfNotNull)
+        self.emit('if ')
+        self.write(expr.matchlist)
+        self.emit(' != None:')
+        self.newline()
+        self.indent()
+        self.emit('return True')
+        self.dedent()
 
     # MERGE ALL THESE INTO ONE CLASS
     def writeConstantInt(self, stmt): 
@@ -289,8 +386,12 @@ class TermKind:
 
 class DefineLanguagePatFunctionParameterIndex:
     Term = 0
-    Head = 1
-    Tail = 2
+    Match = 1
+    Head = 2
+    Tail = 3
+
+class IsANtFunctionParameterIndex:
+    Term = 0
 
 class Comment:
     def __init__(self, contents):
@@ -575,3 +676,297 @@ class DefineLanguagePatternCodegen(ast.PatternTransformer):
             return node
         
         assert False, 'unknown lit kind ' + str(node.kind)
+
+
+class RetrieveBindableElements(ast.PatternTransformer):
+    
+    def __init__(self):
+        self.bindables = []
+
+    def transformNt(self, node):
+        self.bindables.append(node)
+        return node
+
+    def transformBuiltInPat(self, node):
+        self.bindables.append(node)
+        return node
+
+class DefineLanguagePatternCodegen2(ast.PatternTransformer):
+
+    def __init__(self):
+        self.modulebuilder = ModuleBuilder()
+        self.isa_nt_functionnames = {} # mapping of Nt.sym to is_a function name
+        self.symgen = SymGen()
+        self.processed_patterns = {} 
+
+    def transformDefineLanguage(self, node):
+        assert isinstance(node, ast.DefineLanguage)
+        self.definelanguage = node
+
+        for nt in node.nts.values():
+            self.transform(nt)
+
+    def transformNtDefinition(self, node):
+        assert isinstance(node, ast.NtDefinition)
+        if node.nt.prefix not in self.isa_nt_functionnames:
+            functionname = 'lang_{}_isa_nt_{}'.format(self.definelanguage.name, node.nt.prefix)
+            self.isa_nt_functionnames[node.nt.prefix] = functionname
+
+            term = Var('term')
+            fb = FunctionBuilder().with_name(functionname)      \
+                                  .with_number_of_parameters(1) \
+                                  .set_parameter(IsANtFunctionParameterIndex.Term, term)
+
+            for pat in node.patterns:
+                rbe = RetrieveBindableElements()
+                rbe.transform(pat)
+                lst = list(map(lambda x: x.sym,   rbe.bindables))
+
+                self.transform(pat)
+                functionname = self.processed_patterns[repr(pat)]
+                match = fb.get_fresh_local('match')
+                fb.add( Assign(match, NewMatch(set(lst))) )
+                matches = fb.get_fresh_local('matches')
+                fb.add( Assign(matches, Call(functionname, [term, match, ConstantInt(0), ConstantInt(1)])) ) 
+                fb.add( ReturnTrueIfNotNull(matches) )
+
+            fb.add( Return([ConstantBoolean(False)]) )
+            self.modulebuilder.add_function(fb.build())
+
+    def transformPatSequence(self, node):
+        assert isinstance(node, ast.PatSequence)
+        if repr(node) in self.processed_patterns:
+            return 
+
+        functionname = 'match_term_{}'.format(self.symgen.get())
+        self.processed_patterns[repr(node)] = functionname
+
+        term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+        fb = FunctionBuilder().with_name(functionname)       \
+                              .with_number_of_parameters(4)  \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Term, term) \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Match, match) \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head) \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail) 
+
+
+
+        # ensure this is indeed datum.
+        fb.add(If(Binary(BinaryOp.NotEqual, TermInvokeMethod(term, 'kind'), ConstantInt(TermKind.TermList)), [Return([Null])], None))
+
+        # need to "enter" term (i.e. extract term at index head), 
+        # set new subterm_head = 0 and subterm_tail = len(term[head])
+        subterm, subhead, subtail = Var('subterm'), Var('subhead'), Var('subtail')
+        fb.add(Assign(subhead, ConstantInt(0)))
+        fb.add(Assign(subtail, TermInvokeMethod(term, 'length')))
+
+        # ensure number of terms in the sequence is at least equal to number of non-repeated patterns. 
+        # if num_required is zero, condition is always false.
+        num_required = node.get_number_of_nonoptional_matches_between(0, len(node))
+        if num_required != 0: 
+            cond = Binary(BinaryOp.Sub, subtail, subhead)
+            cond = Binary(BinaryOp.Lt, cond, ConstantInt(num_required))
+            fb.add(If(cond, [ Return([Null]) ], None))
+
+        
+
+        def codegen_subpattern(pat, index, previous_matches):
+            matches = fb.get_fresh_local('matches')
+            if isinstance(pat, ast.Nt) or isinstance(pat, ast.BuiltInPat):
+                isa_functionname = self.isa_nt_functionnames[pat.prefix]
+                if index == 0:
+                    # matches = []
+                    # if isa_blah(term.get(subhead)):
+                    #   match.addtobinding(..., term.get(subhead))
+                    #   matches.append((match, subhead+1, subtail))
+                    # if Len(matches) == 0: return None
+                    fb.add(Assign(matches, LitArray([])))
+                    cond = Binary(BinaryOp.EqEqual, Call(isa_functionname, [TermInvokeMethod(term, 'get', [subhead])]), ConstantBoolean(True))
+                    thenbr = [
+                        TermInvokeMethod(match, 'addtobinding', [ StringLiteral(pat.sym), TermInvokeMethod(term, 'get', [subhead]) ]) ,
+                        ArrayAppend(matches, MatchTuple(match, Binary(BinaryOp.Add, subhead, ConstantInt(1)), subtail))
+                    ]
+                    fb.add(If(cond, thenbr, None))
+                    fb.add(If(Binary(BinaryOp.EqEqual, LengthOfMatchList(matches), ConstantInt(0)), [
+                        Return([Null])
+                    ], None))
+                else:
+                    # matches = []
+                    # for match, subhead, subtail in previous_matches:
+                        # if isa_blah(term.get(subhead)):
+                        #   match.addtobinding(..., term.get(subhead))
+                        #   matches.append((match, subhead+1, subtail))
+                    # if Len(matches) == 0: return None
+                    m, h, t = Var('m'), Var('h'), Var('t')
+                    fb.add(Assign(matches, LitArray([])))
+                    fb.add(ForEach([m, h, t], previous_matches, [
+                        If(Binary(BinaryOp.EqEqual, Call(isa_functionname, [TermInvokeMethod(term, 'get', [h])]), ConstantBoolean(True)),
+                            [
+                                TermInvokeMethod(match, 'addtobinding', [ StringLiteral(pat.sym), TermInvokeMethod(term, 'get', [h])]) ,
+                                ArrayAppend(matches, MatchTuple(match, Binary(BinaryOp.Add, h, ConstantInt(1)), t))
+                            ], None)
+                    ]))
+                    fb.add(If(Binary(BinaryOp.EqEqual, LengthOfMatchList(matches), ConstantInt(0)), [
+                        Return([Null])
+                    ], None))
+                return matches
+
+
+
+            else:
+                functionname = self.processed_patterns[repr(pat)]
+
+                if index == 0:
+                    # matches = match_func(term.get(subhead), match, subhead, subtail)
+                    # if matches == None: return None
+                    fb.add(Assign(matches, Call( functionname, [TermInvokeMethod(term, 'get', [subhead]), match, subhead, subtail])))
+                    cond = Binary(BinaryOp.EqEqual, matches, Null)
+                    thenbr = [ Return([Null]) ]
+                    fb.add(If(cond,thenbr, None))
+                else:
+                    # have previous match array to work with. 
+                    # matches = []
+                    # for match, subhead, subtail in previous_matches:
+                    #   matches += match_func(term.get(subhead), match, subhead, subtail)
+                    # if len(matches) == 0:
+                    #   return None
+                    m, h, t = Var('m'), Var('h'), Var('t')
+                    tmp = Var('tmp')
+                    fb.add(Assign(matches, LitArray([])))
+                    fb.add(ForEach([m, h, t], previous_matches, [
+                        Assign(tmp, Call(functionname, [TermInvokeMethod(term, 'get', [h]), m, h, t])),
+                        If( Binary(BinaryOp.NotEqual, tmp, Null), [
+                        ArrayConcat(matches, tmp) ], None)
+                    ]))
+                    fb.add(If(Binary(BinaryOp.EqEqual, LengthOfMatchList(matches), ConstantInt(0)), [
+                        Return([Null])
+                    ], None))
+                return matches
+
+        previous_matches = None 
+        for i, pat in enumerate(node.seq):
+            self.transform(pat)
+            previous_matches = codegen_subpattern(pat, i,previous_matches)
+
+
+        # exit term 
+        matches = fb.get_fresh_local('matches')
+        m, h, t = Var('m'), Var('h'), Var('t')
+        fb.add(Assign(matches, LitArray([])))
+        fb.add(ForEach([m, h, t], previous_matches, [
+            If( Binary(BinaryOp.EqEqual, h, t), [
+                ArrayAppend(matches, MatchTuple(m, Binary(BinaryOp.Add, head, ConstantInt(1)), tail))
+            ], None)
+        ]))
+        fb.add(If(Binary(BinaryOp.EqEqual, LengthOfMatchList(matches), ConstantInt(0)), [
+            Return([Null])
+        ], None))
+        fb.add( Return([matches]) )
+
+        self.modulebuilder.add_function(fb.build())
+
+
+    def transformNt(self, nt):
+        assert isinstance(nt, ast.Nt)
+        term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+        functionname = 'match_lang_{}_nt_{}'.format(self.definelanguage.name, nt.sym)
+        self.processed_patterns[repr(nt)] = functionname
+        fb = FunctionBuilder().with_name(functionname)      \
+                              .with_number_of_parameters(4) \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Term, term)   \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Match, match) \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head)   \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail)
+
+        if nt.prefix not in self.isa_nt_functionnames:
+            self.transform(self.definelanguage.nts[nt.prefix])
+
+        isa_functionname = self.isa_nt_functionnames[nt.prefix]
+
+        # call isa_nt(term) function,
+        # if it returns True, call match.bind(nt.sym), increment head. 
+        cond = Binary(BinaryOp.EqEqual, Call(isa_functionname, [term]), ConstantBoolean(True))
+        thenbr = [
+           TermInvokeMethod(match, 'addtobinding', [ StringLiteral(nt.sym), term ]) ,
+           Return( [LitArray([MatchTuple(match, Binary(BinaryOp.Add, head, ConstantInt(1)), tail)])] )
+        ]
+        fb.add(If(cond, thenbr, None))
+        fb.add(Return([Null]))
+        self.modulebuilder.add_function(fb.build())
+
+    def transformBuiltInPat(self, node):
+        assert isinstance(node, ast.BuiltInPat)
+
+
+        if node.kind == ast.BuiltInPatKind.Number:
+            # also generate isa_ function for this 
+            if node.prefix not in self.isa_nt_functionnames:
+                functionname = 'lang_{}_isa_builtin_{}'.format(self.definelanguage.name, node.prefix)
+                self.isa_nt_functionnames[node.prefix] = functionname
+
+                term = Var('term')
+                fb = FunctionBuilder().with_name(functionname)      \
+                                      .with_number_of_parameters(1) \
+                                      .set_parameter(IsANtFunctionParameterIndex.Term, term)
+                cond = Binary(BinaryOp.EqEqual, TermInvokeMethod(term, 'kind'), ConstantInt(TermKind.Integer))
+                thenbr = [ 
+                    Return( [ConstantBoolean(True)] )
+                ]
+
+                fb.add(If(cond, thenbr, None))
+                fb.add(Return([ConstantBoolean(False)]))
+                self.modulebuilder.add_function(fb.build())
+
+
+
+            functionname = 'match_lang_{}_builtin_{}'.format(self.definelanguage.name, self.symgen.get())
+            self.processed_patterns[repr(node)] = functionname
+
+            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+            fb = FunctionBuilder().with_name(functionname)      \
+                                  .with_number_of_parameters(4) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Term, term)   \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Match, match) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head)   \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail)
+
+            functionname = self.isa_nt_functionnames[node.prefix]
+            cond = Binary(BinaryOp.EqEqual, Call(functionname, [ term ]), ConstantBoolean(True))
+            thenbr = [ 
+                TermInvokeMethod(match, 'addtobinding', [ StringLiteral(node.sym), term ]) ,
+                Return( [LitArray([MatchTuple(match, Binary(BinaryOp.Add, head, ConstantInt(1)), tail)])] )
+            ]
+            fb.add(If(cond, thenbr, None))
+            fb.add(Return([Null]))
+            self.modulebuilder.add_function(fb.build())
+            return node
+        assert False, 'unreachable'
+
+    def transformLit(self, node):
+        assert isinstance(node, ast.Lit)
+
+        if node.kind == ast.LitKind.Variable:
+            functionname = 'lang_{}_consume_lit_{}'.format(self.definelanguage.name, self.symgen.get())
+            self.processed_patterns[repr(node)] = functionname 
+
+            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+            fb = FunctionBuilder().with_name(functionname)       \
+                                  .with_number_of_parameters(4)  \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Term, term) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Match, match) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail) 
+
+
+            cond1 = Binary(BinaryOp.EqEqual, TermInvokeMethod(term, 'kind'), ConstantInt(TermKind.Variable))
+            cond2 = Binary(BinaryOp.EqEqual, TermInvokeMethod(term, 'value'), StringLiteral(node.lit))
+            cond  = Binary(BinaryOp.And, cond1, cond2)
+            thenbr = [ 
+                Return( [LitArray([MatchTuple(match, Binary(BinaryOp.Add, head, ConstantInt(1)), tail)])] )
+            ]
+            fb.add(If(cond, thenbr, None))
+            fb.add(Return([Null]))
+            self.modulebuilder.add_comment(repr(node))
+            self.modulebuilder.add_function(fb.build())
+            return node
+        assert False, 'unreachable'
