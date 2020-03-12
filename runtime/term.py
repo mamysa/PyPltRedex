@@ -37,6 +37,9 @@ class Sequence(Ast):
     def get(self, key):
         return self.seq[key]
 
+    def append(self, val):
+        self.seq.append(val)
+
     def length(self):
         return len(self.seq)
 

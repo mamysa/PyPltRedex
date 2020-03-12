@@ -22,6 +22,9 @@ class LitArray:
     def __init__(self, contents):
         self.contents = contents
 
+class Break:
+    pass
+
 class MatchTuple:
     def __init__(self, match, head, tail):
         self.match = match
@@ -178,11 +181,15 @@ class AstDump:
             self.emit(', ')
         self.write(lst[-1])
 
+
     def write(self, element):
         #assert isinstance(element, ast.AstNode)
         method_name = 'write' + element.__class__.__name__
         method_ref = getattr(self, method_name)
         return method_ref(element)
+
+    def writeBreak(self, node):
+        self.emit('break')
 
     def writeModule(self, module):
         self.emit('from match import Match') # FIXME HANDLE IMPORTS SEPARATELY
@@ -733,6 +740,101 @@ class DefineLanguagePatternCodegen2(ast.PatternTransformer):
             fb.add( Return([ConstantBoolean(False)]) )
             self.modulebuilder.add_function(fb.build())
 
+
+    def transformRepeat(self, node):
+        assert isinstance(node, ast.Repeat)
+        # FIXME this is incorrect, need match queue
+
+
+        """
+    matches = [ match ]
+    extents = [ extent]
+
+    matches_q = [ match ]
+    extents_q = [ extent ]
+
+    while len(matches_q) != 0:
+        match = matches_q.pop(0)
+        extent = extents_q.pop(0)
+
+        e = extent.copy()
+        m = match.copy()
+
+
+        ms, es = match_exact_n(term, e, m)
+        if ms != None:
+            extents += es
+            matches += ms
+            matches_q += ms
+            extents_q += es
+
+
+
+        """
+
+        # match.increasedepth(...)
+        # matches.append(match)
+        # match = match.copy()
+        # while head < tail:
+        #   tmp = match_term(term[head], match, head, tail)
+        #   if tmp == None: 
+        #     break 
+        # else: 
+        #   matches += tmp
+        #   match = match.copy()
+        # 
+        # for m in matches:
+        #   m.decreasedepth(...)
+
+        
+
+        if repr(node) in self.processed_patterns:
+            return 
+
+        functionname = 'match_term_{}'.format(self.symgen.get())
+        self.processed_patterns[repr(node)] = functionname
+
+        rbe = RetrieveBindableElements()
+        rbe.transform(node.pat)
+
+        term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+        fb = FunctionBuilder().with_name(functionname)       \
+                              .with_number_of_parameters(4)  \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Term, term) \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Match, match) \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head) \
+                              .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail) 
+
+        for bindable in rbe.bindables:
+            fb.add(TermInvokeMethod(match, 'increasedepth', [ StringLiteral(bindable.sym) ]))
+        matches, tmp = Var('matches'), Var('tmp')
+        fb.add( Assign(matches, LitArray([MatchTuple(match, head, tail) ])))
+        fb.add( Assign(match, TermInvokeMethod(match, 'copy')))
+
+        self.transform(node.pat)
+        functionname = self.processed_patterns[repr(node.pat)]
+
+        fb.add( While( Binary(BinaryOp.Lt, head, tail), [
+            Assign(tmp, Call(functionname, [TermInvokeMethod(term, 'get', [ head ]), match, head, tail ])),
+            If( Binary(BinaryOp.EqEqual, tmp, Null), [
+                Break()
+                ], [
+                ArrayConcat(matches, tmp), 
+                Assign(match, TermInvokeMethod(match, 'copy')),
+                Assign(head, Binary(BinaryOp.Add, head, ConstantInt(1))),
+            ]),
+        ]))
+
+        m,h,t = Var('m'), Var('h'), Var('t')
+        decrease = []
+        for bindable in rbe.bindables:
+            decrease.append( TermInvokeMethod(m, 'decreasedepth', [ StringLiteral(bindable.sym) ]) )
+        fb.add( ForEach([m,h,t], matches, decrease))
+        fb.add( Return( [ matches ] ) )
+
+        self.modulebuilder.add_function(fb.build())
+            
+
     def transformPatSequence(self, node):
         assert isinstance(node, ast.PatSequence)
         if repr(node) in self.processed_patterns:
@@ -809,6 +911,26 @@ class DefineLanguagePatternCodegen2(ast.PatternTransformer):
                     fb.add(If(Binary(BinaryOp.EqEqual, LengthOfMatchList(matches), ConstantInt(0)), [
                         Return([Null])
                     ], None))
+                return matches
+
+
+            elif isinstance(pat, ast.Repeat):
+                
+                self.transform(pat)
+                functionname = self.processed_patterns[repr(pat)]
+
+                if index == 0:
+                    fb.add( Assign( matches, Call(functionname, [term, match, subhead, subtail])))
+                else:
+                    m, h, t = Var('m'), Var('h'), Var('t')
+                    tmp = Var('tmp')
+
+                    fb.add(Assign(matches, LitArray([])))
+                    fb.add(ForEach([m, h, t], previous_matches, [
+                        Assign(tmp, Call(functionname, [term, m, h, t])),
+                        ArrayConcat(matches, tmp)
+                    ]))
+
                 return matches
 
 

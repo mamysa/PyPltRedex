@@ -1,4 +1,5 @@
 import copy
+from term import TermKind, Sequence
 
 class Binding:
     def __init__(self, var):
@@ -12,7 +13,7 @@ class Binding:
         if len(self.buf) == 0:
             self.buf.append(value)
         else:
-            if self.buf[-1].kind != TermKind.TermList: 
+            if self.buf[-1].kind() != TermKind.Sequence:
                 assert False, 'not compound array'
             else:
                 self.buf[-1].append(value)
@@ -20,9 +21,9 @@ class Binding:
     def increasedepth(self):
         # preceding element must be compound array, raise exception otherwise.
         if len(self.buf) != 0:
-            if self.buf[-1].kind != TermKind.TermList: 
+            if self.buf[-1].kind() != TermKind.Sequence: 
                 assert False, 'previous element is not compoundarray'
-        self.buf.append( TermList([]) )
+        self.buf.append( Sequence([]) )
 
     def decreasedepth(self):
         # if stack is empty, raise exception
@@ -32,7 +33,7 @@ class Binding:
         if len(self.buf) == 0: 
             assert False, 'empty stack'
         if len(self.buf) == 1 :
-            if self.buf[-1].kind != TermKind.TermList: 
+            if self.buf[-1].kind() != TermKind.Sequence: 
                 assert False, 'previous element is not compoundarray'
             else:
                 return
@@ -66,7 +67,9 @@ class Match:
 
     def copy(self):
         a = copy.deepcopy(self.bindings)
-        return Match(a)
+        m = Match([])
+        m.bindings = a
+        return m
 
     def __repr__(self):
         b = []
