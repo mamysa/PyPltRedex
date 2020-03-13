@@ -25,6 +25,9 @@ class LitArray:
 class Break:
     pass
 
+class Continue:
+    pass
+
 class MatchTuple:
     def __init__(self, match, head, tail):
         self.match = match
@@ -191,6 +194,10 @@ class AstDump:
     def writeBreak(self, node):
         self.emit('break')
 
+    def writeContinue(self, node):
+        self.emit('continue')
+
+
     def writeModule(self, module):
         self.emit('from match import Match') # FIXME HANDLE IMPORTS SEPARATELY
         self.newline()
@@ -294,7 +301,10 @@ class AstDump:
 
     def writeAssign(self, stmt):
         assert isinstance(stmt, Assign)
-        self.write(stmt.idents)
+        if isinstance(stmt.idents, list):
+            self.comma_separated_list(stmt.idents)
+        else:
+            self.write(stmt.idents)
         self.emit(' = ')
         self.write(stmt.expressions)
 
@@ -746,47 +756,21 @@ class DefineLanguagePatternCodegen2(ast.PatternTransformer):
         # FIXME this is incorrect, need match queue
 
 
-        """
-    matches = [ match ]
-    extents = [ extent]
-
-    matches_q = [ match ]
-    extents_q = [ extent ]
-
-    while len(matches_q) != 0:
-        match = matches_q.pop(0)
-        extent = extents_q.pop(0)
-
-        e = extent.copy()
-        m = match.copy()
-
-
-        ms, es = match_exact_n(term, e, m)
-        if ms != None:
-            extents += es
-            matches += ms
-            matches_q += ms
-            extents_q += es
-
-
-
-        """
-
         # match.increasedepth(...)
-        # matches.append(match)
-        # match = match.copy()
-        # while head < tail:
-        #   tmp = match_term(term[head], match, head, tail)
-        #   if tmp == None: 
-        #     break 
-        # else: 
-        #   matches += tmp
-        #   match = match.copy()
-        # 
-        # for m in matches:
+        # matches = [ match ]
+        # queue   = [ match ]
+        # while len(queue) != 0:
+        #   m, h, t = queue.pop(0)
+        #   if h == t:
+        #      continue
+        #   m = m.copy()
+        #   tmp = match_term(term[h], m, h, t)
+        #   if tmp != None:
+        #      matches += tmp
+        #      queue   += tmp 
+        # for m, h, t in matches:
         #   m.decreasedepth(...)
 
-        
 
         if repr(node) in self.processed_patterns:
             return 
@@ -797,6 +781,7 @@ class DefineLanguagePatternCodegen2(ast.PatternTransformer):
         rbe = RetrieveBindableElements()
         rbe.transform(node.pat)
 
+        
         term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
         fb = FunctionBuilder().with_name(functionname)       \
                               .with_number_of_parameters(4)  \
@@ -805,27 +790,29 @@ class DefineLanguagePatternCodegen2(ast.PatternTransformer):
                               .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head) \
                               .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail) 
 
-        for bindable in rbe.bindables:
-            fb.add(TermInvokeMethod(match, 'increasedepth', [ StringLiteral(bindable.sym) ]))
-        matches, tmp = Var('matches'), Var('tmp')
-        fb.add( Assign(matches, LitArray([MatchTuple(match, head, tail) ])))
-        fb.add( Assign(match, TermInvokeMethod(match, 'copy')))
-
         self.transform(node.pat)
         functionname = self.processed_patterns[repr(node.pat)]
 
-        fb.add( While( Binary(BinaryOp.Lt, head, tail), [
-            Assign(tmp, Call(functionname, [TermInvokeMethod(term, 'get', [ head ]), match, head, tail ])),
-            If( Binary(BinaryOp.EqEqual, tmp, Null), [
-                Break()
-                ], [
-                ArrayConcat(matches, tmp), 
-                Assign(match, TermInvokeMethod(match, 'copy')),
-                Assign(head, Binary(BinaryOp.Add, head, ConstantInt(1))),
-            ]),
-        ]))
-
         m,h,t = Var('m'), Var('h'), Var('t')
+
+        
+
+        for bindable in rbe.bindables:
+            fb.add(TermInvokeMethod(match, 'increasedepth', [ StringLiteral(bindable.sym) ]))
+        matches, tmp, queue = Var('matches'), Var('tmp'), Var('queue')
+        fb.add( Assign(matches, LitArray([MatchTuple(match, head, tail) ])))
+        fb.add( Assign(queue  , LitArray([MatchTuple(match, head, tail) ])))
+        fb.add( While( Binary(BinaryOp.NotEqual, LengthOfMatchList(queue), ConstantInt(0)), [
+                Assign([m, h, t], TermInvokeMethod(queue, 'pop', [ConstantInt(0)])),
+                If( Binary(BinaryOp.EqEqual, h, t), [ Continue() ], None),
+                Assign(m, TermInvokeMethod(m, 'copy')),
+                Assign(tmp, Call(functionname, [TermInvokeMethod(term, 'get', [ h ]), m, h, t])),
+                If( Binary(BinaryOp.NotEqual, tmp, Null), [
+                    ArrayConcat(matches, tmp), 
+                    ArrayConcat(queue  , tmp), 
+                ], None)
+            ]))
+        
         decrease = []
         for bindable in rbe.bindables:
             decrease.append( TermInvokeMethod(m, 'decreasedepth', [ StringLiteral(bindable.sym) ]) )
@@ -1062,7 +1049,57 @@ class DefineLanguagePatternCodegen2(ast.PatternTransformer):
             fb.add(Return([Null]))
             self.modulebuilder.add_function(fb.build())
             return node
-        assert False, 'unreachable'
+
+        
+        if node.kind == ast.BuiltInPatKind.VariableNotOtherwiseDefined:
+            if node.prefix not in self.isa_nt_functionnames:
+                # generate isa function
+                functionname = 'lang_{}_isa_builtin_variablenototherwisementioned'.format(self.definelanguage.name, node.prefix)
+                self.isa_nt_functionnames[node.prefix] = functionname
+
+                term = Var('term')
+                fb = FunctionBuilder().with_name(functionname)      \
+                                      .with_number_of_parameters(1) \
+                                      .set_parameter(IsANtFunctionParameterIndex.Term, term)
+                cond = Binary(BinaryOp.EqEqual, TermInvokeMethod(term, 'kind'), ConstantInt(TermKind.Variable))
+                thenbr = [ 
+                    Return( [ConstantBoolean(True)] )
+                ]
+
+                fb.add(If(cond, thenbr, None))
+                fb.add(Return([ConstantBoolean(False)]))
+                self.modulebuilder.add_function(fb.build())
+
+
+            functionname = 'match_lang_{}_builtin_{}'.format(self.definelanguage.name, self.symgen.get())
+            self.processed_patterns[repr(node)] = functionname
+
+            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+            fb = FunctionBuilder().with_name(functionname)      \
+                                  .with_number_of_parameters(4) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Term, term)   \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Match, match) \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Head, head)   \
+                                  .set_parameter(DefineLanguagePatFunctionParameterIndex.Tail, tail)
+
+            functionname = self.isa_nt_functionnames[node.prefix]
+            cond = Binary(BinaryOp.EqEqual, Call(functionname, [ term ]), ConstantBoolean(True))
+            thenbr = [ 
+                TermInvokeMethod(match, 'addtobinding', [ StringLiteral(node.sym), term ]) ,
+                Return( [LitArray([MatchTuple(match, Binary(BinaryOp.Add, head, ConstantInt(1)), tail)])] )
+            ]
+            fb.add(If(cond, thenbr, None))
+            fb.add(Return([Null]))
+            self.modulebuilder.add_function(fb.build())
+            return node
+
+
+
+
+
+
+
+        assert False, 'unreachable' + str(node.kind)
 
     def transformLit(self, node):
         assert isinstance(node, ast.Lit)
