@@ -1,0 +1,368 @@
+import src.astdefs as ast
+
+class SymGen:
+    def __init__(self):
+        self.syms = {}
+
+    def get(self, var='tmp'):
+        if var not in self.syms:
+            self.syms[var] = 0
+        val = self.syms[var]
+        self.syms[var] += 1
+        return '{}{}'.format(var, val)
+
+
+class SourceWriter:
+    def __init__(self):
+        self.indents = 0
+        self.buf = []
+        self.should_insert_tabs = True 
+
+    def indent(self):
+        self.indents += 1
+        return self
+
+    def dedent(self):
+        self.indents -= 1
+        assert self.indents >= 0
+        return self
+
+    def newline(self):
+        self.buf.append('\n')
+        self.should_insert_tabs = True
+        return self
+    
+    def __iadd__(self, string):
+        if self.should_insert_tabs:
+            self.buf.append(' '*self.indents*4)
+            self.should_insert_tabs = False
+        self.buf.append(string)
+        return self
+
+    def build(self):
+        return ''.join(self.buf)
+
+class TermMethodTable:
+    Kind = 'kind'
+    Value = 'value'
+    Length = 'length'
+
+class MatchMethodTable:
+    AddToBinding ='addtobinding'
+    IncreaseDepth = 'increasedepth'
+    DecreaseDepth = 'decreasedepth'
+
+class TermKind:
+    Variable = 0
+    Integer  = 1
+    Sequence = 2 
+
+class Var:
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+
+class RetrieveBindableElements(ast.PatternTransformer):
+    def __init__(self):
+        self.bindables = []
+
+    def transformNt(self, node):
+        self.bindables.append(node)
+        return node
+
+    def transformBuiltInPat(self, node):
+        self.bindables.append(node)
+        return node
+    
+    
+
+
+class DefineLanguagePatternCodegen3(ast.PatternTransformer):
+    def __init__(self):
+        self.isa_nt_functionnames = {} # mapping of Nt.sym to is_a function name
+        self.symgen = SymGen()
+        self.processed_patterns = {} 
+        self.writer = SourceWriter() 
+
+    def transformDefineLanguage(self, node):
+        assert isinstance(node, ast.DefineLanguage)
+        self.definelanguage = node
+        for nt in node.nts.values():
+            self.transform(nt)
+
+
+    def transformNtDefinition(self, node):
+        assert isinstance(node, ast.NtDefinition)
+        if node.nt.prefix not in self.isa_nt_functionnames:
+            this_function_name = 'lang_{}_isa_nt_{}'.format('bla', node.nt.prefix)
+            self.isa_nt_functionnames[node.nt.prefix] = this_function_name 
+
+            # codegen patterns first
+            for pat in node.patterns: 
+                self.transform(pat)
+
+            term, match, matches = Var('term'), Var('match'), Var('matches')
+            self.writer += 'def {}({}):'.format(this_function_name, term)
+            self.writer.newline().indent()
+
+            for pat in node.patterns:
+                rbe = RetrieveBindableElements()
+                rbe.transform(pat)
+                bindables = list(map(lambda x: x.sym,   rbe.bindables))
+
+                functionname = self.processed_patterns[repr(pat)]
+                self.writer += '{} = Match({})'.format(match, list(set(bindables)))
+                self.writer.newline()
+                self.writer += '{} = {}({}, {}, {}, {})'.format(matches, functionname, term, match, 0, 1)
+                self.writer.newline()
+                self.writer += 'if {} != None:'.format(matches)
+
+                self.writer.newline().indent()
+                self.writer += 'return True'
+                self.writer.newline().dedent()
+
+            self.writer += 'return False'
+            self.writer.newline().dedent().newline()
+
+    def transformPatSequence(self, seq):
+        assert isinstance(seq, ast.PatSequence)
+        if repr(seq) not in self.processed_patterns:
+            match_fn = 'match_term_{}'.format(self.symgen.get())
+            self.processed_patterns[repr(seq)] = match_fn 
+            
+            # generate code for all elements of the sequence.
+            for pat in seq:
+                self.transform(pat)
+
+
+            # function parameters
+
+            # symgen for the function
+            symgen = SymGen()
+
+
+            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+
+            m, h, t = Var('m'), Var('h'), Var('t')
+
+            # ensure the term is actually a sequence
+            self.writer += '#{}'.format(repr(seq))
+            self.writer.newline()
+            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
+            self.writer.newline().indent()
+            self.writer += 'if {}.{} != {}:'.format(term, TermMethodTable.Kind, TermKind.Sequence)
+            self.writer.newline().indent()
+            self.writer += 'return []'
+            self.writer.newline().dedent()
+
+            subhead, subtail = Var('subhead'), Var('subtail')
+            tmp = Var('tmp')
+
+            # 'enter' the term
+
+            self.writer += '{} = {}'.format(subhead, 0)
+            self.writer.newline()
+            self.writer += '{} = {}.{}()'.format(subtail, term, TermMethodTable.Length)
+            self.writer.newline()
+
+
+            pmatches = None
+
+            for i, pat in enumerate(seq):
+                matches = symgen.get('matches')
+                if i == 0:
+                    if isinstance(pat, ast.Nt) or isinstance(pat, ast.BuiltInPat):
+                        # matches = []
+                        # if isa_blah(term.get(subhead)):
+                        #   match.addtobinding(..., term.get(subhead))
+                        #   matches.append((match, subhead+1, subtail))
+                        # if len(matches) == 0: return None
+
+                        isa_functionname = self.isa_nt_functionnames[pat.prefix]
+                        self.writer += '{} = []'.format(matches)
+                        self.writer.newline()
+                        self.writer += 'if {}({}):'.format(isa_functionname, term)
+                        self.writer.newline().indent()
+                        self.writer += '{}.{}({}, {})'.format(m, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term)
+                        self.writer.newline()
+                        self.writer += '{}.append(({}, {}+1, {}))'.format(matches, match, subhead, subtail)
+                        self.writer.newline().dedent()
+
+                        self.writer += 'if len({}) == 0:'.format(matches)
+                        self.writer.newline().indent()
+                        self.writer += 'return {}'.format(matches)
+                        self.writer.newline().dedent()
+
+                    elif isinstance(pat, ast.Repeat):
+                        functionname = self.processed_patterns[repr(pat)]
+                        self.writer += '{} = {}({}, {}, {}, {})'.format(matches, functionname, term, match, subhead, subtail)
+                        self.writer.newline().dedent()
+
+
+
+                    else:
+                        # matches = []
+                        # if isa_blah(term.get(subhead)):
+                        #   matches.append((match, subhead+1, subtail))
+                        # if len(matches) == 0: return None
+                        isa_functionname = self.processed_patterns[repr(pat)]
+                        self.writer += '{} = []'.format(matches)
+                        self.writer.newline()
+                        self.writer += 'if {}({}):'.format(isa_functionname, term)
+                        self.writer.newline().indent()
+                        self.writer += '{}.append(({}, {}+1, {}))'.format(matches, match, subhead, subtail)
+                        self.writer.newline().dedent().dedent()
+
+                        self.writer += 'if len({}) == 0:'.format(matches)
+                        self.writer.newline().indent()
+                        self.writer += 'return {}'.format(matches)
+                        self.writer.newline().dedent()
+
+
+
+                else:
+                    if isinstance(pat, ast.Nt) or isinstance(pat, ast.BuiltInPat):
+                        isa_functionname = self.isa_nt_functionnames[pat.prefix]
+                        self.writer += '{} = []'.format(matches)
+                        self.writer.newline()
+                        self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
+                        self.writer.newline().indent()
+                        self.writer += 'if {}({}):'.format(isa_functionname, term)
+                        self.writer.newline().indent()
+                        self.writer += '{}.{}({}, {})'.format(m, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term)
+                        self.writer.newline()
+                        self.writer += '{}.append(({}, {}+1, {}))'.format(matches, m, h, t)
+                        self.writer.newline().dedent().dedent()
+                    
+                        # bail early if new matches is empty
+                        self.writer += 'if len({}) == 0:'.format(matches)
+                        self.writer.newline().indent()
+                        self.writer += 'return {}'.format(matches)
+                        self.writer.newline().dedent()
+
+                    elif isinstance(pat, ast.Repeat):
+                        functionname = self.processed_patterns[repr(pat)]
+                        self.writer += '{} = []'.format(matches)
+                        self.writer.newline()
+                        self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
+                        self.writer.newline().indent()
+                        self.writer += '{} += {}({}, {}, {}, {})'.format(matches, functionname, term, m, h, t)
+                        self.writer.newline().dedent()
+
+                    else:
+                        # matches = []
+                        # for m, h, t in matches:
+                        # if isa_blah(term.get(h)):
+                        #   matches.append((m, h+1, t))
+                        # if len(matches) == 0: return None
+                        isa_functionname = self.processed_patterns[repr(pat)]
+                        self.writer += '{} = []'.format(matches)
+                        self.writer.newline()
+                        self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
+                        self.writer.newline().indent()
+                        self.writer += 'if {}({}):'.format(isa_functionname, term)
+                        self.writer.newline().indent()
+                        self.writer += '{}.append(({}, {}+1, {}))'.format(matches, m, h, t)
+                        self.writer.newline().dedent().dedent()
+
+                        self.writer += 'if len({}) == 0:'.format(matches)
+                        self.writer.newline().indent()
+                        self.writer += 'return {}'.format(matches)
+                        self.writer.newline().dedent()
+
+                pmatches = matches
+
+            # exit term
+
+
+
+            self.writer.newline().dedent()
+
+
+
+    def transformNt(self, nt):
+        assert isinstance(nt, ast.Nt)
+        if repr(nt) not in self.processed_patterns:
+            match_fn = 'lang_{}_match_nt_{}'.format('blah', nt.sym)
+            self.processed_patterns[repr(nt)] = match_fn 
+
+            # first generate isa for NtDefinition 
+            if nt.prefix not in self.isa_nt_functionnames:
+                self.transform(self.definelanguage.nts[nt.prefix])
+
+            isa_functionname = self.isa_nt_functionnames[nt.prefix]
+
+            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+            self.writer += '#{}'.format(repr(nt))
+            self.writer.newline()
+            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
+            self.writer.newline().indent()
+            self.writer += 'if {}({}):'.format(isa_functionname, term)
+            self.writer.newline().indent()
+            self.writer += '{}.{}({}, {})'.format(match, MatchMethodTable.AddToBinding, '\"{}\"'.format(nt.sym), term)
+            self.writer.newline()
+            self.writer += 'return [({}, {}+1, {})]'.format(match, head, tail)
+            self.writer.newline().dedent()
+            self.writer += 'return []'
+            self.writer.newline().dedent().newline()
+
+
+    def transformBuiltInPat(self, pat):
+        assert isinstance(pat, ast.BuiltInPat)
+
+        if pat.kind == ast.BuiltInPatKind.Number:
+            if pat.prefix not in self.isa_nt_functionnames:
+                functionname = 'lang_{}_isa_builtin_{}'.format(self.definelanguage.name, pat.prefix)
+                self.isa_nt_functionnames[pat.prefix] = functionname
+
+                term = Var('term')
+                self.writer += '#Is this term {}?'.format(pat.prefix)
+                self.writer.newline()
+                self.writer += 'def {}({}):'.format(functionname, term)
+                self.writer.newline().indent()
+                self.writer += 'if {}.{}() == {}:'.format(term, TermMethodTable.Kind, TermKind.Integer)
+                self.writer.newline().indent()
+                self.writer += 'return True'
+                self.writer.newline().dedent()
+                self.writer += 'return False'
+                self.writer.newline().dedent().newline()
+
+
+            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+            self.writer += '#{}'.format(repr(pat))
+            self.writer.newline()
+            match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
+            self.processed_patterns[repr(pat)] = match_fn
+            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
+            self.writer.newline().indent()
+            self.writer += 'if {}({}):'.format(self.isa_nt_functionnames[pat.prefix], term) #context.findisa_method_forpat FIXME maybe add context object?
+            self.writer.newline().indent()
+            self.writer += '{}.{}({}, {})'.format(match, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term)
+            self.writer.newline()
+            self.writer += 'return [({}, {}+1, {})]'.format(match,head, tail)
+            self.writer.newline().dedent()
+            self.writer += 'return []'
+            self.writer.newline().dedent().newline()
+
+    def transformLit(self, lit):
+        assert isinstance(lit, ast.Lit)
+        if lit.kind == ast.LitKind.Variable:
+            match_fn = 'lang_{}_consume_lit{}'.format('blah', self.symgen.get())
+            self.processed_patterns[repr(lit)] = match_fn
+            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+
+            self.writer += '#{}'.format(repr(lit))
+            self.writer.newline()
+            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
+            self.writer.newline().indent()
+            self.writer += 'if  {}.{}() == {} '.format(term, TermMethodTable.Kind, TermKind.Variable)
+            self.writer += 'and {}.{}() == {}:'.format(term, TermMethodTable.Value, '\"{}\"'.format(lit.lit))
+            self.writer.newline().indent()
+            self.writer += 'return [({}, {}+1, {}))]'.format(match, head, tail)
+            self.writer.newline().dedent()
+            self.writer += 'return []'
+            self.writer.newline().dedent().newline()
+
