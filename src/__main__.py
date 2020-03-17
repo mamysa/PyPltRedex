@@ -26,7 +26,7 @@ def create_output(writer):
 
 
 tree = RedexSpecParser("test2.rkt", is_filename=True).parse()
-tree = definelanguage_preprocess(tree)
+tree, context = definelanguage_preprocess(tree)
 
 print(tree)
 
@@ -34,7 +34,8 @@ print(tree)
 # imports should be tucked away somewhere
 writer = SourceWriter()
 writer += 'from match import Match'
-codegen = DefineLanguagePatternCodegen3(writer)
+writer.newline()
+codegen = DefineLanguagePatternCodegen3(writer, context)
 codegen.transform(tree)
 create_output(writer)
 

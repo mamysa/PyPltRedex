@@ -1,4 +1,5 @@
 import src.astdefs as ast
+from src.preprocdefinelang import LanguageContext
 
 class SymGen:
     def __init__(self):
@@ -82,14 +83,21 @@ class RetrieveBindableElements(ast.PatternTransformer):
 # FIXME should be refactored even more - need a way to generate code in typesafe manner.
 # (i.e. as code is written types of variables are checked for errors and such...)
 class DefineLanguagePatternCodegen3(ast.PatternTransformer):
-    def __init__(self, writer):
+    def __init__(self, writer, context):
         self.isa_nt_functionnames = {} # mapping of Nt.sym to is_a function name
         self.symgen = SymGen()
         self.processed_patterns = {} 
         self.writer = writer 
+        self.context = context
 
     def transformDefineLanguage(self, node):
         assert isinstance(node, ast.DefineLanguage)
+
+        var, variables = self.context.get_variables_mentioned()
+        self.writer += '{} = set({})'.format(var, list(variables))
+        self.writer.newline()
+
+
         self.definelanguage = node
         for nt in node.nts.values():
             self.transform(nt)
@@ -396,6 +404,44 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer.newline().dedent()
             self.writer += 'return []'
             self.writer.newline().dedent().newline()
+
+        if pat.kind == ast.BuiltInPatKind.VariableNotOtherwiseDefined:
+            if pat.prefix not in self.isa_nt_functionnames:
+                functionname = 'lang_{}_isa_builtin_variable_not_otherwise_mentioned'.format(self.definelanguage.name)
+                self.isa_nt_functionnames[pat.prefix] = functionname
+
+                var, _ = self.context.get_variables_mentioned()
+
+                term = Var('term')
+                self.writer += '#Is this term {}?'.format(pat.prefix)
+                self.writer.newline()
+                self.writer += 'def {}({}):'.format(functionname, term)
+                self.writer.newline().indent()
+                self.writer += 'if  {}.{}() == {} '.format(term, TermMethodTable.Kind, TermKind.Variable)
+                self.writer += 'and {}.{}() not in {}:'.format(term, TermMethodTable.Value, var)
+                self.writer.newline().indent()
+                self.writer += 'return True'
+                self.writer.newline().dedent()
+                self.writer += 'return False'
+                self.writer.newline().dedent().newline()
+
+            # FIXME code duplication; same as above
+            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+            self.writer += '#{}'.format(repr(pat))
+            self.writer.newline()
+            match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
+            self.processed_patterns[repr(pat)] = match_fn
+            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
+            self.writer.newline().indent()
+            self.writer += 'if {}({}):'.format(self.isa_nt_functionnames[pat.prefix], term) #context.findisa_method_forpat FIXME maybe add context object?
+            self.writer.newline().indent()
+            self.writer += '{}.{}({}, {})'.format(match, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term)
+            self.writer.newline()
+            self.writer += 'return [({}, {}+1, {})]'.format(match,head, tail)
+            self.writer.newline().dedent()
+            self.writer += 'return []'
+            self.writer.newline().dedent().newline()
+
 
     def transformLit(self, lit):
         assert isinstance(lit, ast.Lit)

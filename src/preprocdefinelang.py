@@ -17,6 +17,17 @@ import src.astdefs as ast
 # TODO Need to check for non-terminal cycles in define-language patterns 
 # such as (y ::= x) (x ::= y) or even (x ::= x)
 
+class LanguageContext:
+    def __init__(self):
+        self.__variables_mentioned = None
+
+    def add_variables_mentioned(self, variables):
+        self.__variables_mentioned = ('variables_mentioned', variables)
+
+    def get_variables_mentioned(self):
+        return self.__variables_mentioned
+
+
 class NtResolver(ast.PatternTransformer):
     def __init__(self, ntsyms):
         self.ntsyms = ntsyms
@@ -75,20 +86,6 @@ class UnderscoreIdUniquify(ast.PatternTransformer):
         self.id += 1
         return node
 
-class ConvertVariableNotOtherwiseMentioned(ast.PatternTransformer):
-    """
-    Replaces variable-not-otherwise-mentioned pattern with variable-except.
-    """
-
-    def __init__(self, variables):
-        self.variables = variables
-
-    def transformBuiltInPat(self, node):
-        assert isinstance(node, ast.BuiltInPat)
-        if node.kind == ast.BuiltInPatKind.VariableNotOtherwiseDefined:
-            node.aux = self.variables
-        return node
-
 def definelanguage_preprocess(node):
     """
     Resolves all non-terminal symbols and removes underscores from patterns in define-language.
@@ -107,17 +104,11 @@ def definelanguage_preprocess(node):
             new_patterns.append(pat)
         ntdef.patterns = new_patterns
 
-    converter = ConvertVariableNotOtherwiseMentioned(resolver.variables)
-    for nt, ntdef in node.nts.items():
-        patterns = ntdef.patterns
-        new_patterns = []
-        for pat in patterns:
-            pat = converter.transform(pat)
-            new_patterns.append(pat)
-        ntdef.patterns = new_patterns
-
     node = UnderscoreIdUniquify().transform(node)
-    return node    # resolver.variables 
+
+    context = LanguageContext()
+    context.add_variables_mentioned(resolver.variables)
+    return node, context    # resolver.variables 
 
 class EllipsisDepthChecker(ast.PatternTransformer):
     def __init__(self):
