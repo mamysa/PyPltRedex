@@ -1,13 +1,13 @@
 from src.parser import RedexSpecParser
 from src.preprocdefinelang import definelanguage_preprocess
-from src.patcodegen import DefineLanguagePatternCodegen2, AstDump
+from src.patcodegen2 import DefineLanguagePatternCodegen3, SourceWriter
 
 import os
 import shutil
 
 BASEDIR = 'rpyout'
 
-def create_output(module):
+def create_output(writer):
     if os.path.isdir(BASEDIR):
         shutil.rmtree(BASEDIR)
     os.mkdir(BASEDIR)
@@ -16,10 +16,7 @@ def create_output(module):
     shutil.copy('runtime/match.py', BASEDIR)
 
     lang = open('{}/lang.py'.format(BASEDIR), 'w')
-    dumper = AstDump()
-    dumper.write(module)
-    out = ''.join(dumper.buf)
-    lang.write(out)
+    lang.write(writer.build())
     lang.close()
 
 
@@ -33,10 +30,13 @@ tree = definelanguage_preprocess(tree)
 
 print(tree)
 
-codegen = DefineLanguagePatternCodegen2()
-codegen.transform(tree)
 
-create_output(codegen.modulebuilder.build())
+# imports should be tucked away somewhere
+writer = SourceWriter()
+writer += 'from match import Match'
+codegen = DefineLanguagePatternCodegen3(writer)
+codegen.transform(tree)
+create_output(writer)
 
 
 
