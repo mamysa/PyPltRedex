@@ -20,6 +20,8 @@ import src.astdefs as ast
 class LanguageContext:
     def __init__(self):
         self.__variables_mentioned = None
+        self.__isa_functions = {}
+        self.__pattern_code = {}
 
     def add_variables_mentioned(self, variables):
         self.__variables_mentioned = ('variables_mentioned', variables)
@@ -27,6 +29,24 @@ class LanguageContext:
     def get_variables_mentioned(self):
         return self.__variables_mentioned
 
+    def add_isa_function_name(self, prefix, function):
+        assert prefix not in self.__isa_functions
+        self.__isa_functions[prefix] = function
+    
+    def get_isa_function_name(self, prefix):
+        if prefix in self.__isa_functions:
+            return self.__isa_functions[prefix]
+        return None
+
+    # FIXME this should be in module-level context?
+    def add_function_for_pattern(self, prefix, function):
+        assert prefix not in self.__pattern_code
+        self.__pattern_code[prefix] = function
+    
+    def get_function_for_pattern(self, prefix):
+        if prefix in self.__pattern_code:
+            return self.__pattern_code[prefix]
+        return None
 
 class NtResolver(ast.PatternTransformer):
     def __init__(self, ntsyms):
@@ -120,8 +140,10 @@ def definelanguage_preprocess(node):
 def pattern_preprocess(pat, ntsyms):
     assert isinstance(pat, ast.Pat)
     resolver = NtResolver(ntsyms)
-    return resolver.transform(pat)
-
+    checker = EllipsisDepthChecker()
+    pat = resolver.transform(pat)
+    pat = checker.transform(pat)
+    return pat
 
 class EllipsisDepthChecker(ast.PatternTransformer):
     def __init__(self):

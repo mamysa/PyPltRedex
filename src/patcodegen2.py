@@ -84,9 +84,8 @@ class RetrieveBindableElements(ast.PatternTransformer):
 # (i.e. as code is written types of variables are checked for errors and such...)
 class DefineLanguagePatternCodegen3(ast.PatternTransformer):
     def __init__(self, writer, context):
-        self.isa_nt_functionnames = {} # mapping of Nt.sym to is_a function name
+        assert isinstance(context, LanguageContext)
         self.symgen = SymGen()
-        self.processed_patterns = {} 
         self.writer = writer 
         self.context = context
 
@@ -102,12 +101,11 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         for nt in node.nts.values():
             self.transform(nt)
 
-
     def transformNtDefinition(self, node):
         assert isinstance(node, ast.NtDefinition)
-        if node.nt.prefix not in self.isa_nt_functionnames:
+        if not self.context.get_isa_function_name(node.nt.prefix):
             this_function_name = 'lang_{}_isa_nt_{}'.format('bla', node.nt.prefix)
-            self.isa_nt_functionnames[node.nt.prefix] = this_function_name 
+            self.context.add_isa_function_name(node.nt.prefix, this_function_name)
 
             # codegen patterns first
             for pat in node.patterns: 
@@ -122,7 +120,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 rbe.transform(pat)
                 bindables = list(map(lambda x: x.sym,   rbe.bindables))
 
-                functionname = self.processed_patterns[repr(pat)]
+                functionname = self.context.get_function_for_pattern(repr(pat))
                 self.writer += '{} = Match({})'.format(match, list(set(bindables)))
                 self.writer.newline()
                 self.writer += '{} = {}({}, {}, {}, {})'.format(matches, functionname, term, match, 0, 1)
@@ -138,9 +136,9 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
     def transformPatSequence(self, seq):
         assert isinstance(seq, ast.PatSequence)
-        if repr(seq) not in self.processed_patterns:
+        if not self.context.get_function_for_pattern(repr(seq)):
             match_fn = 'match_term_{}'.format(self.symgen.get())
-            self.processed_patterns[repr(seq)] = match_fn 
+            self.context.add_function_for_pattern(repr(seq), match_fn)
             
             # generate code for all elements of the sequence.
             for pat in seq:
@@ -193,7 +191,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 self.writer.newline()
 
                 if isinstance(pat, ast.Repeat) or isinstance(pat, ast.PatSequence):
-                    functionname = self.processed_patterns[repr(pat)]
+                    functionname = self.context.get_function_for_pattern(repr(pat))
                     self.writer += '{} = []'.format(matches)
                     self.writer.newline()
                     self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
@@ -226,17 +224,17 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                     #   m.addtobinding(m, term.get(h)) if pat is Builtin or Nt 
                     #   matches.append((m, h+1, t))
                     # if len(matches) == 0: return None
-                    isa_functionname = self.processed_patterns[repr(pat)]
+                    isa_functionname = self.context.get_function_for_pattern(repr(pat))
                     self.writer += '{} = []'.format(matches)
                     self.writer.newline()
                     self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
                     self.writer.newline().indent()
 
                     if isinstance(pat, ast.Nt) or isinstance(pat, ast.BuiltInPat):
-                        isa_functionname = self.isa_nt_functionnames[pat.prefix]
+                        isa_functionname = self.context.get_isa_function_name(pat.prefix)
                         self.writer += 'if {}({}.{}({})):'.format(isa_functionname, term, TermMethodTable.Get, h)
                     else: 
-                        functionname = self.processed_patterns[repr(pat)]
+                        functionname = self.context.get_function_for_pattern(repr(pat))
                         self.writer += 'if {}({}.{}({}), {}, {}, {}):'.format(functionname, term, TermMethodTable.Get, h, m, h, t)
 
                     self.writer.newline().indent()
@@ -285,15 +283,15 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         #      queue   += tmp 
         # for m, h, t in matches:
         #   m.decreasedepth(...)
-        if repr(repeat) not in self.processed_patterns:
+        if not self.context.get_function_for_pattern(repr(repeat)):
             match_fn = 'match_term_{}'.format(self.symgen.get())
-            self.processed_patterns[repr(repeat)] = match_fn 
+            self.context.add_function_for_pattern(repr(repeat), match_fn)
 
             # codegen enclosed pattern 
             self.transform(repeat.pat)
 
 
-            functionname = self.processed_patterns[repr(repeat.pat)]
+            functionname = self.context.get_function_for_pattern(repr(repeat.pat))
 
             # retrieve all bindable elements
             rbe = RetrieveBindableElements()
@@ -343,15 +341,15 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
     def transformNt(self, nt):
         assert isinstance(nt, ast.Nt)
-        if repr(nt) not in self.processed_patterns:
+        if not self.context.get_function_for_pattern(repr(nt)):
             match_fn = 'lang_{}_match_nt_{}'.format('blah', nt.sym)
-            self.processed_patterns[repr(nt)] = match_fn 
+            self.context.add_function_for_pattern(repr(nt), match_fn)
 
             # first generate isa for NtDefinition 
-            if nt.prefix not in self.isa_nt_functionnames:
+            if not self.context.get_isa_function_name(nt.prefix):
                 self.transform(self.definelanguage.nts[nt.prefix])
 
-            isa_functionname = self.isa_nt_functionnames[nt.prefix]
+            isa_functionname = self.context.get_isa_function_name(nt.prefix)
 
             term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
             self.writer += '#{}'.format(repr(nt))
@@ -372,9 +370,9 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         assert isinstance(pat, ast.BuiltInPat)
 
         if pat.kind == ast.BuiltInPatKind.Number:
-            if pat.prefix not in self.isa_nt_functionnames:
+            if not self.context.get_isa_function_name(pat.prefix):
                 functionname = 'lang_{}_isa_builtin_{}'.format(self.definelanguage.name, pat.prefix)
-                self.isa_nt_functionnames[pat.prefix] = functionname
+                self.context.add_isa_function_name(pat.prefix, functionname)
 
                 term = Var('term')
                 self.writer += '#Is this term {}?'.format(pat.prefix)
@@ -393,10 +391,10 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer += '#{}'.format(repr(pat))
             self.writer.newline()
             match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
-            self.processed_patterns[repr(pat)] = match_fn
+            self.context.add_function_for_pattern(repr(pat), match_fn)
             self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
             self.writer.newline().indent()
-            self.writer += 'if {}({}):'.format(self.isa_nt_functionnames[pat.prefix], term) #context.findisa_method_forpat FIXME maybe add context object?
+            self.writer += 'if {}({}):'.format(self.context.get_isa_function_name(pat.prefix), term) #context.findisa_method_forpat FIXME maybe add context object?
             self.writer.newline().indent()
             self.writer += '{}.{}({}, {})'.format(match, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term)
             self.writer.newline()
@@ -406,9 +404,9 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer.newline().dedent().newline()
 
         if pat.kind == ast.BuiltInPatKind.VariableNotOtherwiseDefined:
-            if pat.prefix not in self.isa_nt_functionnames:
+            if not self.context.get_isa_function_name(pat.prefix):
                 functionname = 'lang_{}_isa_builtin_variable_not_otherwise_mentioned'.format(self.definelanguage.name)
-                self.isa_nt_functionnames[pat.prefix] = functionname
+                self.context.add_isa_function_name(pat.prefix, functionname)
 
                 var, _ = self.context.get_variables_mentioned()
 
@@ -430,10 +428,10 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer += '#{}'.format(repr(pat))
             self.writer.newline()
             match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
-            self.processed_patterns[repr(pat)] = match_fn
+            self.context.add_function_for_pattern(repr(pat), match_fn)
             self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
             self.writer.newline().indent()
-            self.writer += 'if {}({}):'.format(self.isa_nt_functionnames[pat.prefix], term) #context.findisa_method_forpat FIXME maybe add context object?
+            self.writer += 'if {}({}):'.format(self.context.get_isa_function_name(pat.prefix), term) #context.findisa_method_forpat FIXME maybe add context object?
             self.writer.newline().indent()
             self.writer += '{}.{}({}, {})'.format(match, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term)
             self.writer.newline()
@@ -447,7 +445,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         assert isinstance(lit, ast.Lit)
         if lit.kind == ast.LitKind.Variable:
             match_fn = 'lang_{}_consume_lit{}'.format('blah', self.symgen.get())
-            self.processed_patterns[repr(lit)] = match_fn
+            self.context.add_function_for_pattern(repr(lit), match_fn)
             term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
 
             self.writer += '#{}'.format(repr(lit))
