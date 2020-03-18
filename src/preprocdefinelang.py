@@ -86,6 +86,13 @@ class UnderscoreIdUniquify(ast.PatternTransformer):
         self.id += 1
         return node
 
+def module_preprocess(node):
+    assert isinstance(node, ast.Module)
+    node.definelanguage, context = definelanguage_preprocess(node.definelanguage)
+    for redexmatch in node.redexmatches:
+        redexmatch.pat = pattern_preprocess(redexmatch.pat, node.definelanguage.ntsyms())
+    return node, context
+
 def definelanguage_preprocess(node):
     """
     Resolves all non-terminal symbols and removes underscores from patterns in define-language.
@@ -109,6 +116,12 @@ def definelanguage_preprocess(node):
     context = LanguageContext()
     context.add_variables_mentioned(resolver.variables)
     return node, context    # resolver.variables 
+
+def pattern_preprocess(pat, ntsyms):
+    assert isinstance(pat, ast.Pat)
+    resolver = NtResolver(ntsyms)
+    return resolver.transform(pat)
+
 
 class EllipsisDepthChecker(ast.PatternTransformer):
     def __init__(self):

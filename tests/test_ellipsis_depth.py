@@ -34,6 +34,10 @@ class TestEllipsisDepth(unittest.TestCase):
         pat = NtResolver(set(['n'])).transform(pat)
         EllipsisDepthChecker().transform(pat)
 
+    def test_ellpsis_depth_6(self):
+        pat = RedexSpecParser('((n_1) ... (n_1) ...)', is_filename=False).pattern()
+        pat = NtResolver(set(['n'])).transform(pat)
+        EllipsisDepthChecker().transform(pat)
 
 
 

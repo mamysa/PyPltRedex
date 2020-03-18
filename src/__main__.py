@@ -1,5 +1,5 @@
 from src.parser import RedexSpecParser
-from src.preprocdefinelang import definelanguage_preprocess
+from src.preprocdefinelang import module_preprocess 
 from src.patcodegen2 import DefineLanguagePatternCodegen3, SourceWriter
 
 import os
@@ -26,18 +26,20 @@ def create_output(writer):
 
 
 tree = RedexSpecParser("test2.rkt", is_filename=True).parse()
-tree, context = definelanguage_preprocess(tree)
 
-print(tree)
+tree, context = module_preprocess(tree)
+for p in tree.redexmatches:
+    print(p)
+
 
 
 # imports should be tucked away somewhere
-writer = SourceWriter()
-writer += 'from match import Match'
-writer.newline()
-codegen = DefineLanguagePatternCodegen3(writer, context)
-codegen.transform(tree)
-create_output(writer)
+#writer = SourceWriter()
+#writer += 'from match import Match'
+#writer.newline()
+#codegen = DefineLanguagePatternCodegen3(writer, context)
+#codegen.transform(tree)
+#create_output(writer)
 
 
 

@@ -158,6 +158,20 @@ class DefineLanguage(AstNode):
         return 'DefineLanguage({}, {})'.format(self.name, self.nts)
 
 
+class RedexMatch(AstNode):
+    def __init__(self, languagename, pat, termstr):
+        self.languagename = languagename
+        self.pat = pat
+        self.termstr = termstr 
+
+    def __repr__(self):
+        return 'RedexMatch({}, {}, {})'.format(self.languagename, repr(self.pat), self.termstr)
+
+class Module(AstNode):
+    def __init__(self, definelanguage, redexmatches):
+        self.definelanguage = definelanguage
+        self.redexmatches = redexmatches
+
 class PatternTransformer:
     """
     AstNode to AstNode transformer. Returns tree equal to the one being transformed. (i.e. does absolutely nothing!)

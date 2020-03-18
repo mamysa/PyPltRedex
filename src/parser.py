@@ -75,6 +75,22 @@ class RedexSpecParser:
             self.start = self.end
             return token
 
+        def extract_chars_until_matching_rparen(self):
+            depth = 0
+            ch = self.peek()
+            while ch:
+                if ch == '\0':
+                    assert False, 'unbalanced lparen'
+                if ch == ')':
+                    if depth == 0:
+                        break
+                    depth -= 1
+                if ch == '(':
+                    depth += 1
+                self.advance()
+                ch = self.peek()
+            return self.extract()
+
         def next(self):
             while self.peek() != '\0':
 
@@ -155,7 +171,6 @@ class RedexSpecParser:
     def expect(self, kind, tok=None):
         if self.nexttoken == None:
             assert False, 'reached EOF'
-
         if self.nexttoken[0] == kind:
             if tok != None:
                 if self.nexttoken[1] == tok: 
@@ -163,12 +178,12 @@ class RedexSpecParser:
                     self.nexttoken = self.tokenizer.next()
                     return ret[1]
                 else:
-                    assert False, 'unexpected ' + tok
+                    assert False, 'unexpected ' + str(kind)
             else:
                 ret = self.nexttoken
                 self.nexttoken = self.tokenizer.next()
                 return ret[1]
-        assert False, 'unexpected ' + tok
+        assert False, 'unexpected {}, actual {}'.format(str(kind), str(self.nexttoken[0]))
 
     # (define-language lang-name non-terminal-def ...)
     def define_language(self):
@@ -186,6 +201,23 @@ class RedexSpecParser:
             nts[nt] = ntdef 
         self.expect(TokenKind.RParen)
         return ast.DefineLanguage(lang_name, nts)
+
+    def redex_match(self):
+        self.expect(TokenKind.Ident, 'redex-match')
+        langname = self.expect(TokenKind.Ident)
+        pattern  = self.pattern()
+
+        #( term ...)
+        self.expect(TokenKind.LParen)
+        tok, val = self.peekv() 
+        if val != 'term':
+            assert False, 'term expected'
+        termstr = self.tokenizer.extract_chars_until_matching_rparen().strip()
+        self.nexttoken = self.tokenizer.next() # very hacky but oh well :)
+        self.expect(TokenKind.RParen)
+
+        self.expect(TokenKind.RParen)
+        return ast.RedexMatch(langname, pattern, termstr)
 
     # non-terminal-def = (non-terminal-name ::= pattern ...+)
     def non_terminal_def(self):
@@ -262,9 +294,18 @@ class RedexSpecParser:
         return ast.PatSequence(sequence) 
 
     def parse(self):
-        self.expect(TokenKind.LParen)
+        redexmatches = []
+        definelanguage = None
+        while self.nexttoken != None:
+            self.expect(TokenKind.LParen)
+            #print(self.nexttoken)
+            tokenkind, tokenvalue = self.peekv()
+            if tokenvalue == 'define-language':
+                definelanguage = self.define_language()
+            if tokenvalue == 'redex-match':
+                redexmatches.append(self.redex_match())
 
-        tokenkind, tokenvalue = self.peekv()
-        
-        if tokenvalue == 'define-language':
-            return self.define_language()
+        for redexmatch in redexmatches:
+            if definelanguage == None or redexmatch.languagename != definelanguage.name:
+                assert False, 'undefined language ' + redexmatch.languagename
+        return ast.Module(definelanguage, redexmatches)
