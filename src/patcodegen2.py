@@ -1,16 +1,6 @@
 import src.astdefs as ast
 from src.preprocdefinelang import LanguageContext
-
-class SymGen:
-    def __init__(self):
-        self.syms = {}
-
-    def get(self, var='tmp'):
-        if var not in self.syms:
-            self.syms[var] = 0
-        val = self.syms[var]
-        self.syms[var] += 1
-        return '{}{}'.format(var, val)
+from src.symgen import SymGen
 
 
 class SourceWriter:
@@ -54,6 +44,8 @@ class MatchMethodTable:
     IncreaseDepth = 'increasedepth'
     DecreaseDepth = 'decreasedepth'
     Copy = 'copy'
+    CompareKeys = 'comparekeys'
+    RemoveKey   = 'removebinding'
 
 class TermKind:
     Variable = 0
@@ -74,6 +66,9 @@ class RetrieveBindableElements(ast.PatternTransformer):
 
     def transformNt(self, node):
         self.bindables.append(node)
+        return node
+
+    def transformCheckConstraint(self, node):
         return node
 
     def transformBuiltInPat(self, node):
@@ -100,6 +95,25 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.definelanguage = node
         for nt in node.nts.values():
             self.transform(nt)
+
+    def transformRedexMatch(self, node):
+        assert isinstance(node, ast.RedexMatch)
+        term = Var(self.symgen.get('term'))
+        self.writer += '{} = \"{}\"'.format(term, node.termstr)
+
+        self.transform(node.pat)
+        fnname = self.context.get_function_for_pattern(repr(node.pat))
+
+        matches, match,  _ = Var('term'), Var('match'), Var('_')
+
+        rbe = RetrieveBindableElements()
+        rbe.transform(node.pat)
+        bindables = list(map(lambda x: x.sym,   rbe.bindables))
+        self.writer += '{} = Match({})'.format(match, list(set(bindables)))
+        self.writer.newline()
+        self.writer += '{}, {}, {} = {}({}, {}, {}, {})'.format(matches, _, _, fnname, term, match, 0, 1)
+        self.writer.newline()
+        self.writer += 'print({})'.format(matches)
 
     def transformNtDefinition(self, node):
         assert isinstance(node, ast.NtDefinition)
@@ -142,7 +156,8 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             
             # generate code for all elements of the sequence.
             for pat in seq:
-                self.transform(pat)
+                if not isinstance(pat, ast.CheckConstraint):
+                    self.transform(pat)
 
             # symgen for the function
             symgen = SymGen()
@@ -217,6 +232,24 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                             self.writer.newline().indent()
                             self.writer += '{}.append(({}, {}, {}))'.format(matches, m, h, t)
                             self.writer.newline().dedent().dedent()
+
+                elif isinstance(pat, ast.CheckConstraint):
+                    self.writer += '{} = []'.format(matches)
+                    self.writer.newline()
+                    self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
+                    self.writer.newline().indent()
+                    self.writer += 'if {}.{}(\"{}\", \"{}\"):'.format(m, MatchMethodTable.CompareKeys, pat.sym1, pat.sym2)
+                    self.writer.newline().indent()
+                    self.writer += '{}.{}(\"{}\")'.format(m, MatchMethodTable.RemoveKey, pat.sym2)
+                    self.writer.newline()
+                    self.writer += '{}.append(({}, {}, {}))'.format(matches, m, h, t)
+                    self.writer.newline().dedent().dedent()
+
+                    self.writer += 'if len({}) == 0:'.format(matches)
+                    self.writer.newline().indent()
+                    self.writer += 'return {}'.format(matches)
+                    self.writer.newline().dedent()
+
                 else:
                     # matches = []
                     # for m, h, t in matches:

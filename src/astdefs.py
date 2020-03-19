@@ -1,5 +1,5 @@
-
 import enum
+from functools import reduce
 
 class AstNode:
     """
@@ -42,6 +42,12 @@ class Pat(AstNode):
     def __init__(self):
         super().__init__()
 
+    def collect_bindable_syms(self): ## should be a visitor.
+        return set([])
+
+    def collect_pat_nodes_for(self, sym):
+        return []
+
 class Lit(Pat):
     """
     Represents all literals in the pattern such as numbers, strings, etc.
@@ -73,9 +79,23 @@ class PatSequence(Pat):
         assert tail <= len(self.seq), 'out of bounds'
         num_nonoptional = 0
         for i in range(head, tail):
-            if not isinstance(self.seq[i], Repeat):
+            if not isinstance(self.seq[i], Repeat) and not isinstance(self.seq[i], CheckConstraint):
                 num_nonoptional += 1
         return num_nonoptional
+
+    def collect_bindable_syms(self):
+        return reduce(lambda s, pat: s.union(pat.collect_bindable_syms()), self.seq, set([])) 
+
+    def collect_pat_nodes_for(self, sym):
+        return reduce(lambda s, pat: s + pat.collect_pat_nodes_for(sym), self.seq, []) 
+
+    def collect_pat_nodes_for_with_indices(self, sym):
+        out = []
+        for i, pat in enumerate(self.seq):
+            arr = pat.collect_pat_nodes_for(sym)
+            if len(arr) > 0:
+                out.append((i, arr))
+        return out
 
     def __len__(self):
         return len(self.seq)
@@ -98,10 +118,19 @@ class Nt(Pat):
         self.prefix = prefix
         self.sym = sym
 
+    def collect_bindable_syms(self):
+        return set([self.sym])
+
+    def collect_pat_nodes_for(self, sym):
+        lst = []
+        if self.sym == sym:
+            lst.append(self)
+        return lst 
+
     def __repr__(self):
         return 'Nt({}, {})'.format(self.prefix, self.sym)
 
-class NtDefinition(Pat):
+class NtDefinition(AstNode):
     def __init__(self, nt, patterns):
         assert isinstance(nt, Nt)
         self.nt = nt
@@ -109,8 +138,6 @@ class NtDefinition(Pat):
 
     def __repr__(self):
         return 'NtDefinition({}, {})'.format(repr(self.nt), repr(self.patterns))
-
-
 
 class UnresolvedSym(Pat):
     def __init__(self, prefix, sym):
@@ -122,6 +149,12 @@ class UnresolvedSym(Pat):
         self.prefix = prefix
         self.sym = sym
 
+    def collect_bindable_syms(self):
+        assert False, 'unreachable'
+
+    def collect_pat_nodes_for(self, sym):
+        assert False, 'unreachable'
+
     def __repr__(self):
         return 'UnresolvedSym({})'.format(self.sym)
 
@@ -130,6 +163,12 @@ class Repeat(Pat):
         assert isinstance(pat, Pat)
         self.pat = pat
 
+    def collect_bindable_syms(self):
+        return self.pat.collect_bindable_syms()
+
+    def collect_pat_nodes_for(self, sym):
+        return self.pat.collect_pat_nodes_for(sym)
+    
     def __repr__(self):
         return 'Repeat({})'.format(self.pat)
 
@@ -141,10 +180,27 @@ class BuiltInPat(Pat):
         self.sym = sym
         self.aux = aux 
 
+    def collect_bindable_syms(self):
+        return set([self.sym])
+
+    def collect_pat_nodes_for(self, sym):
+        lst = []
+        if self.sym == sym:
+            lst.append(self)
+        return lst 
+
     def __repr__(self):
         if self.aux:
             return 'BuiltInPat({}, {}, {})'.format(self.kind, self.sym, repr(self.aux))
         return 'BuiltInPat({}, {})'.format(self.kind, self.sym)
+
+class CheckConstraint(Pat):
+    def __init__(self, sym1, sym2):
+        self.sym1 = sym1 
+        self.sym2 = sym2 
+
+    def __repr__(self):
+        return 'CheckConstraint({} == {})'.format(self.sym1, self.sym2)
 
 class DefineLanguage(AstNode):
     def __init__(self, name, nts):

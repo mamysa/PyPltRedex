@@ -1,4 +1,5 @@
 import src.astdefs as ast
+from src.symgen import SymGen
 
 # Preprocessing define-language construct involves the following steps.
 # (1) Ensure all non-terminals are defined exactly once and contain no underscores. 
@@ -143,6 +144,9 @@ def pattern_preprocess(pat, ntsyms):
     checker = EllipsisDepthChecker()
     pat = resolver.transform(pat)
     pat = checker.transform(pat)
+    bindablesyms = pat.collect_bindable_syms()
+    for sym in bindablesyms:
+        pat, _ = ConstraintCheckInserter(sym).transform(pat)
     return pat
 
 class EllipsisDepthChecker(ast.PatternTransformer):
@@ -153,8 +157,9 @@ class EllipsisDepthChecker(ast.PatternTransformer):
     def transformRepeat(self, node):
         assert isinstance(node, ast.Repeat)
         self.depth += 1
-        self.transform(node.pat)
+        node.pat = self.transform(node.pat)
         self.depth -= 1
+        return node
 
     def transformNt(self, node):
         assert isinstance(node, ast.Nt)
@@ -167,6 +172,78 @@ class EllipsisDepthChecker(ast.PatternTransformer):
 
     def transformUnresolvedSym(self, node):
         assert False, 'UnresolvedSym not allowed'
+
+# Patterns like ((n_1 ... n_1 ...) (n_1 ... n_1 ...)) require all n_1 ... values to be equal.
+# This is done by creating temporary bindings for each n_1 encountered. More specifically,
+# (1) ((n_1 ... n_1#2 ... CheckEquality(n_1 n_1#0) (n_1 ... n_1 ...))
+# (2) ((n_1 ... n_1#0 ... CheckEquality(n_1 n_1#0) (n_1 ... n_1#1 ... CheckEquality(n_1 n_1#1)))
+# (3) ((n_1 ... n_1#0 ... CheckEquality(n_1 n_1#0) (n_1#2 ... n_1#1 ... CheckEquality(n_1 n_1#1)) CheckEquality(n_1, n_1#2))
+# This class (1) renames all occurences of bindable symbol (except the first one)
+# (2) Inserts contraint checks when at least two syms have been seen in the sequence.
+class ConstraintCheckInserter(ast.PatternTransformer):
+    def __init__(self, sym):
+        self.sym = sym
+        self.symgen = SymGen()
+
+    def transformPatSequence(self, seq):
+        assert isinstance(seq, ast.PatSequence) 
+        nseq = [] 
+        syms = []
+        for pat in seq:
+            node, sym = self.transform(pat)
+            nseq.append(node)
+            if sym != None: 
+                syms.append(sym)
+
+            if len(syms) == 2:
+                nseq.append( ast.CheckConstraint(syms[0], syms[1]) )
+                syms.pop()
+
+        assert len(syms) < 2
+        nseq = ast.PatSequence(nseq)
+        if len(syms) == 0:
+            return nseq, None
+        return nseq, syms[0]
+
+    def transformRepeat(self, repeat):
+        return self.transform(repeat.pat)
+
+    def transformBuiltInPat(self, pat):
+        assert isinstance(pat, ast.BuiltInPat)
+        if pat.sym == self.sym:
+            nsym = self.symgen.get('{}#'.format(self.sym))
+            # First time we see desired symbol we do not rename it - we will keep it in the end.
+            if nsym != '{}#0'.format(self.sym):
+                pat.sym = nsym
+                return pat, nsym
+            return pat, pat.sym
+        return pat, None
+
+    def transformNt(self, pat):
+        assert isinstance(pat, ast.Nt)
+        if pat.sym == self.sym:
+            nsym = self.symgen.get('{}#'.format(self.sym))
+            # First time we see desired symbol we do not rename it - we will keep it in the end.
+            if nsym != '{}#0'.format(self.sym):
+                pat.sym = nsym
+                return pat, nsym
+            return pat, pat.sym
+        return pat, None
+
+    def transformLit(self, pat):
+        return pat, None
+
+    def transformCheckConstraint(self, node):
+        return node, None
+
+
+            
+
+
+
+
+
+
 
 class PatternComparator:
     """
@@ -212,6 +289,10 @@ class PatternComparator:
                         break
                 return match
         return False
+
+
+class InsertTermEqualityChecking:
+    pass
 
 # This does not work as expected. For example, 
 # given language (e ::= (e ... n n ...) (+ e e) n) (n ::= number) matching e greedily 
