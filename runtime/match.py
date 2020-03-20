@@ -45,7 +45,6 @@ class Binding:
             assert False, 'something went wrong'
         return self.buf[0]
 
-
 class Match:
     def __init__(self, identifiers): 
         self.bindings = {} 
@@ -64,6 +63,17 @@ class Match:
 
     def addtobinding(self, var, val):
         self.bindings[var].add(val)
+
+    def removebinding(self, var):
+        self.bindings.pop(var, None)
+
+    def comparekeys(self, var1, var2):
+        binding1 = self.bindings[var1]
+        binding2 = self.bindings[var2]
+        assert len(binding1.buf) > 0
+        assert len(binding2.buf) > 0
+        return binding1.buf[-1] == binding2.buf[-1]
+
 
     def copy(self):
         a = copy.deepcopy(self.bindings)

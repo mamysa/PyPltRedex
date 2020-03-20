@@ -206,7 +206,8 @@ class ConstraintCheckInserter(ast.PatternTransformer):
         return nseq, syms[0]
 
     def transformRepeat(self, repeat):
-        return self.transform(repeat.pat)
+        pat, sym = self.transform(repeat.pat)
+        return ast.Repeat(pat), sym
 
     def transformBuiltInPat(self, pat):
         assert isinstance(pat, ast.BuiltInPat)

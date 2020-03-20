@@ -25,6 +25,8 @@ def codegen(tree, context):
     writer = SourceWriter()
     writer += 'from match import Match'
     writer.newline()
+    writer += 'from parser import Parser'
+    writer.newline()
     codegen = DefineLanguagePatternCodegen3(writer, context)
     codegen.transform(tree.definelanguage)
     for rm in tree.redexmatches:
@@ -34,4 +36,5 @@ def codegen(tree, context):
 
 tree = RedexSpecParser("test2.rkt", is_filename=True).parse()
 tree, context = module_preprocess(tree)
+
 codegen(tree, context)

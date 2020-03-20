@@ -98,20 +98,21 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
     def transformRedexMatch(self, node):
         assert isinstance(node, ast.RedexMatch)
-        term = Var(self.symgen.get('term'))
-        self.writer += '{} = \"{}\"'.format(term, node.termstr)
-
+        
         self.transform(node.pat)
         fnname = self.context.get_function_for_pattern(repr(node.pat))
 
-        matches, match,  _ = Var('term'), Var('match'), Var('_')
+        matches, match = Var('matches'), Var('match') 
+        term = Var(self.symgen.get('term'))
+        self.writer += '{} = Parser(\"{}\").parse()'.format(term, node.termstr)
+        self.writer.newline()
 
         rbe = RetrieveBindableElements()
         rbe.transform(node.pat)
         bindables = list(map(lambda x: x.sym,   rbe.bindables))
         self.writer += '{} = Match({})'.format(match, list(set(bindables)))
         self.writer.newline()
-        self.writer += '{}, {}, {} = {}({}, {}, {}, {})'.format(matches, _, _, fnname, term, match, 0, 1)
+        self.writer += '{} = {}({}, {}, {}, {})'.format(matches, fnname, term, match, 0, 1)
         self.writer.newline()
         self.writer += 'print({})'.format(matches)
 
@@ -375,7 +376,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
     def transformNt(self, nt):
         assert isinstance(nt, ast.Nt)
         if not self.context.get_function_for_pattern(repr(nt)):
-            match_fn = 'lang_{}_match_nt_{}'.format('blah', nt.sym)
+            match_fn = 'lang_{}_match_nt_{}'.format('blah', self.symgen.get())
             self.context.add_function_for_pattern(repr(nt), match_fn)
 
             # first generate isa for NtDefinition 
@@ -477,19 +478,20 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
     def transformLit(self, lit):
         assert isinstance(lit, ast.Lit)
         if lit.kind == ast.LitKind.Variable:
-            match_fn = 'lang_{}_consume_lit{}'.format('blah', self.symgen.get())
-            self.context.add_function_for_pattern(repr(lit), match_fn)
-            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+            if not self.context.get_function_for_pattern(repr(lit)):
+                match_fn = 'lang_{}_consume_lit{}'.format('blah', self.symgen.get())
+                self.context.add_function_for_pattern(repr(lit), match_fn)
+                term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
 
-            self.writer += '#{}'.format(repr(lit))
-            self.writer.newline()
-            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
-            self.writer.newline().indent()
-            self.writer += 'if  {}.{}() == {} '.format(term, TermMethodTable.Kind, TermKind.Variable)
-            self.writer += 'and {}.{}() == {}:'.format(term, TermMethodTable.Value, '\"{}\"'.format(lit.lit))
-            self.writer.newline().indent()
-            self.writer += 'return [({}, {}+1, {})]'.format(match, head, tail)
-            self.writer.newline().dedent()
-            self.writer += 'return []'
-            self.writer.newline().dedent().newline()
+                self.writer += '#{}'.format(repr(lit))
+                self.writer.newline()
+                self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
+                self.writer.newline().indent()
+                self.writer += 'if  {}.{}() == {} '.format(term, TermMethodTable.Kind, TermKind.Variable)
+                self.writer += 'and {}.{}() == {}:'.format(term, TermMethodTable.Value, '\"{}\"'.format(lit.lit))
+                self.writer.newline().indent()
+                self.writer += 'return [({}, {}+1, {})]'.format(match, head, tail)
+                self.writer.newline().dedent()
+                self.writer += 'return []'
+                self.writer.newline().dedent().newline()
 

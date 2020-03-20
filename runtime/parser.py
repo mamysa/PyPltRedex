@@ -24,11 +24,8 @@ def is_reserved(c):
     return c in ['(', ')', '[', ']', '{', '}', '\"', '\'', '`', ';', '#', '|', '\\']
 
 class Tokenizer:
-    def __init__(self, filename):
-        f = open(filename, 'r')
-        self.buf = f.read()
-        f.close()
-
+    def __init__(self, string):
+        self.buf = string
         # character offsets.
         self.start = 0
         self.end = 0
@@ -129,8 +126,8 @@ class Tokenizer:
         return None
 
 class Parser:
-    def __init__(self, filename):
-        self.tokenizer = Tokenizer(filename)
+    def __init__(self, string):
+        self.tokenizer = Tokenizer(string)
         self.nexttoken = self.tokenizer.next()
 
     def peek(self):
@@ -191,16 +188,3 @@ class Parser:
             term = self.parse_atom()
         assert self.iseof()
         return term 
-
-
-import sys
-
-if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('no file provided')
-        sys.exit(1)
-
-    parser = Parser(sys.argv[1])
-    t = parser.parse()
-    print(t)
-
