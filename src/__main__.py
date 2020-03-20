@@ -6,6 +6,8 @@ import sys
 import os
 import shutil
 
+import argparse
+
 BASEDIR = 'rpyout'
 
 def create_output(writer):
@@ -34,7 +36,11 @@ def codegen(tree, context):
     create_output(writer)
 
 
-tree = RedexSpecParser("test2.rkt", is_filename=True).parse()
-tree, context = module_preprocess(tree)
 
+parser = argparse.ArgumentParser()
+parser.add_argument('src', help='.rkt containing Redex spec')
+args = parser.parse_args()
+
+tree = RedexSpecParser(args.src, is_filename=True).parse()
+tree, context = module_preprocess(tree)
 codegen(tree, context)
