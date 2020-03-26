@@ -2,6 +2,7 @@ class TermKind:
     Variable = 0
     Integer  = 1
     Sequence = 2 
+    Hole = 3 
 
 class Ast:
     def __init__(self, kind):
@@ -41,6 +42,16 @@ class Variable(Ast):
         if self.kind() == other.kind():
             return self.value() == other.value()
         return False
+
+class Hole(Ast):
+    def __init__(self):
+        super().__init__(TermKind.Hole)
+
+    def __repr__(self):
+        return 'hole'
+
+    def __eq__(self):
+        return self.kind() == other.kind()
 
 class Sequence(Ast):
     def __init__(self, seq):

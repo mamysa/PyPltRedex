@@ -51,6 +51,7 @@ class TermKind:
     Variable = 0
     Integer  = 1
     Sequence = 2 
+    Hole = 3
 
 class Var:
     def __init__(self, name):
@@ -72,7 +73,9 @@ class RetrieveBindableElements(ast.PatternTransformer):
         return node
 
     def transformBuiltInPat(self, node):
-        self.bindables.append(node)
+        assert isinstance(node, ast.BuiltInPat)
+        if node.kind != ast.BuiltInPatKind.Hole:
+            self.bindables.append(node)
         return node
 
 # FIXME should be refactored even more - need a way to generate code in typesafe manner.
@@ -115,6 +118,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.writer += '{} = {}({}, {}, {}, {})'.format(matches, fnname, term, match, 0, 1)
         self.writer.newline()
         self.writer += 'print({})'.format(matches)
+        self.writer.newline()
 
     def transformNtDefinition(self, node):
         assert isinstance(node, ast.NtDefinition)
@@ -473,6 +477,41 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer.newline().dedent()
             self.writer += 'return []'
             self.writer.newline().dedent().newline()
+
+        if pat.kind == ast.BuiltInPatKind.Hole:
+            if not self.context.get_isa_function_name(pat.prefix):
+                functionname = 'lang_{}_isa_builtin_hole'.format(self.definelanguage.name)
+                self.context.add_isa_function_name(pat.prefix, functionname)
+
+                term = Var('term')
+                self.writer += '#Is this term {}?'.format(pat.prefix)
+                self.writer.newline()
+                self.writer += 'def {}({}):'.format(functionname, term)
+                self.writer.newline().indent()
+                self.writer += 'if  {}.{}() == {}:'.format(term, TermMethodTable.Kind, TermKind.Hole)
+                self.writer.newline().indent()
+                self.writer += 'return True'
+                self.writer.newline().dedent()
+                self.writer += 'return False'
+                self.writer.newline().dedent().newline()
+
+            # FIXME code duplication; same as above, but do not bind anything...
+            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+            self.writer += '#{}'.format(repr(pat))
+            self.writer.newline()
+            match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
+            self.context.add_function_for_pattern(repr(pat), match_fn)
+            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
+            self.writer.newline().indent()
+            self.writer += 'if {}({}):'.format(self.context.get_isa_function_name(pat.prefix), term) #context.findisa_method_forpat FIXME maybe add context object?
+            self.writer.newline().indent()
+            self.writer += 'return [({}, {}+1, {})]'.format(match,head, tail)
+            self.writer.newline().dedent()
+            self.writer += 'return []'
+            self.writer.newline().dedent().newline()
+
+
+
 
 
     def transformLit(self, lit):

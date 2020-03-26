@@ -34,6 +34,7 @@ class BuiltInPatKind(enum.Enum):
     Number = 'number'
     VariableNotOtherwiseDefined = 'variable-not-otherwise-mentioned'
     VariableExcept = 'variable-except'
+    Hole = 'hole'
 
 class Pat(AstNode):
     """
@@ -227,6 +228,13 @@ class Module(AstNode):
     def __init__(self, definelanguage, redexmatches):
         self.definelanguage = definelanguage
         self.redexmatches = redexmatches
+
+    def __repr__(self):
+        out = []
+        out.append(repr(self.definelanguage))
+        for rm in self.redexmatches:
+            out.append(repr(rm))
+        return "\n".join(out)
 
 class PatternTransformer:
     """

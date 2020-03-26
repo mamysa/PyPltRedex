@@ -39,8 +39,13 @@ def codegen(tree, context):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('src', help='.rkt containing Redex spec')
+parser.add_argument('-dump-ast', action='store_true', help='Write spec to stdout')
 args = parser.parse_args()
 
 tree = RedexSpecParser(args.src, is_filename=True).parse()
 tree, context = module_preprocess(tree)
+if args.dump_ast:
+    print(tree)
+    sys.exit(0)
+
 codegen(tree, context)

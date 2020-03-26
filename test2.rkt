@@ -1,8 +1,3 @@
-#lang racket
-(require redex)
-(require pict)
-(require redex/pict)
-
 (define-language Lc 
   (e ::= (+ e e) n)
   (n ::= number)

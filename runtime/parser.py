@@ -12,6 +12,7 @@ class TokenKind(enum.Enum):
     Ident   = 4
     LParen  = 5
     RParen  = 6
+    Hole    = 7
 
 
 def is_whitespace(c):
@@ -161,11 +162,14 @@ class Parser:
                 return ret[1]
         assert False, 'unexpected ' + tok
 
-
     def parse_atom(self):
         if self.peek() == TokenKind.Integer:
             return term.Integer(self.expect(TokenKind.Integer))
         if self.peek() == TokenKind.Ident:
+            tokkind, tokval = self.peekv() 
+            if tokval == 'hole':
+                self.expect(TokenKind.Ident)
+                return term.Hole()
             return term.Variable(self.expect(TokenKind.Ident))
         assert False, 'unreachable'
 

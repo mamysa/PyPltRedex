@@ -237,15 +237,6 @@ class ConstraintCheckInserter(ast.PatternTransformer):
     def transformCheckConstraint(self, node):
         return node, None
 
-
-            
-
-
-
-
-
-
-
 class PatternComparator:
     """
     Compares patterns. Underscores are ignored.

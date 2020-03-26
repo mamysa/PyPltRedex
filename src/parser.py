@@ -261,6 +261,11 @@ class RedexSpecParser:
             # disregard prefixes in patterns defined in define-language.
             try:
                 case = ast.BuiltInPatKind(prefix).name
+                # FIXME investigate redex-match Lc hole_1 (term hole), seems like hole doesnt allow suffixes although it is 
+                # a built-in pat? 
+                # Need to move such logic into a separate pass.
+                if prefix == 'hole' and prefix != tokenvalue: 
+                    raise Exception('before underscore must be either a non-terminal or build-in pattern {}'.format(prefix))
                 return ast.BuiltInPat(ast.BuiltInPatKind[case], prefix, tokenvalue)
             except ValueError:
                 if tokenvalue.startswith('...'):
