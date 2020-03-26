@@ -112,6 +112,8 @@ def module_preprocess(node):
     node.definelanguage, context = definelanguage_preprocess(node.definelanguage)
     for redexmatch in node.redexmatches:
         redexmatch.pat = pattern_preprocess(redexmatch.pat, node.definelanguage.ntsyms())
+    for me in node.matchequals:
+        me.redexmatch.pat = pattern_preprocess(me.redexmatch.pat, node.definelanguage.ntsyms())
     return node, context
 
 def definelanguage_preprocess(node):

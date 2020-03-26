@@ -74,7 +74,6 @@ class Match:
         assert len(binding2.buf) > 0
         return binding1.buf[-1] == binding2.buf[-1]
 
-
     def copy(self):
         a = copy.deepcopy(self.bindings)
         m = Match([])
@@ -84,6 +83,16 @@ class Match:
     def __repr__(self):
         b = []
         for key, val in self.bindings.items():
-            b.append('{} : {}'.format(key, repr(val.getbinding())))
-        return 'Match({})'.format(', '.join(b))
+            b.append('(bind {} {})'.format(key, repr(val.getbinding())))
+        if len(b) == 0:
+            return '(match ())'
+        return '(match (list {}))'.format('\n'.join(b))
 
+def print_match_list(matches):
+    if len(matches) == 0:
+        print('#f')
+        return
+    m = []
+    for match, _, _ in matches:
+        m.append(repr(match))
+    print(('(list {})'.format(' '.join(m))))

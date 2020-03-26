@@ -41,6 +41,7 @@ class TermMethodTable:
 
 class MatchMethodTable:
     AddToBinding ='addtobinding'
+    AddKey = 'addkey'
     IncreaseDepth = 'increasedepth'
     DecreaseDepth = 'decreasedepth'
     Copy = 'copy'
@@ -99,6 +100,38 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         for nt in node.nts.values():
             self.transform(nt)
 
+    def transformMatchEqual(self, me):
+        assert isinstance(me, ast.MatchEqual)
+
+        self.transform(me.redexmatch)
+        matches = Var('matches') # just because we define matches in redex-match 
+
+        expected_matches, match = Var('expected_matches'), Var('match') 
+        processed_matches = []
+        for m in me.list_of_matches:
+            current_match = self.symgen.get('match_to_compare')
+            processed_matches.append(current_match)
+            self.writer += '{} = Match()'.format(current_match)
+            self.writer.newline()
+            for sym, term in m.bindings:
+                self.writer += '{} = Parser(\"{}\").parse()'.format(sym, term)
+                self.writer.newline()
+                self.writer += '{}.{}(\"{}\")'.format(current_match, MatchMethodTable.AddKey, sym)
+                self.writer.newline()
+                self.writer += '{}.{}(\"{}\", {})'.format(current_match, MatchMethodTable.AddToBinding, sym, sym)
+                self.writer.newline()
+        
+        list_of_matches = self.symgen.get('list_of_matches')
+        self.writer += '{} = ['.format(list_of_matches)
+        for m in processed_matches:
+            self.writer += '{}, '.format(m)
+        self.writer += ']'.format(m)
+        self.writer.newline()
+        self.writer += 'assert_compare_match_lists({}, {})'.format(matches, list_of_matches)
+
+
+
+
     def transformRedexMatch(self, node):
         assert isinstance(node, ast.RedexMatch)
         
@@ -117,7 +150,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.writer.newline()
         self.writer += '{} = {}({}, {}, {}, {})'.format(matches, fnname, term, match, 0, 1)
         self.writer.newline()
-        self.writer += 'print({})'.format(matches)
+        self.writer += 'print_match_list({})'.format(matches)
         self.writer.newline()
 
     def transformNtDefinition(self, node):
@@ -509,10 +542,6 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer.newline().dedent()
             self.writer += 'return []'
             self.writer.newline().dedent().newline()
-
-
-
-
 
     def transformLit(self, lit):
         assert isinstance(lit, ast.Lit)

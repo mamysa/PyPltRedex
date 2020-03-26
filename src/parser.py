@@ -183,7 +183,7 @@ class RedexSpecParser:
                 ret = self.nexttoken
                 self.nexttoken = self.tokenizer.next()
                 return ret[1]
-        assert False, 'unexpected {}, actual {}'.format(str(kind), str(self.nexttoken[0]))
+        assert False, 'unexpected {}, actual {} {}'.format(str(kind), str(self.nexttoken[0]),str(self.nexttoken[1]))
 
     # (define-language lang-name non-terminal-def ...)
     def define_language(self):
@@ -298,8 +298,45 @@ class RedexSpecParser:
         self.expect(TokenKind.RParen)
         return ast.PatSequence(sequence) 
 
+    # (match (bind a ...) ...)
+    # FIXME NOT supported by redex but I need a way to compare matches for tests...
+    # Redex's setup is a lot more involved ('context' is required but I can't figure out what it does.
+    # I used this V
+    # https://github.com/racket/redex/blob/master/redex-test/redex/tests/matcher-test.rkt
+    def match(self):
+        self.expect(TokenKind.Ident, 'match')
+        bindings = []
+
+        while self.peek() == TokenKind.LParen:
+            self.expect(TokenKind.LParen)
+            self.expect(TokenKind.Ident, 'bind')
+            tok, sym = self.peekv() 
+            termstr = self.tokenizer.extract_chars_until_matching_rparen().strip()
+            self.nexttoken = self.tokenizer.next() # very hacky but oh well :)
+            self.expect(TokenKind.RParen)
+            bindings.append((sym, termstr))
+
+        self.expect(TokenKind.RParen)
+        return ast.Match(bindings)
+
+    # (match-equal? redex-match matches ...)
+    def match_equal(self):
+        self.expect(TokenKind.Ident, 'match-equal?')
+        self.expect(TokenKind.LParen)
+        redexmatch = self.redex_match()
+
+        matches = []
+        while self.peek() != TokenKind.RParen:
+            self.expect(TokenKind.LParen)
+            matches.append(self.match())
+        self.expect(TokenKind.RParen)
+        return ast.MatchEqual(redexmatch, matches)
+
+
     def parse(self):
         redexmatches = []
+        match_equals = []
+
         definelanguage = None
         while self.nexttoken != None:
             self.expect(TokenKind.LParen)
@@ -309,8 +346,16 @@ class RedexSpecParser:
                 definelanguage = self.define_language()
             if tokenvalue == 'redex-match':
                 redexmatches.append(self.redex_match())
+            if tokenvalue == 'match-equal?':
+                match_equals.append( self.match_equal() )
+
 
         for redexmatch in redexmatches:
             if definelanguage == None or redexmatch.languagename != definelanguage.name:
                 assert False, 'undefined language ' + redexmatch.languagename
-        return ast.Module(definelanguage, redexmatches)
+
+        for me in match_equals:
+            if definelanguage == None or me.redexmatch.languagename != definelanguage.name:
+                assert False, 'undefined language ' + redexmatch.languagename
+
+        return ast.Module(definelanguage, redexmatches, match_equals)

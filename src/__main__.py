@@ -23,9 +23,9 @@ def create_output(writer):
     lang.close()
 
 def codegen(tree, context):
-# imports should be tucked away somewhere
+    # imports should be tucked away somewhere
     writer = SourceWriter()
-    writer += 'from match import Match'
+    writer += 'from match import Match, print_match_list'
     writer.newline()
     writer += 'from parser import Parser'
     writer.newline()
@@ -33,6 +33,10 @@ def codegen(tree, context):
     codegen.transform(tree.definelanguage)
     for rm in tree.redexmatches:
         codegen.transform(rm)
+
+    for me in tree.matchequals:
+        codegen.transform(me)
+
     create_output(writer)
 
 
@@ -44,6 +48,7 @@ args = parser.parse_args()
 
 tree = RedexSpecParser(args.src, is_filename=True).parse()
 tree, context = module_preprocess(tree)
+
 if args.dump_ast:
     print(tree)
     sys.exit(0)

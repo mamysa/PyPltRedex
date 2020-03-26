@@ -49,6 +49,21 @@ class Pat(AstNode):
     def collect_pat_nodes_for(self, sym):
         return []
 
+class Match(AstNode):
+    def __init__(self, bindings):
+        self.bindings = bindings
+
+    def __repr__(self):
+        return 'Match({})'.format(repr(self.bindings))
+
+class MatchEqual(AstNode):
+    def __init__(self, redexmatch, list_of_matches):
+        self.redexmatch = redexmatch
+        self.list_of_matches = list_of_matches
+
+    def __repr__(self):
+        return 'MatchEqual({} {})'.format(self.redexmatch, self.list_of_matches)
+
 class Lit(Pat):
     """
     Represents all literals in the pattern such as numbers, strings, etc.
@@ -225,15 +240,18 @@ class RedexMatch(AstNode):
         return 'RedexMatch({}, {}, {})'.format(self.languagename, repr(self.pat), self.termstr)
 
 class Module(AstNode):
-    def __init__(self, definelanguage, redexmatches):
+    def __init__(self, definelanguage, redexmatches, matchequals):
         self.definelanguage = definelanguage
         self.redexmatches = redexmatches
+        self.matchequals = matchequals
 
     def __repr__(self):
         out = []
         out.append(repr(self.definelanguage))
         for rm in self.redexmatches:
             out.append(repr(rm))
+        for me in self.matchequals:
+            out.append(repr(me))
         return "\n".join(out)
 
 class PatternTransformer:
@@ -269,3 +287,6 @@ class PatternTransformer:
 
     def transformLit(self, node):
         return node
+
+    def transformMatch(self, match):
+        return match
