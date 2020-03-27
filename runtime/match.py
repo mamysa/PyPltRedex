@@ -9,7 +9,7 @@ class Binding:
     def add(self, value):
         # if stack is empty, add value
         # if stack is not empty and not a compoundarray, raise exception
-        # if stack is not empty and is compoundarray, add value.
+        # if stack is not empty and is compoundarray, add value to the array.
         if len(self.buf) == 0:
             self.buf.append(value)
         else:
@@ -41,12 +41,14 @@ class Binding:
         self.buf[-1].append(top)
 
     def getbinding(self):
-        if len(self.buf) != 1:
-            assert False, 'something went wrong'
+        assert len(self.buf) == 1, 'incomplete match!'
         return self.buf[0]
 
+    def __eq__(self, other):
+        return self.getbinding() == other.getbinding()
+
 class Match:
-    def __init__(self, identifiers): 
+    def __init__(self, identifiers=[]): 
         self.bindings = {} 
         for ident in identifiers:
             self.bindings[ident] = Binding(ident)
@@ -74,6 +76,17 @@ class Match:
         assert len(binding2.buf) > 0
         return binding1.buf[-1] == binding2.buf[-1]
 
+    def __eq__(self, other):
+        if isinstance(other, Match):
+            lkeys = set(self.bindings.keys())
+            rkeys = set(other.bindings.keys())
+            if lkeys == rkeys:
+                for key in lkeys:
+                    if self.bindings[key] != other.bindings[key]:
+                        return False
+                return True
+        return False
+
     def copy(self):
         a = copy.deepcopy(self.bindings)
         m = Match([])
@@ -83,16 +96,15 @@ class Match:
     def __repr__(self):
         b = []
         for key, val in self.bindings.items():
-            b.append('(bind {} {})'.format(key, repr(val.getbinding())))
-        if len(b) == 0:
-            return '(match ())'
-        return '(match (list {}))'.format('\n'.join(b))
+            b.append('{}={}'.format(key, repr(val.getbinding())))
+        return 'Match({})'.format(', '.join(b))
 
-def print_match_list(matches):
-    if len(matches) == 0:
-        print('#f')
-        return
-    m = []
-    for match, _, _ in matches:
-        m.append(repr(match))
-    print(('(list {})'.format(' '.join(m))))
+
+
+def assert_compare_match_lists(m1, m2):
+    if len(m1) == len(m2):
+        for i, m in enumerate(m1):
+            if m[0] != m2[i]:
+                assert False, 'assertion error: {} and {} do not match'.format(m1, m2)
+        return True
+    return False

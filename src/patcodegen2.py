@@ -41,7 +41,7 @@ class TermMethodTable:
 
 class MatchMethodTable:
     AddToBinding ='addtobinding'
-    AddKey = 'addkey'
+    AddKey = 'create_binding'
     IncreaseDepth = 'increasedepth'
     DecreaseDepth = 'decreasedepth'
     Copy = 'copy'
@@ -125,9 +125,10 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.writer += '{} = ['.format(list_of_matches)
         for m in processed_matches:
             self.writer += '{}, '.format(m)
-        self.writer += ']'.format(m)
+        self.writer += ']'.format()
         self.writer.newline()
         self.writer += 'assert_compare_match_lists({}, {})'.format(matches, list_of_matches)
+        self.writer.newline()
 
 
 
@@ -150,7 +151,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.writer.newline()
         self.writer += '{} = {}({}, {}, {}, {})'.format(matches, fnname, term, match, 0, 1)
         self.writer.newline()
-        self.writer += 'print_match_list({})'.format(matches)
+        self.writer += 'print({})'.format(matches)
         self.writer.newline()
 
     def transformNtDefinition(self, node):

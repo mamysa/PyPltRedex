@@ -57,7 +57,7 @@ class Match(AstNode):
         return 'Match({})'.format(repr(self.bindings))
 
 class MatchEqual(AstNode):
-    def __init__(self, redexmatch, list_of_matches):
+    def __init__(self, redexmatch, list_of_matches, equality=True):
         self.redexmatch = redexmatch
         self.list_of_matches = list_of_matches
 

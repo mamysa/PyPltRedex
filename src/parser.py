@@ -304,6 +304,10 @@ class RedexSpecParser:
     # I used this V
     # https://github.com/racket/redex/blob/master/redex-test/redex/tests/matcher-test.rkt
     def match(self):
+        if self.peek() == TokenKind.RParen:
+            self.expect(TokenKind.RParen)
+            return None
+
         self.expect(TokenKind.Ident, 'match')
         bindings = []
 
@@ -328,7 +332,9 @@ class RedexSpecParser:
         matches = []
         while self.peek() != TokenKind.RParen:
             self.expect(TokenKind.LParen)
-            matches.append(self.match())
+            match = self.match()
+            if match:
+                matches.append(match)
         self.expect(TokenKind.RParen)
         return ast.MatchEqual(redexmatch, matches)
 

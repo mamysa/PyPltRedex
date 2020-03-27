@@ -50,7 +50,7 @@ class Hole(Ast):
     def __repr__(self):
         return 'hole'
 
-    def __eq__(self):
+    def __eq__(self, other):
         return self.kind() == other.kind()
 
 class Sequence(Ast):

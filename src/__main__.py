@@ -25,7 +25,7 @@ def create_output(writer):
 def codegen(tree, context):
     # imports should be tucked away somewhere
     writer = SourceWriter()
-    writer += 'from match import Match, print_match_list'
+    writer += 'from match import Match, assert_compare_match_lists'
     writer.newline()
     writer += 'from parser import Parser'
     writer.newline()
