@@ -176,14 +176,17 @@ class Parser:
     def parse_sequence(self):
         self.expect(TokenKind.LParen)
         seq = []
-
         while self.peek() != TokenKind.RParen:
             if self.peek() == TokenKind.LParen:
                 seq.append(self.parse_sequence())
             else:  
                 seq.append(self.parse_atom())
         self.expect(TokenKind.RParen)
-        return term.Sequence(seq)
+        sequence = term.Sequence(seq)
+
+        for i, t in enumerate(sequence.seq):
+            t.set_parent(sequence, i)
+        return sequence
 
     def parse(self):
         if self.peek() == TokenKind.LParen:
