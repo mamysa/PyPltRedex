@@ -19,6 +19,13 @@ class Ast:
         self.parent = parent
         self.offset_in_parent = offset
 
+    def replacewith(self, node):
+        assert isinstance(node, Ast)
+        node.parent, node.offset_in_parent = self.parent, self.offset_in_parent
+        self.parent, self.offset_in_parent = None, -1
+        if node.parent != None:
+            node.parent.seq[node.offset_in_parent] = node
+
     def kind(self):
         return self.__kind
 

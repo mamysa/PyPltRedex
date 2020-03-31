@@ -29,6 +29,8 @@ def codegen(tree, context):
     writer.newline()
     writer += 'from parser import Parser'
     writer.newline()
+    writer += 'from term import Hole'
+    writer.newline()
     codegen = DefineLanguagePatternCodegen3(writer, context)
     codegen.transform(tree.definelanguage)
     for rm in tree.redexmatches:

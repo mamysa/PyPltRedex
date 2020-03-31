@@ -35,6 +35,7 @@ class BuiltInPatKind(enum.Enum):
     VariableNotOtherwiseDefined = 'variable-not-otherwise-mentioned'
     VariableExcept = 'variable-except'
     Hole = 'hole'
+    InHole = 'in-hole'
 
 class Pat(AstNode):
     """
@@ -45,9 +46,6 @@ class Pat(AstNode):
 
     def collect_bindable_syms(self): ## should be a visitor.
         return set([])
-
-    def collect_pat_nodes_for(self, sym):
-        return []
 
 class Match(AstNode):
     def __init__(self, bindings):
@@ -102,17 +100,6 @@ class PatSequence(Pat):
     def collect_bindable_syms(self):
         return reduce(lambda s, pat: s.union(pat.collect_bindable_syms()), self.seq, set([])) 
 
-    def collect_pat_nodes_for(self, sym):
-        return reduce(lambda s, pat: s + pat.collect_pat_nodes_for(sym), self.seq, []) 
-
-    def collect_pat_nodes_for_with_indices(self, sym):
-        out = []
-        for i, pat in enumerate(self.seq):
-            arr = pat.collect_pat_nodes_for(sym)
-            if len(arr) > 0:
-                out.append((i, arr))
-        return out
-
     def __len__(self):
         return len(self.seq)
 
@@ -136,12 +123,6 @@ class Nt(Pat):
 
     def collect_bindable_syms(self):
         return set([self.sym])
-
-    def collect_pat_nodes_for(self, sym):
-        lst = []
-        if self.sym == sym:
-            lst.append(self)
-        return lst 
 
     def __repr__(self):
         return 'Nt({}, {})'.format(self.prefix, self.sym)
@@ -168,9 +149,6 @@ class UnresolvedSym(Pat):
     def collect_bindable_syms(self):
         assert False, 'unreachable'
 
-    def collect_pat_nodes_for(self, sym):
-        assert False, 'unreachable'
-
     def __repr__(self):
         return 'UnresolvedSym({})'.format(self.sym)
 
@@ -182,9 +160,6 @@ class Repeat(Pat):
     def collect_bindable_syms(self):
         return self.pat.collect_bindable_syms()
 
-    def collect_pat_nodes_for(self, sym):
-        return self.pat.collect_pat_nodes_for(sym)
-    
     def __repr__(self):
         return 'Repeat({})'.format(self.pat)
 
@@ -197,13 +172,11 @@ class BuiltInPat(Pat):
         self.aux = aux 
 
     def collect_bindable_syms(self):
+        if self.kind == BuiltInPatKind.InHole:
+            s0 = self.aux[0].collect_bindable_syms()
+            s1 = self.aux[1].collect_bindable_syms()
+            return s0.union(s1)
         return set([self.sym])
-
-    def collect_pat_nodes_for(self, sym):
-        lst = []
-        if self.sym == sym:
-            lst.append(self)
-        return lst 
 
     def __repr__(self):
         if self.aux:
@@ -277,6 +250,9 @@ class PatternTransformer:
         return Repeat(self.transform(node.pat))
 
     def transformBuiltInPat(self, node):
+        assert isinstance(node, BuiltInPat)
+        if node.kind == BuiltInPatKind.InHole:
+            node.aux = (self.transform(node.aux[0]), self.transform(node.aux[1]))
         return node
 
     def transformUnresolvedSym(self, node):

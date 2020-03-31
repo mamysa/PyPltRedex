@@ -213,6 +213,12 @@ class ConstraintCheckInserter(ast.PatternTransformer):
 
     def transformBuiltInPat(self, pat):
         assert isinstance(pat, ast.BuiltInPat)
+        if pat.kind == ast.BuiltInPatKind.InHole:
+            pat1, _ = self.transform(pat.aux[0])
+            pat2, _ = self.transform(pat.aux[1])
+            pat.aux = (pat1, pat2)
+        return pat, None
+
         if pat.sym == self.sym:
             nsym = self.symgen.get('{}#'.format(self.sym))
             # First time we see desired symbol we do not rename it - we will keep it in the end.

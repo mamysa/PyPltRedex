@@ -240,7 +240,7 @@ class RedexSpecParser:
         tokenkind, tokenvalue = self.peekv()
         
         if tokenkind == TokenKind.LParen:
-            return self.pattern_sequence()
+            return self.pattern_sequence_or_inhole()
         if tokenkind == TokenKind.Integer: 
             ident = self.expect(tokenkind)
             return ast.Lit(ident, ast.LitKind.Integer)
@@ -271,7 +271,7 @@ class RedexSpecParser:
                 if tokenvalue.startswith('...'):
                     raise Exception('found ellipsis outside of a sequence')
                 return ast.UnresolvedSym(prefix, tokenvalue)
-            
+
     def extract_prefix(self, token):
         # extract prefix i.e. given symbol n_1 retrieve n.
         # in case of no underscore return token itself
@@ -283,10 +283,23 @@ class RedexSpecParser:
             return token
         return token[:idx]
 
+    def pattern_sequence_or_inhole(self):
+        self.expect(TokenKind.LParen)
+        tokenkind, tokenvalue = self.peekv()
+        if tokenvalue == 'in-hole':
+            return self.inhole()
+        return self.pattern_sequence()
+
+    def inhole(self):
+        self.expect(TokenKind.Ident, 'in-hole')
+        pat1 = self.pattern()
+        pat2 = self.pattern()
+        self.expect(TokenKind.RParen)
+        return ast.BuiltInPat(ast.BuiltInPatKind.InHole, 'in-hole', 'in-hole', (pat1, pat2))
+
     # pattern-sequence : ( pattern(_id)? (literal ...)?  )
     # FIXME perhaps (_id) should be applied outside pattern_sequence?
     def pattern_sequence(self):
-        self.expect(TokenKind.LParen)
         sequence = []
         while self.peek() != TokenKind.RParen:
             pat = self.pattern()
