@@ -51,7 +51,7 @@
 ; evaluation contextts
 (match-equal?
   (redex-match Lc hole (term hole))
-  ())
+  (match))
 (match-equal?
   (redex-match Lc E (term (+ hole (+ 1 1))))
   (match (bind E (+ hole (+ 1 1)))))

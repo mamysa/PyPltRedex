@@ -100,11 +100,11 @@ class Match:
         return 'Match({})'.format(', '.join(b))
 
 
-
 def assert_compare_match_lists(m1, m2):
+    print(len(m2))
     if len(m1) == len(m2):
         for i, m in enumerate(m1):
             if m[0] != m2[i]:
                 assert False, 'assertion error: {} and {} do not match'.format(m1, m2)
-        return True
-    return False
+        return
+    assert False, 'assertion error: {} and {} do not match'.format(m1, m2)

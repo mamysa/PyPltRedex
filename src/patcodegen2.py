@@ -150,6 +150,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer += '{} = {}({})'.format(matches, fnname, term)
             self.writer.newline()
             self.writer += 'print({})'.format(matches)
+            self.writer.newline()
             return
 
 
@@ -522,7 +523,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer.newline().dedent().newline()
 
         if pat.kind == ast.BuiltInPatKind.InHole:
-            if not self.context.get_function_for_pattern(pat):
+            if not self.context.get_function_for_pattern(repr(pat)):
                 functionname = 'lang_{}_builtin_inhole_{}'.format(self.definelanguage.name, self.symgen.get())
                 self.context.add_function_for_pattern(repr(pat), functionname)
 
@@ -607,6 +608,8 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
                 m, h, t = Var('m'), Var('h'), Var('t')
 
+                termroot = Var('termroot')
+
                 self.writer += 'def {}({}):'.format(functionname, term)
                 self.writer.newline().indent()
                 self.writer += '{} = []'.format(outmatches)
@@ -617,11 +620,11 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 self.writer.newline()
                 self.writer += 'for {}, {} in {}:'.format(subterm, matches, results)
                 self.writer.newline().indent()
-                self.writer += '{}.{}({})'.format(subterm, TermMethodTable.ReplaceWith, hole)
+                self.writer += '{} = {}.{}({})'.format(termroot, subterm, TermMethodTable.ReplaceWith, hole)
                 self.writer.newline()
                 self.writer += '{} = Match({})'.format(match, list(set(bindables)))
                 self.writer.newline()
-                self.writer += '{} = {}({}, {}, {}, {})'.format(matches0, pat1func, term, match, 0, 1)
+                self.writer += '{} = {}({}, {}, {}, {})'.format(matches0, pat1func, termroot, match, 0, 1)
                 self.writer.newline()
                 self.writer += 'if len({}) != 0:'.format(matches0)
                 self.writer.newline().indent()
@@ -638,7 +641,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                     self.writer.newline()
                 self.writer += '{}.append(({}, {}, {}))'.format(outmatches, m, h, t)
                 self.writer.newline().dedent().dedent()
-                self.writer += '{}.{}({})'.format(hole, TermMethodTable.ReplaceWith, subterm)
+                self.writer += '{} = {}.{}({})'.format(term, hole, TermMethodTable.ReplaceWith, subterm)
 
                 self.writer.newline().dedent()
                 self.writer += 'return {}'.format(outmatches)

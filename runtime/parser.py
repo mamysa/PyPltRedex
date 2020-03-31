@@ -194,4 +194,4 @@ class Parser:
         else: 
             term = self.parse_atom()
         assert self.iseof()
-        return term 
+        return term

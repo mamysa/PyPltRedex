@@ -1,6 +1,7 @@
 import copy 
 
 class TermKind:
+    Root = -1
     Variable = 0
     Integer  = 1
     Sequence = 2 
@@ -19,15 +20,41 @@ class Ast:
         self.parent = parent
         self.offset_in_parent = offset
 
+    # Replacing an element that is a root doesnt work.
+    # Maybe introduce explicit AstRoot node?
     def replacewith(self, node):
         assert isinstance(node, Ast)
         node.parent, node.offset_in_parent = self.parent, self.offset_in_parent
         self.parent, self.offset_in_parent = None, -1
         if node.parent != None:
             node.parent.seq[node.offset_in_parent] = node
+        root = node
+        while root.parent != None:
+            root = root.parent
+        return root
 
     def kind(self):
         return self.__kind
+
+class AstRoot(Ast):
+    def __init__(self, term):
+        super().__init__(TermKind.Root)
+        self.__term = term
+
+    def getterm(self):
+        return self.__term
+
+    def __repr__(self):
+        return repr(self.__term)
+
+    def replacewith(self, node):
+        assert False, 'unable to replace root of the term'
+
+    def set_parent(self, parent, offset):
+        assert False, 'set_parent on TermRoot not allowed'
+
+    def copy_and_set_child(self, child_to_replace):
+        return AstRoot(child_to_replace)
 
 class Integer(Ast):
     def __init__(self, value):
