@@ -101,7 +101,6 @@ class Match:
 
 
 def assert_compare_match_lists(m1, m2):
-    print(len(m2))
     if len(m1) == len(m2):
         for i, m in enumerate(m1):
             if m[0] != m2[i]:

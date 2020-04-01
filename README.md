@@ -35,6 +35,7 @@ From most to least important.
 		3. Replace hole with matched subterm (i.e. restore term to its original state - we only copy once `pat1` has been matched successfully.
 	This reduces copying but memory fragmentation could be an issue?
 	This requires to rethink AST representation - need to be able to access subterm's parent and be able to replace it with `hole`. Use some sort of `TermLink` object storing references between terms?
+	The approach above is implemented and works, see `inholetest.rkt`. "Literal" patterns (not non-terminal in the language) do not work yet however.
 * Code cleanup  - improve codegen, decide on AST to represent PltRedex syntax (a bit all over the place for now), either improve `PatternTransformer` or do something completely different.
 * Term level non-terminal / built-in pattern membership caching. For example, when asking if a given term is `e`, store `e` symbol in the set. Thus, next time we try to determine if the term is `e`, we just look it up in the set.
 * Replace handwritten parser with Ply? 
