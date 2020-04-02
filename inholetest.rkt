@@ -32,3 +32,9 @@
   (match (bind e (+ 1 2)) (bind E hole))
   (match (bind e 1) (bind E (+ hole 2)))
   (match (bind e 2) (bind E (+ 1 hole))))
+
+(match-equal?
+  (redex-match HoleTest (in-hole (n_1 ... hole n_2 ...) n) (term (1 2 3) ))
+  (match (bind n 1) (bind n_1 ()) (bind n_2 (2 3)))
+  (match (bind n 2) (bind n_1 (1)) (bind n_2 (3)))
+  (match (bind n 3) (bind n_1 (1 2)) (bind n_2 ())))

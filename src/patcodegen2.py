@@ -44,6 +44,9 @@ class TermMethodTable:
 class TermHelperFuncs:
     CopyPathAndReplaceLast = 'copy_path_and_replace_last'
 
+class MatchHelperFuncs:
+    CombineMatches = 'combine_matches'
+
 class MatchMethodTable:
     AddToBinding ='addtobinding'
     AddKey = 'create_binding'
@@ -325,7 +328,11 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
                     self.writer.newline().indent()
 
-                    if isinstance(pat, ast.Nt) or isinstance(pat, ast.BuiltInPat):
+                    if isinstance(pat, ast.Nt): 
+                        self.writer += '{}.{}({}, {}.{}({}))'.format(m, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term, TermMethodTable.Get, h)
+                        self.writer.newline()
+
+                    if isinstance(pat, ast.BuiltInPat) and pat.kind != ast.BuiltInPatKind.Hole:
                         self.writer += '{}.{}({}, {}.{}({}))'.format(m, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term, TermMethodTable.Get, h)
                         self.writer.newline()
 
@@ -549,7 +556,6 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 rbe = RetrieveBindableElements()
                 rbe.transform(pat1)
                 bindablespat1 = list(map(lambda x: x.sym, rbe.bindables))
-                assert len(bindablespat1) == 1
 
                 rbe = RetrieveBindableElements()
                 rbe.transform(pat2)
@@ -566,6 +572,8 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
                 outmatches = Var('outmatches')
                 m, h, t = Var('m'), Var('h'), Var('t')
+                m2, h2, t2 = Var('m2'), Var('h2'), Var('t2')
+                m3 = Var('m3')
 
                 self.writer += 'def {}({}, {}):'.format(lookupfuncname, term, path)
                 self.writer.newline().indent()
@@ -585,17 +593,14 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 self.writer.newline()
                 self.writer += 'if len({}) != 0:'.format(matches0)
                 self.writer.newline().indent()
-                self.writer += 'assert len({}) == 1'.format(matches0)
-                self.writer.newline()
                 self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, matches)
                 self.writer.newline().indent()
-                for b in bindablespat1:
-                    self.writer += '{}.{}(\"{}\")'.format(m, MatchMethodTable.AddKey, b)
-                    self.writer.newline()
-                    self.writer += '{}.{}(\"{}\", {})'.format(m, MatchMethodTable.AddToBinding, b, nterm)
-                    self.writer.newline()
-                self.writer += '{}.append(({}, {}, {}))'.format(outmatches, m, h, t)
-                self.writer.newline().dedent().dedent().dedent()
+                self.writer += 'for {}, {}, {} in {}:'.format(m2, h2, t2, matches0)
+                self.writer.newline().indent()
+                self.writer += '{} = {}({}, {})'.format(m3, MatchHelperFuncs.CombineMatches, m, m2)
+                self.writer.newline()
+                self.writer += '{}.append(({}, {}, {}))'.format(outmatches, m3, h, t)
+                self.writer.newline().dedent().dedent().dedent().dedent()
                 self.writer += "if {}.{}() == {}:".format(term, TermMethodTable.Kind, TermKind.Sequence)
                 self.writer.newline().indent()
                 self.writer += '{}.append({})'.format(path, term)
@@ -632,20 +637,21 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 self.writer += 'return False'
                 self.writer.newline().dedent().newline()
 
-            # FIXME code duplication; same as above, but do not bind anything...
-            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
-            self.writer += '#{}'.format(repr(pat))
-            self.writer.newline()
-            match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
-            self.context.add_function_for_pattern(repr(pat), match_fn)
-            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
-            self.writer.newline().indent()
-            self.writer += 'if {}({}):'.format(self.context.get_isa_function_name(pat.prefix), term) #context.findisa_method_forpat FIXME maybe add context object?
-            self.writer.newline().indent()
-            self.writer += 'return [({}, {}+1, {})]'.format(match,head, tail)
-            self.writer.newline().dedent()
-            self.writer += 'return []'
-            self.writer.newline().dedent().newline()
+            if not self.context.get_function_for_pattern(repr(pat)):
+                match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
+                self.context.add_function_for_pattern(repr(pat), match_fn)
+                # FIXME code duplication; same as above, but do not bind anything...
+                term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
+                self.writer += '#{}'.format(repr(pat))
+                self.writer.newline()
+                self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
+                self.writer.newline().indent()
+                self.writer += 'if {}({}):'.format(self.context.get_isa_function_name(pat.prefix), term) #context.findisa_method_forpat FIXME maybe add context object?
+                self.writer.newline().indent()
+                self.writer += 'return [({}, {}+1, {})]'.format(match,head, tail)
+                self.writer.newline().dedent()
+                self.writer += 'return []'
+                self.writer.newline().dedent().newline()
 
     def transformLit(self, lit):
         assert isinstance(lit, ast.Lit)

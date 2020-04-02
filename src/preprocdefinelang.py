@@ -41,7 +41,7 @@ class LanguageContext:
 
     # FIXME this should be in module-level context?
     def add_function_for_pattern(self, prefix, function):
-        assert prefix not in self.__pattern_code
+        assert prefix not in self.__pattern_code, 'function for {} is present'.format(prefix)
         self.__pattern_code[prefix] = function
     
     def get_function_for_pattern(self, prefix):

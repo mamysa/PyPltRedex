@@ -64,3 +64,7 @@
 (match-equal?
   (redex-match Lc P (term ( 1 2 3 (+ 1 hole) (+ 1 2) 5)))
   (match (bind P (1 2 3 (+ 1 hole) (+ 1 2) 5))))
+
+(match-equal?
+  (redex-match Lc (n_1 ... hole n_2 ...) (term ( 1 2 hole 3)))
+  (match (bind n_1 (1 2)) (bind n_2 (3))))

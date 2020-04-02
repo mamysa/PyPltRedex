@@ -99,6 +99,23 @@ class Match:
             b.append('{}={}'.format(key, repr(val.getbinding())))
         return 'Match({})'.format(', '.join(b))
 
+    def combine_with(self, other):
+        assert isinstance(other, Match)
+        selfkeys  = set(self.bindings.keys())
+        otherkeys = set(other.bindings.keys())
+        intersection = selfkeys.intersection(otherkeys)
+        assert len(intersection) == 0, 'match_combine: contains duplicate bindings {}'.format(intersection)
+        self.bindings.update(other.bindings)
+
+def combine_matches(match1, match2):
+    m1k = set(match1.bindings.keys())
+    m2k = set(match2.bindings.keys())
+    intersection = m1k.intersection(m2k)
+    assert len(intersection) == 0, 'combine_matches: contains duplicate bindings {}'.format(intersection)
+    nbindings = {**match1.bindings, **match2.bindings}
+    match = Match([])
+    match.bindings = nbindings
+    return match
 
 def assert_compare_match_lists(m1, m2):
     if len(m1) == len(m2):
