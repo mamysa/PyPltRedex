@@ -10,51 +10,9 @@ class TermKind:
 class Ast:
     def __init__(self, kind):
         self.__kind = kind
-        # pointer to a parent term (which is is instance of Sequence)
-        # Integer refers to offset of the pointer to this term in the sequence.
-        # -1 if this node is a root of the term.
-        self.parent = None
-        self.offset_in_parent = -1
-
-    def set_parent(self, parent, offset):
-        self.parent = parent
-        self.offset_in_parent = offset
-
-    # Replacing an element that is a root doesnt work.
-    # Maybe introduce explicit AstRoot node?
-    def replacewith(self, node):
-        assert isinstance(node, Ast)
-        node.parent, node.offset_in_parent = self.parent, self.offset_in_parent
-        self.parent, self.offset_in_parent = None, -1
-        if node.parent != None:
-            node.parent.seq[node.offset_in_parent] = node
-        root = node
-        while root.parent != None:
-            root = root.parent
-        return root
 
     def kind(self):
         return self.__kind
-
-class AstRoot(Ast):
-    def __init__(self, term):
-        super().__init__(TermKind.Root)
-        self.__term = term
-
-    def getterm(self):
-        return self.__term
-
-    def __repr__(self):
-        return repr(self.__term)
-
-    def replacewith(self, node):
-        assert False, 'unable to replace root of the term'
-
-    def set_parent(self, parent, offset):
-        assert False, 'set_parent on TermRoot not allowed'
-
-    def copy_and_set_child(self, child_to_replace):
-        return AstRoot(child_to_replace)
 
 class Integer(Ast):
     def __init__(self, value):
@@ -73,11 +31,7 @@ class Integer(Ast):
         return False
 
     def copy(self):
-        new = Integer(self.__value)
-        new.parent, new.offset_in_parent = self.parent, self.offset_in_parent
-        if new.parent != None:
-            return new.parent.copy_and_set_child(new)
-        return new
+        return Integer(self.__value)
 
 
 class Variable(Ast):
@@ -97,12 +51,7 @@ class Variable(Ast):
         return False
 
     def copy(self):
-        new = Variable(self.__value)
-        new.parent, new.offset_in_parent = self.parent, self.offset_in_parent
-        if new.parent != None:
-            return new.parent.copy_and_set_child(new)
-        return new
-
+        return Variable(self.__value)
 
 class Hole(Ast):
     def __init__(self):
@@ -115,11 +64,7 @@ class Hole(Ast):
         return self.kind() == other.kind()
 
     def copy(self):
-        new = Hole()
-        new.parent, new.offset_in_parent = self.parent, self.offset_in_parent
-        if new.parent != None:
-            return new.parent.copy_and_set_child(new)
-        return new
+        return Hole()
 
 class Sequence(Ast):
     def __init__(self, seq):
@@ -141,23 +86,7 @@ class Sequence(Ast):
 
     def copy(self):
         seq = copy.copy(self.seq)
-        seq = Sequence(seq)
-        seq.parent, seq.offset_in_parent = self.parent, self.offset_in_parent
-        if seq.parent != None:
-            return seq.parent.copy_and_set_child(seq)
-        return seq
-
-    def copy_and_set_child(self, child_to_replace):
-        seq = copy.copy(self.seq)
-        i = child_to_replace.offset_in_parent
-        assert i > -1
-        seq[i] = child_to_replace
-        seq = Sequence(seq)
-        seq.parent, seq.offset_in_parent = self.parent, self.offset_in_parent
-        child_to_replace.set_parent(seq, i)
-        if seq.parent != None:
-            return seq.parent.copy_and_set_child(seq)
-        return seq
+        return Sequence(seq)
 
     def __eq__(self, other):
         if other == None:
@@ -169,3 +98,36 @@ class Sequence(Ast):
                         return False
                 return True
         return False
+
+
+def copy_path_and_replace_last(onpath, withterm):
+    """
+    Takes a list of terms (which are assumed to be a valid term - term i is a parent of term i+1)
+    copies all terms on path, modifies terms to point to copies, and replaces last term on the path
+    with supplied term. 
+
+    returns: root of the term.
+    """
+    assert len(path) > 0
+
+    if len(path) == 1:
+        return term
+
+    i = len(path) - 2
+    child = withterm
+    while i >= 0:
+        parent = path[i]
+        parentcopy = parent.copy()
+        assert isinstance(parentcopy, Sequence)
+
+        childfound = False 
+        for j, node in enumerate(parentcopy.seq):
+            if id(node) == id(path[i+1]):
+                childfound = True
+                parentcopy.seq[j] = child
+                break
+        if not childfound:
+            assert False, 'malformed term'
+        child = parentcopy
+        i -= 1
+    return child
