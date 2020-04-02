@@ -15,7 +15,7 @@ and then
 
 ## Testing
 
-`patmatchtest.rkt` provides an overview of what works; it is run the same way mentioned above.
+`patmatchtest.rkt` and `inholetest.rkt` provide an overview of what works; it is run the same way mentioned above. Patterns are compared against output produced by Racket Redex.
 
 ## What works 
 * Built-in patterns: `number` (that act like integers for now), `variable-not-othewise-mentioned`, literal variables.
@@ -24,22 +24,20 @@ and then
 * Constraint checking (e.g in pattern `(e_1 ... e_1 ...)` both `e_1` bindings are checked for equality).
 * `match-equals?` form (not part of Redex) used for comparing results produced by `redex-match` against expected matches.
 * Matching `hole` pattern.
+* Matching `in-hole` pattern.
 
 ## TODOs
 From most to least important.
-* `in-hole` pattern matching. Algorithm for matching `(in-hole pat1 pat2)` I have so far is:
-	1. Traverse the term and filter out subterms matching `pat2`.
-	2. For each such matched subterm 
-		1. Replace subterm with `hole`.
-		2. Run matching function for `pat1`.  If match is successful, copy terms recursively starting from the hole all the way to the root, create bindings in the `Match` object. 
-		3. Replace hole with matched subterm (i.e. restore term to its original state - we only copy once `pat1` has been matched successfully.
-	This reduces copying but memory fragmentation could be an issue?
-	This requires to rethink AST representation - need to be able to access subterm's parent and be able to replace it with `hole`. Use some sort of `TermLink` object storing references between terms?
-	The approach above is implemented and works, see `inholetest.rkt`. "Literal" patterns (not non-terminal in the language) do not work yet however.
-* Code cleanup  - improve codegen, decide on AST to represent PltRedex syntax (a bit all over the place for now), either improve `PatternTransformer` or do something completely different.
-* Term level non-terminal / built-in pattern membership caching. For example, when asking if a given term is `e`, store `e` symbol in the set. Thus, next time we try to determine if the term is `e`, we just look it up in the set.
-* Replace handwritten parser with Ply? 
 * `define-metafunction` form.
+	* Figure out how to perform plugging bindings back into term "templates". 
+* Code cleanup  - improve codegen, decide on AST to represent PltRedex syntax (a bit all over the place for now), either improve `PatternTransformer` or do something completely different.
+* Perform input validation:
+	* Ellipsis depth checking and constraint checking on `in-hole pat1 pat2` - same bindable symbols in `pat1` and `pat2` must have same ellipsis depth.
+	* Ensure `pat1` has exactly one `hole` in `in-hole pat1 pat2`.
+	* Non-terminal cycles (?) in `define-language` form - `x ::= y y ::= x` should be invalid.
+* Optimize patterns to reduce number of non-deterministic repetition matches.
+* Term level non-terminal / built-in pattern membership caching. For example, when asking if a given term is `e`, store `e` symbol in the set. Thus, next time we try to determine if the term is `e`, we just look it up in the set.
+* Replace handwritten parser with Ply? See other considerations below.
 * `reduction-relation` form.
 * `define-judgment-form` and `judgment-holds` forms.
 
