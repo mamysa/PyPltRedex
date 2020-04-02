@@ -41,6 +41,9 @@ class TermMethodTable:
     ReplaceWith = 'replacewith'
     CopyToRoot  = 'copy'
 
+class TermHelperFuncs:
+    CopyPathAndReplaceLast = 'copy_path_and_replace_last'
+
 class MatchMethodTable:
     AddToBinding ='addtobinding'
     AddKey = 'create_binding'
@@ -86,6 +89,7 @@ class RetrieveBindableElements(ast.PatternTransformer):
 class DefineLanguagePatternCodegen3(ast.PatternTransformer):
     def __init__(self, writer, context):
         assert isinstance(context, LanguageContext)
+        assert isinstance(writer, SourceWriter)
         self.symgen = SymGen()
         self.writer = writer 
         self.context = context
@@ -535,117 +539,80 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 #    3. Replace hole with term to restore the whole term to it's original state.
 
                 pat1, pat2 = pat.aux
+                self.transform(pat1)
                 self.transform(pat2)
 
-                # create lookup function.
-                lookupfuncname = 'lang_{}_lookup_all_terms_matching_{}'.format(self.definelanguage.name, self.symgen.get())
+                matchpat1 = self.context.get_function_for_pattern(repr(pat1))
                 matchpat2 = self.context.get_function_for_pattern(repr(pat2))
-
-                term, match, matches = Var('term'), Var('match'), Var('matches')
-                results = Var('results')
-                i = Var('i')
 
 
                 rbe = RetrieveBindableElements()
-                rbe.transform(pat2)
-                bindables = list(map(lambda x: x.sym,   rbe.bindables))
+                rbe.transform(pat1)
+                bindablespat1 = list(map(lambda x: x.sym, rbe.bindables))
+                assert len(bindablespat1) == 1
 
-                self.writer += '# lookup procedure for {}'.format(repr(pat2))
-                self.writer.newline()
-                self.writer += 'def {}({}):'.format(lookupfuncname, term)
+                rbe = RetrieveBindableElements()
+                rbe.transform(pat2)
+                bindablespat2 = list(map(lambda x: x.sym, rbe.bindables))
+
+                
+                # create lookup function.
+                lookupfuncname = 'lang_{}_inhole_{}_impl'.format(self.definelanguage.name, self.symgen.get())
+                term, nterm, match, matches = Var('term'), Var('nterm'), Var('match'), Var('matches')
+                matches0 = Var('matches0')
+                match2 = Var('match2')
+                path = Var('path')
+                i, hole = Var('i'), Var('hole')
+
+                outmatches = Var('outmatches')
+                m, h, t = Var('m'), Var('h'), Var('t')
+
+                self.writer += 'def {}({}, {}):'.format(lookupfuncname, term, path)
                 self.writer.newline().indent()
-                self.writer += '{} = []'.format(results)
+                self.writer += '{} = []'.format(outmatches)
                 self.writer.newline()
-                self.writer += '{} = Match({})'.format(match, list(set(bindables)))
+                self.writer += '{} = Match({})'.format(match, list(set(bindablespat2)))
                 self.writer.newline()
                 self.writer += '{} = {}({}, {}, {}, {})'.format(matches, matchpat2, term, match, 0, 1)
                 self.writer.newline()
                 self.writer += 'if len({}) != {}:'.format(matches, 0)
                 self.writer.newline().indent()
-                self.writer += '{}.append( ({}, {}) )'.format(results, term, matches)
-                self.writer.newline().dedent()
-
-                self.writer += "if {}.{}() == {}:".format(term, TermMethodTable.Kind, TermKind.Sequence)
-                self.writer.newline().indent()
-                self.writer += 'for {} in range({}.{}()):'.format(i, term, TermMethodTable.Length)
-                self.writer.newline().indent()
-                self.writer += '{} += {}({}.{}({}))'.format(results, lookupfuncname, term, TermMethodTable.Get, i)
-                self.writer.newline().dedent().dedent()
-                self.writer += 'return {}'.format(results)
-                self.writer.newline().dedent().newline()
-
-                # def match_in_hole(term):
-                # results = lookup(term)
-                # hole = Hole()
-                # for subterm, matches in results:
-                #     subterm.replacewith(hole)
-                #     match = Match([E])
-                #     matches0 = matchE(term, match, 0, 1)
-                #     if len(matches0) != 0:
-                #       assert len(matches0) == 1
-                #       newterm = hole.copytoroot()
-                #       for m in matches:
-                #         m.bind(E, newterm)
-                #    hole.replacewith(subterm)
-
-                self.transform(pat1)
-                pat1func = self.context.get_function_for_pattern(repr(pat1))
-                rbe = RetrieveBindableElements()
-                rbe.transform(pat1)
-                bindables = list(map(lambda x: x.sym,   rbe.bindables))
-
-                assert len(bindables) == 1
-
-                term, match, matches = Var('term'), Var('match'), Var('matches')
-                results = Var('results')
-
-                subterm, matches = Var('subterm'), Var('matches')
-                matches0 = Var('matches0')
-                newterm = Var('newterm')
-                hole = Var('hole')
-
-                outmatches = Var('outmatches')
-
-                m, h, t = Var('m'), Var('h'), Var('t')
-
-                termroot = Var('termroot')
-
-                self.writer += 'def {}({}):'.format(functionname, term)
-                self.writer.newline().indent()
-                self.writer += '{} = []'.format(outmatches)
+                self.writer += '{} = {}({} + [{}], {})'.format(nterm, TermHelperFuncs.CopyPathAndReplaceLast, path, term, hole)
                 self.writer.newline()
-                self.writer += '{} = {}({})'.format(results, lookupfuncname, term)
+                self.writer += '{} = Match({})'.format(match2, list(set(bindablespat1)))
                 self.writer.newline()
-                self.writer += '{} = Hole()'.format(hole)
-                self.writer.newline()
-                self.writer += 'for {}, {} in {}:'.format(subterm, matches, results)
-                self.writer.newline().indent()
-                self.writer += '{} = {}.{}({})'.format(termroot, subterm, TermMethodTable.ReplaceWith, hole)
-                self.writer.newline()
-                self.writer += '{} = Match({})'.format(match, list(set(bindables)))
-                self.writer.newline()
-                self.writer += '{} = {}({}, {}, {}, {})'.format(matches0, pat1func, termroot, match, 0, 1)
+                self.writer += '{} = {}({}, {}, {}, {})'.format(matches0, matchpat1, nterm, match2, 0, 1)
                 self.writer.newline()
                 self.writer += 'if len({}) != 0:'.format(matches0)
                 self.writer.newline().indent()
                 self.writer += 'assert len({}) == 1'.format(matches0)
                 self.writer.newline()
-                self.writer += '{} = {}.{}()'.format(newterm, hole, TermMethodTable.CopyToRoot)
-                self.writer.newline()
                 self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, matches)
                 self.writer.newline().indent()
-                for b in bindables:
+                for b in bindablespat1:
                     self.writer += '{}.{}(\"{}\")'.format(m, MatchMethodTable.AddKey, b)
                     self.writer.newline()
-                    self.writer += '{}.{}(\"{}\", {})'.format(m, MatchMethodTable.AddToBinding, b, newterm)
+                    self.writer += '{}.{}(\"{}\", {})'.format(m, MatchMethodTable.AddToBinding, b, nterm)
                     self.writer.newline()
                 self.writer += '{}.append(({}, {}, {}))'.format(outmatches, m, h, t)
-                self.writer.newline().dedent().dedent()
-                self.writer += '{} = {}.{}({})'.format(term, hole, TermMethodTable.ReplaceWith, subterm)
-
+                self.writer.newline().dedent().dedent().dedent()
+                self.writer += "if {}.{}() == {}:".format(term, TermMethodTable.Kind, TermKind.Sequence)
+                self.writer.newline().indent()
+                self.writer += '{}.append({})'.format(path, term)
+                self.writer.newline()
+                self.writer += 'for {} in range({}.{}()):'.format(i, term, TermMethodTable.Length)
+                self.writer.newline().indent()
+                self.writer += '{} += {}({}.{}({}), {})'.format(outmatches, lookupfuncname, term, TermMethodTable.Get, i, path)
                 self.writer.newline().dedent()
+                self.writer += '{}.pop()'.format(path)
+                self.writer.dedent().newline()
                 self.writer += 'return {}'.format(outmatches)
                 self.writer.newline().dedent().newline()
+
+                self.writer += 'def {}({}):'.format(functionname, term)
+                self.writer.newline().indent()
+                self.writer += 'return {}({}, [])'.format(lookupfuncname, term)
+                self.writer.newline().dedent()
 
 
         if pat.kind == ast.BuiltInPatKind.Hole:

@@ -77,4 +77,4 @@ def multiply(sequence_of_n):
 * The Revised Reporton theSyntactic Theories of Sequential Control and State, Matthias Felleisen, Robert Hieb https://www2.ccs.neu.edu/racket/pubs/tcs92-fh.pdf
 * Term Rewriting with Traversal Functions MARK G.J.VANDENBRAND and PAUL KLINT and JURGEN J. VINJU (need to look into this one)
 * http://www.meta-environment.org/doc/books/extraction-transformation/term-rewriting/term-rewriting.html#section.tr-substitution
-
+* DAG Representation and Optimization of Rewriting, Ke Li https://pdfs.semanticscholar.org/68d5/945e1ac0f5a09397612c9ab774d41e41f0f4.pdf

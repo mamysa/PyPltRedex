@@ -29,7 +29,9 @@ def codegen(tree, context):
     writer.newline()
     writer += 'from parser import Parser'
     writer.newline()
-    writer += 'from term import Hole'
+    writer += 'from term import Hole, copy_path_and_replace_last'
+    writer.newline()
+    writer += 'hole = Hole()'
     writer.newline()
     codegen = DefineLanguagePatternCodegen3(writer, context)
     codegen.transform(tree.definelanguage)

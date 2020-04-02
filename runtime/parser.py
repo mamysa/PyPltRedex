@@ -183,9 +183,6 @@ class Parser:
                 seq.append(self.parse_atom())
         self.expect(TokenKind.RParen)
         sequence = term.Sequence(seq)
-
-        for i, t in enumerate(sequence.seq):
-            t.set_parent(sequence, i)
         return sequence
 
     def parse(self):

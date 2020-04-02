@@ -100,7 +100,7 @@ class Sequence(Ast):
         return False
 
 
-def copy_path_and_replace_last(onpath, withterm):
+def copy_path_and_replace_last(path, withterm):
     """
     Takes a list of terms (which are assumed to be a valid term - term i is a parent of term i+1)
     copies all terms on path, modifies terms to point to copies, and replaces last term on the path
@@ -111,7 +111,7 @@ def copy_path_and_replace_last(onpath, withterm):
     assert len(path) > 0
 
     if len(path) == 1:
-        return term
+        return withterm 
 
     i = len(path) - 2
     child = withterm
