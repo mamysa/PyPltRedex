@@ -9,8 +9,12 @@ reserved = {
     'redex-match'    : 'REDEXMATCH',
     'match-equal?'   : 'MATCHEQUAL',
     'hole'           : 'HOLE',
+    'in-hole'        : 'INHOLE',
     '...'            : 'ELLIPSIS',
-    '::='            : 'NTDEFINITION'
+    '::='            : 'NTDEFINITION',
+    'term'           : 'TERM',
+    'match'          : 'MATCH',
+    'bind'           : 'BIND',
 }
 
 tokens = [
@@ -55,7 +59,6 @@ def t_comment(t):
     r';[^\n]*'
     pass
 
-
 # ---------------------DEFINE-LANGUAGE FORM -----------------------
 # define-language  ::= (define-language lang-name non-terminal-def ...+)
 # non-terminal-def ::= (non-terminal-name ::= pattern ...+)
@@ -73,9 +76,6 @@ def p_non_terminal_def_list(t):
     else:
         t[0] = t[1] 
         t[0].append(t[2])
-
-
-
 
 def p_non_terminal_def(t):
     """
@@ -95,10 +95,78 @@ def p_pattern_list(t):
         t[0].append(t[2])
 
 
+#start = 'match-equal'
+
+# --------------------- REDEX-MATCH FORM -----------------------
+# redex-match ::= (redex-match lang-name pattern term)
+# A bit inflexible at the moment - terms must be 'literal'
+def p_redex_match(t):
+    'redex-match : LPAREN REDEXMATCH IDENT pattern term-literal-top RPAREN'
+    t[0] = ast.RedexMatch(t[3], t[4], t[5])
+
+# --------------------- MATCH-EQUAL? FORM -----------------------
+# This form compares output of redex-match with a list of match objects. Not part of PltRedex and 
+# used exclusively for testing pattern matching functionality.
+# match-equal ::= (match-equal? redex-match match ...) | (match-equal? redex-match () )
+def p_match_equal(t):
+    """
+    match-equal : LPAREN MATCHEQUAL redex-match match-list RPAREN
+                | LPAREN MATCHEQUAL redex-match LPAREN RPAREN RPAREN
+    """
+    if len(t) == 6:
+        t[0] = ast.MatchEqual(t[3], t[4])
+    else:
+        t[0] = ast.MatchEqual(t[3], [])
+
+
+def p_match_list(t):
+    """
+    match-list : match-list match
+               | match
+    """
+    if len(t) == 3:
+        t[0] = t[1]
+        t[0].append(t[2])
+    else:
+        t[0] = [t[1]]
+
+# --------------------- MATCH -----------------------
+# This form creates match objects and used for testing pattern matching. Not part of PltRedex.
+# Literal terms are not specified using (term ...) thing, maybe should fix it eventually to be consisitent.
+# match ::= (match (bind var literal-term) ...)
+
+def p_match(t):
+    """
+    match : LPAREN MATCH RPAREN
+          | LPAREN MATCH match-bind-list RPAREN
+    """
+    if len(t) == 4:
+        t[0] = ast.Match([])
+    else:
+        t[0] = ast.Match(t[3])
+
+def p_match_bind_list(t):
+    """
+    match-bind-list : match-bind-list match-bind
+                    | match-bind  
+    """
+    if len(t) == 3:
+        t[0] = t[1]
+        t[0].append(t[2])
+    else:
+        t[0] = [t[1]]
+
+def p_match_bind(t):
+    'match-bind : LPAREN BIND IDENT term_literal RPAREN'
+    t[0] = (t[3], t[4])
+
+# --------------------- PATTERN -----------------------
 # Patterns. Unlike Redex, multiple ellipses appearing in a row are dissallowed on grammar level.
 # pattern ::= number 
 #           | variable-not-otherwise-mentioned 
 #           | (pattern-sequence)
+#           | (in-hole pattern pattern)
+#           | hole
 #           | literal-number
 # pattern-under-ellipsis ::= pattern ... | pattern 
 # pattern-sequence ::= pattern-under-ellipsis *
@@ -108,6 +176,9 @@ def p_pattern_list(t):
 def p_pattern_ident(t):
     'pattern : IDENT'
     prefix = extract_prefix(t[1])
+    # do not allow underscores for holes.
+    if prefix == 'hole': 
+        raise Exception('before underscore must be either a non-terminal or build-in pattern {}'.format(prefix))
     try: 
         case = ast.BuiltInPatKind(prefix).name
         t[0] = ast.BuiltInPat(ast.BuiltInPatKind[case], prefix, t[1])
@@ -123,6 +194,14 @@ def p_pattern_sequence(t):
         t[0] = ast.PatSequence([])
     else:
         t[0] = ast.PatSequence(t[2])
+
+def p_pattern_hole(t):
+    'pattern : HOLE'
+    t[0] = ast.BuiltInPat('hole', ast.BuiltInPatKind.Hole)
+      
+def p_pattern_inhole(t):
+    'in-hole : LPAREN INHOLE pattern pattern RPAREN'
+    t[0] = ast.BuiltInPat(ast.BuiltInPatKind.InHole, 'in-hole', 'in-hole', (t[3], t[4]))
 
 def p_pattern_literal_int(t):
     'pattern : INTEGER'
@@ -152,17 +231,26 @@ def p_pattern_under_ellipsis(t):
         t[0] = ast.Repeat(t[1])
 
 
+# ---------------------LITERAL TERMS -----------------------
 # Parsing 'literal' terms. These will be inserted into output directly using runtime classes.
 # E.g. (1 2) -> Sequence([Integer(1), Integer(2)])
 # term ::= (term ...) | atom
 # atom ::= INTEGER | IDENTIFIER
+
+def p_term_literal_top(t):
+    'term-literal-top : LPAREN TERM term_literal RPAREN'
+    t[0] = t[3]
+
 def p_term_literal(t):
     """
     term_literal : LPAREN term_literal_list RPAREN 
+                 | LPAREN RPAREN
                  | term_literal_atom
     """
     if len(t) == 2:
         t[0] = t[1]
+    elif len(t) == 3:
+        t[0] = term.TermLiteral(term.TermLiteralKind.List, [])
     else:
         t[0] = term.TermLiteral(term.TermLiteralKind.List, t[2])
 
@@ -200,6 +288,5 @@ lexer = lex.lex()
 #lexer.input('hole')
 #print(lexer.token())
 parser = yacc.yacc(debug=1)
-result = parser.parse('(define-language Lc (e ::= n) (e ::= number))')
+result = parser.parse('(match-equal? (redex-match Lc x (term 1)) ())')
 print(result)
-
