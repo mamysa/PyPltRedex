@@ -1,8 +1,8 @@
 import ply.lex as lex
 import ply.yacc as yacc
-import astdefs as ast
+import src.astdefs as ast
 
-import term #as term
+import src.term as term
 
 reserved = {
     'define-language': 'DEFINELANGUAGE',
@@ -33,7 +33,7 @@ t_LPAREN = r'\(|\{|\['
 t_RPAREN = r'\)|\}|\]'
 t_BOOLEAN = r'\#t|\#f'
 
-def t_newline(t):
+def t_NEWLINE(t):
     r'\n+'
     t.lexer.lineno += len(t.value)
 
@@ -44,7 +44,7 @@ def t_newline(t):
 # Also come up with better regex than this - [A-Z][a-z] matching does not include unicode characters.
 # TODO (match any symbol except reserved)* (match any symbol except reserved AND digit)+ 
 def t_IDENT(t):
-    r'([^ \(\)\[\]\{\}\"\'`;\#])*([^ \(\)\[\]\{\}\"\'`;\#0123456789])+([^ \(\)\[\]\{\}\"\'`;\#])*'
+    r'([^ \(\)\[\]\{\}\"\'`;\#\n])*([^ \(\)\[\]\{\}\"\'`;\#0123456789\n])+([^ \(\)\[\]\{\}\"\'`;\#\n])*'
     t.type = reserved.get(t.value, 'IDENT')
     return t
 
@@ -58,6 +58,40 @@ def t_error(t):
 def t_comment(t):
     r';[^\n]*'
     pass
+
+
+# --------------------- TOP-LEVEL -----------------------
+# module ::= define-language (redex-match match-equals)...
+
+def p_module(t):
+    'module : define-language top-level-form-list'
+    
+    redexmatches = []
+    matchequals = []
+    for form in t[2]:
+        if isinstance(form, ast.RedexMatch):
+            redexmatches.append(form)
+            if form.languagename != t[1].name:
+                raise Exception('undefined-language ' + form.languagename)
+        if isinstance(form, ast.MatchEqual):
+            matchequals.append(form)
+            if form.redexmatch.languagename != t[1].name:
+                raise Exception('undefined-language ' + form.definelanguage.languagename)
+    t[0] = ast.Module(t[1], redexmatches, matchequals) 
+
+def p_top_level_form_list(t):
+    """
+    top-level-form-list : top-level-form-list redex-match 
+                        | top-level-form-list match-equal 
+                        | redex-match
+                        | match-equal
+    """
+    if len(t) == 2:
+        t[0] = [t[1]]
+    else:
+        t[0] = t[1]
+        t[0].append(t[2])
+
 
 # ---------------------DEFINE-LANGUAGE FORM -----------------------
 # define-language  ::= (define-language lang-name non-terminal-def ...+)
@@ -95,7 +129,6 @@ def p_pattern_list(t):
         t[0].append(t[2])
 
 
-#start = 'match-equal'
 
 # --------------------- REDEX-MATCH FORM -----------------------
 # redex-match ::= (redex-match lang-name pattern term)
@@ -197,10 +230,10 @@ def p_pattern_sequence(t):
 
 def p_pattern_hole(t):
     'pattern : HOLE'
-    t[0] = ast.BuiltInPat('hole', ast.BuiltInPatKind.Hole)
+    t[0] = ast.BuiltInPat(ast.BuiltInPatKind.Hole, 'hole', 'hole')
       
 def p_pattern_inhole(t):
-    'in-hole : LPAREN INHOLE pattern pattern RPAREN'
+    'pattern : LPAREN INHOLE pattern pattern RPAREN'
     t[0] = ast.BuiltInPat(ast.BuiltInPatKind.InHole, 'in-hole', 'in-hole', (t[3], t[4]))
 
 def p_pattern_literal_int(t):
@@ -241,6 +274,12 @@ def p_term_literal_top(t):
     'term-literal-top : LPAREN TERM term_literal RPAREN'
     t[0] = t[3]
 
+# This is how we can handle errors!
+#def p_term_literal_top_error_1(t):
+#    'term-literal-top : LPAREN error term_literal RPAREN'
+#    raise Exception('blah', t[2], t[2].lineno)
+
+
 def p_term_literal(t):
     """
     term_literal : LPAREN term_literal_list RPAREN 
@@ -273,6 +312,13 @@ def p_term_literal_atom_identifier(t):
     'term_literal_atom : IDENT'
     t[0] = term.TermLiteral(term.TermLiteralKind.Variable, t[1])
 
+def p_term_literal_atom_hole(t):
+    'term_literal_atom : HOLE'
+    t[0] = term.TermLiteral(term.TermLiteralKind.Hole, t[1])
+
+def p_error(t):
+    raise Exception('unexpected token {} on line {}'.format(t.value, t.lineno))
+
 def extract_prefix(token):
         # extract prefix i.e. given symbol n_1 retrieve n.
         # in case of no underscore return token itself
@@ -284,9 +330,10 @@ def extract_prefix(token):
             return token
         return token[:idx]
 
-lexer = lex.lex()
-#lexer.input('hole')
-#print(lexer.token())
-parser = yacc.yacc(debug=1)
-result = parser.parse('(match-equal? (redex-match Lc x (term 1)) ())')
-print(result)
+def parse(filename):
+    f = open(filename, 'r')
+    buf = f.read()
+    f.close()
+    lexer = lex.lex()
+    parser = yacc.yacc(debug=1)
+    return parser.parse(buf)

@@ -1,4 +1,4 @@
-from src.parser import RedexSpecParser
+from src.parser2 import parse 
 from src.preprocdefinelang import module_preprocess 
 from src.patcodegen2 import DefineLanguagePatternCodegen3, SourceWriter
 
@@ -50,7 +50,7 @@ parser.add_argument('src', help='.rkt containing Redex spec')
 parser.add_argument('-dump-ast', action='store_true', help='Write spec to stdout')
 args = parser.parse_args()
 
-tree = RedexSpecParser(args.src, is_filename=True).parse()
+tree = parse(args.src)
 tree, context = module_preprocess(tree)
 
 if args.dump_ast:

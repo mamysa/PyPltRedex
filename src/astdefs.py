@@ -133,6 +133,9 @@ class NtDefinition(AstNode):
         self.nt = nt
         self.patterns = patterns
 
+    def get_nt_sym(self):
+        return self.nt.sym
+
     def __repr__(self):
         return 'NtDefinition({}, {})'.format(repr(self.nt), repr(self.patterns))
 
@@ -192,9 +195,21 @@ class CheckConstraint(Pat):
         return 'CheckConstraint({} == {})'.format(self.sym1, self.sym2)
 
 class DefineLanguage(AstNode):
-    def __init__(self, name, nts):
+    def __init__(self, name, ntdefs):
         self.name = name 
-        self.nts = nts
+        self.nts = {} 
+
+        # non-terminal-definitions must not contain underscores and each symbol can only appear once.
+        for ntdef in ntdefs:
+            ntsym = ntdef.get_nt_sym()
+            if ntsym.find('_') != -1:
+                raise ValueError('define-language: cannot use _ in a non-terminal name {}'.format(ntsym))
+
+            if ntsym in self.nts.keys():
+                raise ValueError('define-language: same non-terminal defined twice: {}'.format(ntsym))
+            self.nts[ntsym] = ntdef
+
+
 
     def ntsyms(self):
         return set(self.nts.keys())

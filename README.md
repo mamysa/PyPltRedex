@@ -2,7 +2,9 @@ PLT Redex specification to PyPy RPython compiler, featuring the worst software e
 
 ## Running 
 
-From project's root directory:
+First, install Ply - `pip3 install ply`. I also recommend using venv.
+
+Then, from project's root directory:
 
 ```
 python3 -m src your-plt-redex-spec.rkt
