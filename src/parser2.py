@@ -15,6 +15,7 @@ reserved = {
     'term'           : 'TERM',
     'match'          : 'MATCH',
     'bind'           : 'BIND',
+    'term-let'       : 'TERMLET',
 }
 
 tokens = [
@@ -68,6 +69,7 @@ def p_module(t):
     
     redexmatches = []
     matchequals = []
+    termlet = []
     for form in t[2]:
         if isinstance(form, ast.RedexMatch):
             redexmatches.append(form)
@@ -77,14 +79,18 @@ def p_module(t):
             matchequals.append(form)
             if form.redexmatch.languagename != t[1].name:
                 raise Exception('undefined-language ' + form.definelanguage.languagename)
-    t[0] = ast.Module(t[1], redexmatches, matchequals) 
+        if isinstance(form, ast.TermLet):
+            termlet.append(form)
+    t[0] = ast.Module(t[1], redexmatches, matchequals, termlet) 
 
 def p_top_level_form_list(t):
     """
     top-level-form-list : top-level-form-list redex-match 
                         | top-level-form-list match-equal 
+                        | top-level-form-list term-let
                         | redex-match
                         | match-equal
+                        | term-let
     """
     if len(t) == 2:
         t[0] = [t[1]]
@@ -128,14 +134,58 @@ def p_pattern_list(t):
         t[0] = t[1] 
         t[0].append(t[2])
 
-
-
 # --------------------- REDEX-MATCH FORM -----------------------
 # redex-match ::= (redex-match lang-name pattern term)
 # A bit inflexible at the moment - terms must be 'literal'
 def p_redex_match(t):
     'redex-match : LPAREN REDEXMATCH IDENT pattern term-literal-top RPAREN'
     t[0] = ast.RedexMatch(t[3], t[4], t[5])
+
+# --------------------- TERM-LET FORM -----------------------
+# term-let ::= (term-let ([tl-pat literal-term] ...) term-template)
+# tl-pat ::= identifier ( tl_pat_ele )
+# tl-pat-ele : tl_pat | tl_pat ELLPISIS 
+
+def p_term_let(t):
+    'term-let : LPAREN TERMLET LPAREN variable-assignment-list RPAREN term-template-top RPAREN'
+    t[0] = ast.TermLet(t[4], t[6])
+
+def p_variable_assignment_list(t):
+    """
+    variable-assignment-list : variable-assignment-list variable-assignment 
+                             | variable-assignment 
+    """
+    if len(t) == 3:
+        t[0] = t[1]
+        t[0].append(t[2])
+    else:
+        t[0] = [t[1]]
+
+
+def p_variable_assignment(t):
+    'variable-assignment : LPAREN tl-pat term-literal-top RPAREN'
+    t[0] = (t[2])
+
+def p_tl_pat(t):
+    """
+    tl-pat : IDENT
+           | LPAREN tl-pat-ele RPAREN
+    """
+    if len(t) == 2:
+        t[0] = ast.Nt(t[1], t[1])
+    else:
+        t[0] = ast.PatSequence(t[2])
+
+def p_tl_pat_ele(t):
+    """
+    tl-pat-ele : tl-pat
+               | tl-pat ELLIPSIS
+    """
+    if len(t) == 2:
+        t[0] = t[1]
+    else:
+        t[0] = ast.Repeat(t[1])
+
 
 # --------------------- MATCH-EQUAL? FORM -----------------------
 # This form compares output of redex-match with a list of match objects. Not part of PltRedex and 
@@ -220,7 +270,7 @@ def p_pattern_ident(t):
 
 def p_pattern_sequence(t):
     """
-    pattern : LPAREN patternsequence RPAREN
+    pattern : LPAREN pattern-sequence RPAREN
             | LPAREN RPAREN 
     """
     if len(t) == 3:
@@ -243,8 +293,8 @@ def p_pattern_literal_int(t):
 
 def p_pattern_sequence_contents(t):
     """
-    patternsequence : patternsequence pattern-under-ellipsis 
-                    | pattern-under-ellipsis 
+    pattern-sequence : pattern-sequence pattern-under-ellipsis 
+                     | pattern-under-ellipsis 
     """
     if len(t) == 3:
         t[0] = t[1]
@@ -263,6 +313,58 @@ def p_pattern_under_ellipsis(t):
     else:
         t[0] = ast.Repeat(t[1])
 
+# ---------------------TERM TEMPLATES -----------------------
+# Things that look like terms but instead are compiled into code.
+# To be used with term-let and similar.
+# term-tempate-top ::= (TERM term-tempate)
+# term-template    ::= ( term-sequence ) 
+#                    | number
+#                    | ident
+# term-under-ellipsis ::= term-template ... | term-template 
+# term-sequence ::= term-under-ellipsis *
+
+def p_term_template_top(t):
+    'term-template-top : LPAREN TERM term-template RPAREN'
+    t[0] = t[3]
+
+def p_term_template(t):
+    """
+    term-template : LPAREN term-template-list RPAREN 
+                  | LPAREN RPAREN
+    """
+    if len(t) == 2:
+        t[0] = term.TermSequence([])
+    else: 
+        t[0] = term.TermSequence(t[2])
+
+def p_term_template_integer(t):
+    'term-template : INTEGER'
+    t[0] = term.TermLiteral(term.TermLiteralKind.Integer, t[1])
+
+def p_term_template_unresolved(t):
+    'term-template : IDENT'
+    t[0] = term.UnresolvedSym(t[1])
+
+def p_term_template_list(t):
+    """
+    term-template-list : term-template-list term-template-under-ellipsis
+                       | term-template-under-ellipsis
+    """
+    if len(t) == 3:
+        t[0] = t[1]
+        t[0].append(t[2])
+    else:
+        t[0] = [t[1]]
+
+def p_term_under_ellipsis(t):
+    """
+    term-template-under-ellipsis : term-template ELLIPSIS
+                                 | term-template
+    """
+    if len(t) == 2:
+        t[0] = t[1]
+    else:
+        t[0] = term.Repeat(t[1])
 
 # ---------------------LITERAL TERMS -----------------------
 # Parsing 'literal' terms. These will be inserted into output directly using runtime classes.

@@ -194,6 +194,15 @@ class CheckConstraint(Pat):
     def __repr__(self):
         return 'CheckConstraint({} == {})'.format(self.sym1, self.sym2)
 
+
+class TermLet(AstNode):
+    def __init__(self, variable_assignments, template):
+        self.variable_assignments = variable_assignments
+        self.template = template
+
+    def __repr__(self):
+        return 'TermLet({}, {})'.format(repr(self.variable_assignments), repr(self.template))
+
 class DefineLanguage(AstNode):
     def __init__(self, name, ntdefs):
         self.name = name 
@@ -228,10 +237,11 @@ class RedexMatch(AstNode):
         return 'RedexMatch({}, {}, {})'.format(self.languagename, repr(self.pat), self.termstr)
 
 class Module(AstNode):
-    def __init__(self, definelanguage, redexmatches, matchequals):
+    def __init__(self, definelanguage, redexmatches, matchequals, termlet):
         self.definelanguage = definelanguage
         self.redexmatches = redexmatches
         self.matchequals = matchequals
+        self.termlet = termlet
 
     def __repr__(self):
         out = []
@@ -240,6 +250,8 @@ class Module(AstNode):
             out.append(repr(rm))
         for me in self.matchequals:
             out.append(repr(me))
+        for tl in self.termlet:
+            out.append(repr(tl))
         return "\n".join(out)
 
 class PatternTransformer:
