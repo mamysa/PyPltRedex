@@ -1,3 +1,6 @@
+import enum 
+import copy
+
 class TermLiteralKind:
     Integer = 0
     Variable = 1
@@ -16,38 +19,90 @@ class TermLiteral:
         return '({})'.format(' '.join(map(repr, self.value)))
 
 
-class CompiledTerm:
-    pass
+class TermAttribute(enum.Enum):
+    InArg   = 'InArg'
+    ForEach = 'ForEach'
 
-class TermSequence(CompiledTerm):
+class Term:
+    def __init__(self):
+        self._attributes = []
+
+    def addattribute(self, key, val):
+        assert isinstance(key, TermAttribute)
+        assert key not in self._attributes
+        self._attributes.append((key, val))
+
+    def getattributes(self):
+        return self._attributes
+
+    def attributelength(self):
+        return len(self._attributes)
+
+    def copyattributesfrom(self, node):
+        assert isinstance(node, Term)
+        self._attributes = copy.copy(node._attributes)
+        return self
+
+class TermSequence(Term):
     def __init__(self, seq):
+        super().__init__()
         self.seq = seq 
 
     def __repr__(self):
-        return 'TermSequence({})'.format(self.seq)
+        return 'TermSequence({}, {})'.format(self.seq, self._attributes)
 
-class Repeat(CompiledTerm):
+class Repeat(Term):
     def __init__(self, term):
-        assert isinstance(term, CompiledTerm )
+        assert isinstance(term, Term)
+        super().__init__()
         self.term = term 
 
     def __repr__(self):
-        return 'Repeat({})'.format(self.term)
+        return 'Repeat({}, {})'.format(self.term, self._attributes)
 
-class UnresolvedSym(CompiledTerm):
+class UnresolvedSym(Term):
     def __init__(self, sym):
         """
         Keyword arguments:
         sym    -- symbol as parsed. (i.e. n_1)
         """
+        super().__init__()
         self.sym = sym
 
     def __repr__(self):
         return 'UnresolvedSym({})'.format(self.sym)
 
-class PatternVariable(CompiledTerm):
+class PatternVariable(Term):
     def __init__(self, sym):
+        super().__init__()
         self.sym = sym
 
     def __repr__(self):
-        return 'PatternVariable({})'.format(self.sym)
+        return 'PatternVariable({}, {})'.format(self.sym, self._attributes)
+
+class TermTransformer:
+    def transform(self, element):
+        assert isinstance(element, Term)
+        method_name = 'transform' + element.__class__.__name__
+        method_ref = getattr(self, method_name)
+        return method_ref(element)
+
+    def transformTermSequence(self, node):
+        assert isinstance(node, TermSequence)
+        seq = []
+        for n in node.seq:
+            seq.append(self.transform(n))
+        return TermSequence(seq).copyattributesfrom(node)
+
+    def transformRepeat(self, node):
+        assert isinstance(node, Repeat)
+        return Repeat(self.transform(node.term)).copyattributesfrom(node)
+
+    def transformUnresolvedSym(self, node):
+        return node
+
+    def transformPatternVariable(self, node):
+        return node
+
+    def transformTermLiteral(self, node):
+        return node

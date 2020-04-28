@@ -156,15 +156,22 @@ def p_variable_assignment_list(t):
                              | variable-assignment 
     """
     if len(t) == 3:
+        ident, depth, term = t[2]
+        if ident in t[0].keys():
+            raise Exception('{} mentioned twice'.format(ident))
         t[0] = t[1]
-        t[0].append(t[2])
+        t[0][ident] = (depth, term) 
     else:
-        t[0] = [t[1]]
+        t[0] = {}
+        ident, depth, term = t[1]
+        t[0][ident] = (depth, term) 
 
-
+# Seeing that variables under ellipsis are flat (i.e. no arbitrary list nesting) 
+# provide ellipsis depth instead of tl-pat. Ellipsis depth is known at compile time. 
+# FIXME rename the form to something else?
 def p_variable_assignment(t):
-    'variable-assignment : LPAREN tl-pat term-literal-top RPAREN'
-    t[0] = (t[2])
+    'variable-assignment : LPAREN IDENT INTEGER term-literal-top RPAREN'
+    t[0] = (t[2], int(t[3]), t[4])
 
 def p_tl_pat(t):
     """
