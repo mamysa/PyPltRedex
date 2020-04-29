@@ -1,37 +1,10 @@
 import src.astdefs as ast
+import src.term as TERM 
+import src.genterm as genterm
 from src.preprocdefinelang import LanguageContext
 from src.symgen import SymGen
+from src.common import SourceWriter, Var
 
-
-class SourceWriter:
-    def __init__(self):
-        self.indents = 0
-        self.buf = []
-        self.should_insert_tabs = True 
-
-    def indent(self):
-        self.indents += 1
-        return self
-
-    def dedent(self):
-        self.indents -= 1
-        assert self.indents >= 0
-        return self
-
-    def newline(self):
-        self.buf.append('\n')
-        self.should_insert_tabs = True
-        return self
-    
-    def __iadd__(self, string):
-        if self.should_insert_tabs:
-            self.buf.append(' '*self.indents*4)
-            self.should_insert_tabs = False
-        self.buf.append(string)
-        return self
-
-    def build(self):
-        return ''.join(self.buf)
 
 class TermMethodTable:
     Kind = 'kind'
@@ -63,12 +36,6 @@ class TermKind:
     Sequence = 2 
     Hole = 3
 
-class Var:
-    def __init__(self, name):
-        self.name = name
-
-    def __str__(self):
-        return self.name
 
 
 class RetrieveBindableElements(ast.PatternTransformer):
@@ -140,6 +107,26 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.writer += 'assert_compare_match_lists({}, {})'.format(matches, list_of_matches)
         self.writer.newline()
 
+
+    def transformTermLet(self, termlet):
+        assert isinstance(termlet, ast.TermLet)
+        template = genterm.TermAnnotate(termlet.variable_assignments).transform(termlet.template)
+        template = genterm.TermCodegen(self.writer).transform(template)
+        funcname = template.getattribute(TERM.TermAttribute.FunctionName)[0]
+
+        match = Var(self.symgen.get('match'))
+
+        self.writer += '{} = Match()'.format(match)
+        self.writer.newline()
+
+        for variable, (_, term) in termlet.variable_assignments.items():
+            self.writer += '{} = Parser(\"{}\").parse()'.format(variable, term)
+            self.writer.newline()
+            self.writer += '{}.{}(\"{}\")'.format(match, MatchMethodTable.AddKey, variable)
+            self.writer.newline()
+            self.writer += '{}.{}(\"{}\", {})'.format(match, MatchMethodTable.AddToBinding, variable, variable)
+            self.writer.newline()
+        self.writer += 'print( {}({}) )'.format(funcname, match)
 
 
 
@@ -673,4 +660,3 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 self.writer.newline().dedent()
                 self.writer += 'return []'
                 self.writer.newline().dedent().newline()
-

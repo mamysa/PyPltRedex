@@ -1,10 +1,8 @@
 import src.term as term
 import src.astdefs as ast
+import src.common as common
 from src.symgen import SymGen
 from src.preprocdefinelang import LanguageContext
-from src.patcodegen2 import SourceWriter, Var
-
-
 
 # Need to annotate term template to ease code generation. Given a pattern variable n
 # and associated ellipsis depth, we keep track of the path to the pattern variable in the term 
@@ -80,14 +78,24 @@ class TermAnnotate(term.TermTransformer):
 
 class TermCodegen(term.TermTransformer):
     def __init__(self, writer):
-        assert isinstance(writer, SourceWriter)
+        assert isinstance(writer, common.SourceWriter)
         self.writer  = writer
         self.symgen = SymGen()
 
 
     def _check_inconsistent_ellipsis_match_counts(self, foreach):
-        pass
+        # store in the set and assert length of the set is 1
+        arr = []
+        for ident, _ in foreach:
+            arr.append('{}.length()'.format(ident))
+        arr= ', '.join(arr)
 
+        self.writer += '{} = set([{}])'.format('lengths', arr)
+        self.writer.newline()
+        self.writer += 'assert len(lengths) == 1, \"inconsistent ellipsis match counts \"'
+        self.writer.newline()
+            
+    # TODO clean up this mess.
     def _gen_params(self, t):
         fparameters = ['match']
         try:
@@ -97,8 +105,7 @@ class TermCodegen(term.TermTransformer):
                     fparameters.append(paramname)
             return ', '.join(fparameters), len(fparameters)
         except KeyError:
-            return fparameters, len(fparameters)
-
+            return fparameters[0], 1
 
     def _get_reads_from_match(self, t):
         try: 
@@ -116,7 +123,7 @@ class TermCodegen(term.TermTransformer):
         funcname = termsequence.getattribute(term.TermAttribute.FunctionName)[0]
         parameters, _ = self._gen_params(termsequence)
 
-        seq = Var('seq')
+        seq = common.Var('seq')
 
         self.writer += 'def {}({}):'.format(funcname, parameters)
         self.writer.newline().indent()
@@ -128,26 +135,24 @@ class TermCodegen(term.TermTransformer):
             self.writer += '{} = {}.{}(\'{}\')'.format(paramname, 'match', 'getbinding', sym)
             self.writer.newline()
 
-
-
         entries_to_transform = []
-
 
         for t in termsequence.seq:
             if isinstance(t, term.Repeat):
                 entries_to_transform.append(t.term)
                 foreach = t.getattribute(term.TermAttribute.ForEach)
                 self._check_inconsistent_ellipsis_match_counts(foreach)
-                i = Var('i')
+                i = common.Var('i')
                 first = foreach[0][0]
 
-                self.writer += 'for {} in range(len({})'.format(i, first)
+
+                self.writer += 'for {} in range({}.length()):'.format(i, first)
                 self.writer.newline().indent()
                 tmps = ['match']
 
                 for param, _ in foreach:
-                    tmp, param = Var(self.symgen.get()), Var(param)
-                    self.writer += '{} = {}[{}]'.format(tmp, param, i)
+                    tmp, param = common.Var(self.symgen.get()), common.Var(param)
+                    self.writer += '{} = {}.get({})'.format(tmp, param, i)
                     self.writer.newline()
                     tmps.append(tmp.name)
 

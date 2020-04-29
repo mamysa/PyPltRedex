@@ -23,6 +23,7 @@ class LanguageContext:
         self.__variables_mentioned = None
         self.__isa_functions = {}
         self.__pattern_code = {}
+        self.__term_template_funcs = {}
 
     def add_variables_mentioned(self, variables):
         self.__variables_mentioned = ('variables_mentioned', variables)
@@ -47,6 +48,15 @@ class LanguageContext:
     def get_function_for_pattern(self, prefix):
         if prefix in self.__pattern_code:
             return self.__pattern_code[prefix]
+        return None
+
+    def add_function_for_term_template(self, prefix, function):
+        assert prefix not in self.__term_template_funcs, 'function for {} is present'.format(prefix)
+        self.__term_template_funcs[prefix] = function
+
+    def get_function_for_term_template(self, prefix):
+        if prefix in self.__term_template_funcs:
+            return self.__term_template_funcs[prefix]
         return None
 
 class NtResolver(ast.PatternTransformer):

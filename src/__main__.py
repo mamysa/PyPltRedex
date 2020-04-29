@@ -6,6 +6,9 @@ import sys
 import os
 import shutil
 
+import src.genterm as genterm
+
+
 import argparse
 
 BASEDIR = 'rpyout'
@@ -29,7 +32,7 @@ def codegen(tree, context):
     writer.newline()
     writer += 'from parser import Parser'
     writer.newline()
-    writer += 'from term import Hole, copy_path_and_replace_last'
+    writer += 'from term import Hole, copy_path_and_replace_last, Sequence'
     writer.newline()
     writer += 'hole = Hole()'
     writer.newline()
@@ -39,6 +42,9 @@ def codegen(tree, context):
         codegen.transform(rm)
 
     for me in tree.matchequals:
+        codegen.transform(me)
+
+    for me in tree.termlet:
         codegen.transform(me)
 
     create_output(writer)
@@ -52,6 +58,8 @@ args = parser.parse_args()
 
 tree = parse(args.src)
 tree, context = module_preprocess(tree)
+
+    
 
 if args.dump_ast:
     print(tree)

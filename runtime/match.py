@@ -76,6 +76,9 @@ class Match:
         assert len(binding2.buf) > 0
         return binding1.buf[-1] == binding2.buf[-1]
 
+    def getbinding(self, sym):
+        return self.bindings[sym].getbinding()
+
     def __eq__(self, other):
         if isinstance(other, Match):
             lkeys = set(self.bindings.keys())
