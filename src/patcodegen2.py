@@ -55,6 +55,7 @@ class MatchMethodTable:
     Copy = 'copy'
     CompareKeys = 'comparekeys'
     RemoveKey   = 'removebinding'
+    GetBinding = 'getbinding'
 
 class TermKind:
     Variable = 0

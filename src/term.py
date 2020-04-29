@@ -20,23 +20,23 @@ class TermLiteral:
 
 
 class TermAttribute(enum.Enum):
+    FunctionName = 'FunctionName'
     InArg   = 'InArg'
     ForEach = 'ForEach'
 
 class Term:
     def __init__(self):
-        self._attributes = []
+        self._attributes = {} 
 
     def addattribute(self, key, val):
         assert isinstance(key, TermAttribute)
-        assert key not in self._attributes
-        self._attributes.append((key, val))
+        if key not in self._attributes:
+            self._attributes[key] = []
+        self._attributes[key].append(val)
+        return self
 
-    def getattributes(self):
-        return self._attributes
-
-    def attributelength(self):
-        return len(self._attributes)
+    def getattribute(self, key):
+        return self._attributes[key]
 
     def copyattributesfrom(self, node):
         assert isinstance(node, Term)
@@ -53,7 +53,7 @@ class TermSequence(Term):
 
 class Repeat(Term):
     def __init__(self, term):
-        assert isinstance(term, Term)
+        assert isinstance(term, Term), 'expecte {}'.format(type(term))
         super().__init__()
         self.term = term 
 

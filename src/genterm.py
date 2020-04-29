@@ -1,6 +1,10 @@
 import src.term as term
 import src.astdefs as ast
 from src.symgen import SymGen
+from src.preprocdefinelang import LanguageContext
+from src.patcodegen2 import SourceWriter, Var
+
+
 
 # Need to annotate term template to ease code generation. Given a pattern variable n
 # and associated ellipsis depth, we keep track of the path to the pattern variable in the term 
@@ -33,9 +37,14 @@ class TermAnnotate(term.TermTransformer):
     def transformRepeat(self, repeat):
         assert isinstance(repeat, term.Repeat)
         nrepeat = term.Repeat(self.transform(repeat.term)).copyattributesfrom(repeat)
-        #if nrepeat.attributelength() == 0:
-        #    raise Exception('too many ellipses in template {}'.format(repr(repeat)))
+        if len(nrepeat.getattribute(term.TermAttribute.ForEach)) == 0:
+            raise Exception('too many ellipses in template {}'.format(repr(repeat)))
         return nrepeat
+
+    def transformTermSequence(self, termsequence):
+        ntermsequence = super().transformTermSequence(termsequence)
+        sym = self.symgen.get('gen_term')
+        return ntermsequence.addattribute(term.TermAttribute.FunctionName, sym)
 
     def transformUnresolvedSym(self, node):
         assert isinstance(node, term.UnresolvedSym)
@@ -55,6 +64,7 @@ class TermAnnotate(term.TermTransformer):
             if isinstance(t, term.TermSequence):
                 if expecteddepth == actualdepth:
                     t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, True))
+                    break
                 else:
                     t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, False))
             if isinstance(t, term.Repeat):
@@ -63,5 +73,121 @@ class TermAnnotate(term.TermTransformer):
 
         if actualdepth != expecteddepth:
             raise Exception('inconsistent ellipsis depth for pattern variable {}: expected {} actual {}'.format(node.sym, expecteddepth, actualdepth))
-        return term.PatternVariable(node.sym).copyattributesfrom(node)
+        sym = self.symgen.get('gen_term')
+        return term.PatternVariable(node.sym).copyattributesfrom(node).addattribute(term.TermAttribute.FunctionName, sym)
 
+
+
+class TermCodegen(term.TermTransformer):
+    def __init__(self, writer):
+        assert isinstance(writer, SourceWriter)
+        self.writer  = writer
+        self.symgen = SymGen()
+
+
+    def _check_inconsistent_ellipsis_match_counts(self, foreach):
+        pass
+
+    def _gen_params(self, t):
+        fparameters = ['match']
+        try:
+            parameters = t.getattribute(term.TermAttribute.InArg)
+            for _, paramname, _, frommatch in parameters:
+                if not frommatch:
+                    fparameters.append(paramname)
+            return ', '.join(fparameters), len(fparameters)
+        except KeyError:
+            return fparameters, len(fparameters)
+
+
+    def _get_reads_from_match(self, t):
+        try: 
+            parameters = t.getattribute(term.TermAttribute.InArg)
+            bindings = []
+            for sym, paramname, _, frommatch in parameters:
+                if frommatch:
+                    bindings.append((sym, paramname))
+            return bindings
+        except KeyError:
+            return []
+
+    def transformTermSequence(self, termsequence):
+        assert isinstance(termsequence, term.TermSequence)
+        funcname = termsequence.getattribute(term.TermAttribute.FunctionName)[0]
+        parameters, _ = self._gen_params(termsequence)
+
+        seq = Var('seq')
+
+        self.writer += 'def {}({}):'.format(funcname, parameters)
+        self.writer.newline().indent()
+        self.writer += '{} = []'.format(seq)
+        self.writer.newline()
+
+        match_reads = self._get_reads_from_match(termsequence)
+        for sym, paramname in match_reads:
+            self.writer += '{} = {}.{}(\'{}\')'.format(paramname, 'match', 'getbinding', sym)
+            self.writer.newline()
+
+
+
+        entries_to_transform = []
+
+
+        for t in termsequence.seq:
+            if isinstance(t, term.Repeat):
+                entries_to_transform.append(t.term)
+                foreach = t.getattribute(term.TermAttribute.ForEach)
+                self._check_inconsistent_ellipsis_match_counts(foreach)
+                i = Var('i')
+                first = foreach[0][0]
+
+                self.writer += 'for {} in range(len({})'.format(i, first)
+                self.writer.newline().indent()
+                tmps = ['match']
+
+                for param, _ in foreach:
+                    tmp, param = Var(self.symgen.get()), Var(param)
+                    self.writer += '{} = {}[{}]'.format(tmp, param, i)
+                    self.writer.newline()
+                    tmps.append(tmp.name)
+
+                tmps = ', '.join(tmps)
+                func_tocall = t.term.getattribute(term.TermAttribute.FunctionName)[0]
+                self.writer += '{}.append( {}({}) )'.format(seq, func_tocall, tmps)
+                self.writer.newline().dedent()
+
+            if isinstance(t, term.PatternVariable) or isinstance(t, term.TermSequence):
+                entries_to_transform.append(t)
+                parameters, _ = self._gen_params(t)
+                func_tocall = t.getattribute(term.TermAttribute.FunctionName)[0]
+                self.writer += '{}.append( {}({}) )'.format(seq, func_tocall, parameters)
+                self.writer.newline()
+
+
+        self.writer += 'return Sequence({})'.format(seq)
+        self.writer.newline().dedent().newline()
+
+        for t in entries_to_transform:
+            self.transform(t)
+        return termsequence
+
+    def transformPatternVariable(self, node):
+        funcname = node.getattribute(term.TermAttribute.FunctionName)[0]
+        parameters, numparams = self._gen_params(node)
+
+        self.writer += 'def {}({}):'.format(funcname, parameters)
+        self.writer.newline().indent()
+
+
+        args = node.getattribute(term.TermAttribute.InArg)
+        # must be ellipsis depth of 0
+        if numparams == 1:
+            args = self._get_reads_from_match(node)
+            assert len(args) == 1
+            for sym, paramname in  args:
+                self.writer += '{} = {}.{}(\'{}\')'.format(paramname, 'match', 'getbinding', sym)
+                self.writer.newline()
+                self.writer += 'return {}'.format(paramname)
+        else:
+            self.writer += 'return {}'.format(args[0][1])
+        self.writer.newline().dedent().newline()
