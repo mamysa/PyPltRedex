@@ -46,8 +46,6 @@ class TermAnnotate(term.TermTransformer):
 
         param = self.symgen.get(node.sym)
         # definitely a pattern variable now, topmost entry on the stack is this node. 
-        # TODO NEED TO KEEP TRACK OF 
-        prevrepeat, inserted = None, False
         for t in reversed(self.path): 
             if isinstance(t, term.UnresolvedSym): 
                 if expecteddepth == 0:
@@ -55,22 +53,13 @@ class TermAnnotate(term.TermTransformer):
                     break
                 t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, False))
             if isinstance(t, term.TermSequence):
-                if prevrepeat != None:
-                    if expecteddepth == actualdepth:
-                        t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, True))
-                        prevrepeat.addattribute(term.TermAttribute.ForEach, (param, actualdepth))
-                        break
-                    else:
-                        t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, False))
-                        if not inserted:
-                            prevrepeat.addattribute(term.TermAttribute.ForEach, (param, actualdepth))
-                    inserted = True
+                if expecteddepth == actualdepth:
+                    t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, True))
                 else:
                     t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, False))
-
             if isinstance(t, term.Repeat):
                 actualdepth += 1
-                prevrepeat = t
+                t.addattribute(term.TermAttribute.ForEach, (param, actualdepth))
 
         if actualdepth != expecteddepth:
             raise Exception('inconsistent ellipsis depth for pattern variable {}: expected {} actual {}'.format(node.sym, expecteddepth, actualdepth))

@@ -157,7 +157,7 @@ def p_variable_assignment_list(t):
     """
     if len(t) == 3:
         ident, depth, term = t[2]
-        if ident in t[0].keys():
+        if ident in t[1].keys():
             raise Exception('{} mentioned twice'.format(ident))
         t[0] = t[1]
         t[0][ident] = (depth, term) 
