@@ -14,6 +14,11 @@
   (term ((n_1 ...  n_2 ...) (n_2 ... n_1 ...)))
   (term ((1 2 3 4 5) (3 4 5 1 2))))
 
+(assert-term-eq 
+  ([n 1 (term (1 2 3))])
+  (term ((y n) ...))
+  (term ((y 1) (y 2) (y 3))))
+
 (assert-term-eq
   ([n 1 (term (1 2))]
    [x 2 (term ((x y) (a b)))])
@@ -31,3 +36,9 @@
    [x 2 (term ((x y) (a b)))])
   (term ((n ... (n ... x ...) ...) ...))
   (term ((1 2 3 (1 2 3 x y) (4 a b)) (4 (1 2 3 x y) (4 a b)))))
+
+(assert-term-eq
+  ([n 1 (term (1 2))]
+   [x 2 (term (()(a)))])
+  (term ((n  x ...) ...))
+  (term ((1) (2 a))))
