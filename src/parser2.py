@@ -15,7 +15,7 @@ reserved = {
     'term'           : 'TERM',
     'match'          : 'MATCH',
     'bind'           : 'BIND',
-    'term-let'       : 'TERMLET',
+    'assert-term-eq' : 'ASSERTTERMEQ',
 }
 
 tokens = [
@@ -79,7 +79,7 @@ def p_module(t):
             matchequals.append(form)
             if form.redexmatch.languagename != t[1].name:
                 raise Exception('undefined-language ' + form.definelanguage.languagename)
-        if isinstance(form, ast.TermLet):
+        if isinstance(form, ast.AssertTermsEqual):
             termlet.append(form)
     t[0] = ast.Module(t[1], redexmatches, matchequals, termlet) 
 
@@ -87,10 +87,10 @@ def p_top_level_form_list(t):
     """
     top-level-form-list : top-level-form-list redex-match 
                         | top-level-form-list match-equal 
-                        | top-level-form-list term-let
+                        | top-level-form-list assert-term-eq 
                         | redex-match
                         | match-equal
-                        | term-let
+                        | assert-term-eq
     """
     if len(t) == 2:
         t[0] = [t[1]]
@@ -146,9 +146,9 @@ def p_redex_match(t):
 # tl-pat ::= identifier ( tl_pat_ele )
 # tl-pat-ele : tl_pat | tl_pat ELLPISIS 
 
-def p_term_let(t):
-    'term-let : LPAREN TERMLET LPAREN variable-assignment-list RPAREN term-template-top RPAREN'
-    t[0] = ast.TermLet(t[4], t[6])
+def p_assert_term_eq(t):
+    'assert-term-eq : LPAREN ASSERTTERMEQ LPAREN variable-assignment-list RPAREN term-template-top term-literal-top RPAREN'
+    t[0] = ast.AssertTermsEqual(t[4], t[6], t[7])
 
 def p_variable_assignment_list(t):
     """

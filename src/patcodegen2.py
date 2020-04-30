@@ -110,13 +110,20 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.writer.newline()
 
 
-    def transformTermLet(self, termlet):
-        assert isinstance(termlet, ast.TermLet)
+    def transformAssertTermsEqual(self, termlet):
+        assert isinstance(termlet, ast.AssertTermsEqual)
         idof = self.symgen.get('termlet')
         template = genterm.TermAnnotate(termlet.variable_assignments, idof, self.context).transform(termlet.template)
         for term, sym in self.context._litterms.items():
             self.writer += '{} = Parser(\"{}\").parse()'.format(sym, term)
             self.writer.newline()
+
+        compareto = self.symgen.get('expected')
+        self.writer += '{} = Parser(\"{}\").parse()'.format(compareto, termlet.literal)
+        self.writer.newline()
+
+        result = self.symgen.get()
+
 
         template = genterm.TermCodegen(self.writer, self.context).transform(template)
         funcname = template.getattribute(TERM.TermAttribute.FunctionName)[0]
@@ -133,7 +140,11 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer.newline()
             self.writer += '{}.{}(\"{}\", {})'.format(match, MatchMethodTable.AddToBinding, variable, variable)
             self.writer.newline()
-        self.writer += 'print( {}({}) )'.format(funcname, match)
+        self.writer += '{} = {}({})'.format(result, funcname, match)
+        self.writer.newline()
+        self.writer += 'print({})'.format(result)
+        self.writer.newline()
+        self.writer += 'assert {} == {}'.format(result, compareto)
         self.writer.newline()
 
 

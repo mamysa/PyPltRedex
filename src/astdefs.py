@@ -195,13 +195,14 @@ class CheckConstraint(Pat):
         return 'CheckConstraint({} == {})'.format(self.sym1, self.sym2)
 
 
-class TermLet(AstNode):
-    def __init__(self, variable_assignments, template):
+class AssertTermsEqual(AstNode):
+    def __init__(self, variable_assignments, template, literal):
         self.variable_assignments = variable_assignments
         self.template = template
+        self.literal = literal
 
     def __repr__(self):
-        return 'TermLet({}, {})'.format(repr(self.variable_assignments), repr(self.template))
+        return 'AssertTermsEqual({}, {}, {})'.format(repr(self.variable_assignments), repr(self.template), repr(self.literal))
 
 class DefineLanguage(AstNode):
     def __init__(self, name, ntdefs):

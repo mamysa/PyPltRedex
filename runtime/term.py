@@ -26,6 +26,8 @@ class Integer(Ast):
         return self.__value
 
     def __eq__(self, other):
+        if other == None:
+            return False
         if self.kind() == other.kind():
             return self.value() == other.value()
         return False
@@ -46,6 +48,8 @@ class Variable(Ast):
         return '{}'.format(self.__value)
 
     def __eq__(self, other):
+        if other == None:
+            return False
         if self.kind() == other.kind():
             return self.value() == other.value()
         return False
@@ -61,6 +65,8 @@ class Hole(Ast):
         return 'hole'
 
     def __eq__(self, other):
+        if other == None:
+            return False
         return self.kind() == other.kind()
 
     def copy(self):
