@@ -65,6 +65,8 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.writer = writer 
         self.context = context
 
+        
+
     def transformDefineLanguage(self, node):
         assert isinstance(node, ast.DefineLanguage)
 
@@ -110,8 +112,13 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
     def transformTermLet(self, termlet):
         assert isinstance(termlet, ast.TermLet)
-        template = genterm.TermAnnotate(termlet.variable_assignments).transform(termlet.template)
-        template = genterm.TermCodegen(self.writer).transform(template)
+        idof = self.symgen.get('termlet')
+        template = genterm.TermAnnotate(termlet.variable_assignments, idof, self.context).transform(termlet.template)
+        for term, sym in self.context._litterms.items():
+            self.writer += '{} = Parser(\"{}\").parse()'.format(sym, term)
+            self.writer.newline()
+
+        template = genterm.TermCodegen(self.writer, self.context).transform(template)
         funcname = template.getattribute(TERM.TermAttribute.FunctionName)[0]
 
         match = Var(self.symgen.get('match'))
@@ -127,7 +134,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             self.writer += '{}.{}(\"{}\", {})'.format(match, MatchMethodTable.AddToBinding, variable, variable)
             self.writer.newline()
         self.writer += 'print( {}({}) )'.format(funcname, match)
-
+        self.writer.newline()
 
 
     def transformRedexMatch(self, node):

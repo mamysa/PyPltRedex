@@ -18,8 +18,10 @@ from src.preprocdefinelang import LanguageContext
 
 class TermAnnotate(term.TermTransformer):
 
-    def __init__(self, variables):
+    def __init__(self, variables, idof, context):
+        self.idof = idof
         self.path = []
+        self.context = context
         self.variables = variables
         self.symgen = SymGen()
 
@@ -32,6 +34,11 @@ class TermAnnotate(term.TermTransformer):
         self.path.pop()
         return result 
 
+    def transformTermLiteral(self, literal):
+        assert isinstance(literal, term.TermLiteral)
+        self.context.add_lit_term(literal)
+        return literal
+
     def transformRepeat(self, repeat):
         assert isinstance(repeat, term.Repeat)
         nrepeat = term.Repeat(self.transform(repeat.term)).copyattributesfrom(repeat)
@@ -41,13 +48,15 @@ class TermAnnotate(term.TermTransformer):
 
     def transformTermSequence(self, termsequence):
         ntermsequence = super().transformTermSequence(termsequence)
-        sym = self.symgen.get('gen_term')
+        sym = self.symgen.get('{}_gen_term'.format(self.idof))
         return ntermsequence.addattribute(term.TermAttribute.FunctionName, sym)
 
     def transformUnresolvedSym(self, node):
         assert isinstance(node, term.UnresolvedSym)
         if node.sym not in self.variables:
-            return term.TermLiteral(term.TermLiteralKind.Variable, node.sym)
+            t = term.TermLiteral(term.TermLiteralKind.Variable, node.sym)
+            self.context.add_lit_term(t)
+            return t
         expecteddepth, _ = self.variables[node.sym] 
         actualdepth = 0
 
@@ -71,14 +80,16 @@ class TermAnnotate(term.TermTransformer):
 
         if actualdepth != expecteddepth:
             raise Exception('inconsistent ellipsis depth for pattern variable {}: expected {} actual {}'.format(node.sym, expecteddepth, actualdepth))
-        sym = self.symgen.get('gen_term')
+
+        sym = self.symgen.get('{}_gen_term'.format(self.idof))
         return term.PatternVariable(node.sym).copyattributesfrom(node).addattribute(term.TermAttribute.FunctionName, sym)
 
 
 
 class TermCodegen(term.TermTransformer):
-    def __init__(self, writer):
+    def __init__(self, writer, context):
         assert isinstance(writer, common.SourceWriter)
+        self.context = context
         self.writer  = writer
         self.symgen = SymGen()
 
@@ -125,6 +136,8 @@ class TermCodegen(term.TermTransformer):
 
         seq = common.Var('seq')
 
+        self.writer += '# {}'.format(repr(termsequence))
+        self.writer.newline()
         self.writer += 'def {}({}):'.format(funcname, parameters)
         self.writer.newline().indent()
         self.writer += '{} = []'.format(seq)
@@ -168,6 +181,10 @@ class TermCodegen(term.TermTransformer):
                 self.writer += '{}.append( {}({}) )'.format(seq, func_tocall, parameters)
                 self.writer.newline()
 
+            if isinstance(t, term.TermLiteral):
+                self.writer += '{}.append( {} )'.format(seq, self.context.get_sym_for_lit_term(t))
+                self.writer.newline()
+
 
         self.writer += 'return Sequence({})'.format(seq)
         self.writer.newline().dedent().newline()
@@ -180,6 +197,8 @@ class TermCodegen(term.TermTransformer):
         funcname = node.getattribute(term.TermAttribute.FunctionName)[0]
         parameters, numparams = self._gen_params(node)
 
+        self.writer += '# {}'.format(repr(node))
+        self.writer.newline()
         self.writer += 'def {}({}):'.format(funcname, parameters)
         self.writer.newline().indent()
 

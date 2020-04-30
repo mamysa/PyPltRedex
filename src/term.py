@@ -7,17 +7,6 @@ class TermLiteralKind:
     Hole = 2
     List = 3
 
-class TermLiteral:
-    def __init__(self, kind, value):
-        self.kind = kind
-        self.value = value
-
-    def __repr__(self):
-        if self.kind in [TermLiteralKind.Integer, TermLiteralKind.Variable, TermLiteralKind.Hole]: 
-            return str(self.value)
-        # is a list, 
-        return '({})'.format(' '.join(map(repr, self.value)))
-
 
 class TermAttribute(enum.Enum):
     FunctionName = 'FunctionName'
@@ -42,6 +31,20 @@ class Term:
         assert isinstance(node, Term)
         self._attributes = copy.copy(node._attributes)
         return self
+
+
+class TermLiteral(Term):
+    def __init__(self, kind, value):
+        self.kind = kind
+        self.value = value
+
+    def __repr__(self):
+        if self.kind in [TermLiteralKind.Integer, TermLiteralKind.Variable, TermLiteralKind.Hole]: 
+            return str(self.value)
+        # is a list, 
+        return '({})'.format(' '.join(map(repr, self.value)))
+
+
 
 class TermSequence(Term):
     def __init__(self, seq):

@@ -25,6 +25,10 @@ class LanguageContext:
         self.__pattern_code = {}
         self.__term_template_funcs = {}
 
+        self._litterms = {}
+
+        self.symgen = SymGen()
+
     def add_variables_mentioned(self, variables):
         self.__variables_mentioned = ('variables_mentioned', variables)
 
@@ -39,6 +43,12 @@ class LanguageContext:
         if prefix in self.__isa_functions:
             return self.__isa_functions[prefix]
         return None
+
+    def add_lit_term(self, term):
+        self._litterms[term] = self.symgen.get('literal_term_') 
+
+    def get_sym_for_lit_term(self, term):
+        return self._litterms[term]
 
     # FIXME this should be in module-level context?
     def add_function_for_pattern(self, prefix, function):
