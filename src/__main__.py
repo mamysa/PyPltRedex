@@ -6,6 +6,7 @@ import sys
 import os
 import shutil
 
+import src.astdefs as ast 
 import src.genterm as genterm
 
 
@@ -55,12 +56,21 @@ def codegen(tree, context):
 parser = argparse.ArgumentParser()
 parser.add_argument('src', help='.rkt containing Redex spec')
 parser.add_argument('-dump-ast', action='store_true', help='Write spec to stdout')
+parser.add_argument('-dump-term-attribs', action='store_true', help='Blah')
 args = parser.parse_args()
 
 tree = parse(args.src)
 tree, context = module_preprocess(tree)
 
-    
+if args.dump_term_attribs:
+    for tl in tree.termlet:
+        assert isinstance(tl, ast.AssertTermsEqual)
+        t = genterm.TermAnnotate(tl.variable_assignments, 'blah', context).transform(tl.template)
+        print(t)
+    sys.exit(0)
+
+
+
 
 if args.dump_ast:
     print(tree)

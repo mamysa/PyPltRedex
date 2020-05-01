@@ -51,6 +51,11 @@ class TermAnnotate(term.TermTransformer):
         sym = self.symgen.get('{}_gen_term'.format(self.idof))
         return ntermsequence.addattribute(term.TermAttribute.FunctionName, sym)
 
+    def transformInHole(self, inhole):
+        ninhole = super().transformInHole(inhole)
+        sym = self.symgen.get('{}_gen_term'.format(self.idof))
+        return ninhole.addattribute(term.TermAttribute.FunctionName, sym)
+
     def transformUnresolvedSym(self, node):
         assert isinstance(node, term.UnresolvedSym)
         if node.sym not in self.variables:
@@ -68,7 +73,7 @@ class TermAnnotate(term.TermTransformer):
                     t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, True))
                     break
                 t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, False))
-            if isinstance(t, term.TermSequence):
+            if isinstance(t, term.TermSequence) or isinstance(t, term.InHole):
                 if expecteddepth == actualdepth:
                     t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, True))
                     break
@@ -129,6 +134,41 @@ class TermCodegen(term.TermTransformer):
         except KeyError:
             return []
 
+
+    def transformInHole(self, inhole):
+        assert isinstance(inhole, term.InHole)
+        # T1 = call inhole.term1
+        # T2 = call inhole.term2
+        # plug(T1, T2)
+        funcname = inhole.getattribute(term.TermAttribute.FunctionName)[0]
+        parameters, _ = self._gen_params(inhole) 
+
+        self.writer += '# {}'.format(repr(inhole))
+        self.writer.newline()
+        self.writer += 'def {}({}):'.format(funcname, parameters)
+        self.writer.newline().indent()
+
+        term1func = inhole.term1.getattribute(term.TermAttribute.FunctionName)[0]
+        term2func = inhole.term2.getattribute(term.TermAttribute.FunctionName)[0]
+
+        term1parameters, _ = self._gen_params(inhole.term1)
+        term2parameters, _ = self._gen_params(inhole.term2)
+
+        term1var = self.symgen.get('term1_')
+        term2var = self.symgen.get('term2_')
+
+        self.writer += '{} = {}({})'.format(term1var, term1func, term1parameters)
+        self.writer.newline()
+        self.writer += '{} = {}({})'.format(term2var, term2func, term2parameters)
+        self.writer.newline()
+        self.writer += 'return plughole({}, {})'.format(term1var, term2var)
+        self.writer.newline().dedent().newline()
+
+        self.transform(inhole.term1)
+        self.transform(inhole.term2)
+
+
+
     def transformTermSequence(self, termsequence):
         assert isinstance(termsequence, term.TermSequence)
         funcname = termsequence.getattribute(term.TermAttribute.FunctionName)[0]
@@ -174,7 +214,9 @@ class TermCodegen(term.TermTransformer):
                 self.writer += '{}.append( {}({}) )'.format(seq, func_tocall, tmps)
                 self.writer.newline().dedent()
 
-            if isinstance(t, term.PatternVariable) or isinstance(t, term.TermSequence):
+            if isinstance(t, term.PatternVariable) or \
+               isinstance(t, term.TermSequence)    or \
+               isinstance(t, term.InHole):
                 entries_to_transform.append(t)
                 parameters, _ = self._gen_params(t)
                 func_tocall = t.getattribute(term.TermAttribute.FunctionName)[0]

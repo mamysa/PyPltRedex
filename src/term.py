@@ -32,9 +32,18 @@ class Term:
         self._attributes = copy.copy(node._attributes)
         return self
 
+class InHole(Term):
+    def __init__(self, term1, term2):
+        super().__init__()
+        self.term1 = term1
+        self.term2 = term2
+
+    def __repr__(self):
+        return 'InHole({}, {}, {})'.format(self.term1, self.term2, self._attributes)
 
 class TermLiteral(Term):
     def __init__(self, kind, value):
+        super().__init__()
         self.kind = kind
         self.value = value
 
@@ -43,8 +52,6 @@ class TermLiteral(Term):
             return str(self.value)
         # is a list, 
         return '({})'.format(' '.join(map(repr, self.value)))
-
-
 
 class TermSequence(Term):
     def __init__(self, seq):
@@ -106,6 +113,11 @@ class TermTransformer:
 
     def transformPatternVariable(self, node):
         return node
+
+    def transformInHole(self, inhole):
+        t1 = self.transform(inhole.term1)
+        t2 = self.transform(inhole.term2)
+        return InHole(t1, t2).copyattributesfrom(inhole)
 
     def transformTermLiteral(self, node):
         return node

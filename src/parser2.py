@@ -344,9 +344,17 @@ def p_term_template(t):
     else: 
         t[0] = term.TermSequence(t[2])
 
+def p_term_template_inhole(t):
+    'term-template : LPAREN INHOLE term-template term-template RPAREN'
+    t[0] = term.InHole(t[3], t[4])
+
 def p_term_template_integer(t):
     'term-template : INTEGER'
     t[0] = term.TermLiteral(term.TermLiteralKind.Integer, t[1])
+
+def p_term_template_hole(t):
+    'term-template : HOLE'
+    t[0] = term.TermLiteral(term.TermLiteralKind.Hole, t[1])
 
 def p_term_template_unresolved(t):
     'term-template : IDENT'
