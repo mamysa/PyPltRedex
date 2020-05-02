@@ -27,16 +27,20 @@ and then
 * `match-equals?` form (not part of Redex) used for comparing results produced by `redex-match` against expected matches.
 * Matching `hole` pattern.
 * Matching `in-hole` pattern.
+* Plugging terms into terms, including `(in-hole term term)`. See `plugtest.rkt` for testcases.
 
 ## TODOs
 From most to least important.
-* `define-metafunction` form.
-	* Figure out how to perform plugging bindings back into term "templates". 
-* Code cleanup  - improve codegen, decide on AST to represent PltRedex syntax (a bit all over the place for now), either improve `PatternTransformer` or do something completely different.
+* Add `assert-term-throws` to test term plugging that is supposed to fail due to wrong ellipsis match counts.
+* Code cleanup  - improve codegen, decide on AST to represent PltRedex syntax (a bit all over the place for now), either improve `PatternTransformer` or do something completely different. 
+* Codegen cleanup: Generate class with static methods for `define-language` form. Generate a stand-alone procedure for `redex-let` and such instead of having its functionality in global namespace.
+* `reduction-relation` and `apply-reduction-relation`
 * Perform input validation:
 	* Ellipsis depth checking and constraint checking on `in-hole pat1 pat2` - same bindable symbols in `pat1` and `pat2` must have same ellipsis depth.
 	* Ensure `pat1` has exactly one `hole` in `in-hole pat1 pat2`.
 	* Non-terminal cycles (?) in `define-language` form - `x ::= y y ::= x` should be invalid.
+* `define-metafunction` form.
+	* Figure out how to perform plugging bindings back into term "templates". 
 * Optimize patterns to reduce number of non-deterministic repetition matches.
 * Term level non-terminal / built-in pattern membership caching. For example, when asking if a given term is `e`, store `e` symbol in the set. Thus, next time we try to determine if the term is `e`, we just look it up in the set.
 * Replace handwritten parser with Ply? See other considerations below.
