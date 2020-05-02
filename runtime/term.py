@@ -137,3 +137,28 @@ def copy_path_and_replace_last(path, withterm):
         child = parentcopy
         i -= 1
     return child
+
+
+def locatehole(term, path):
+    """
+    Traverses the term and locates the hole.
+    returns: path to the hole.
+    """
+    assert isinstance(term, Ast)
+    if term.kind() == TermKind.Hole:
+        path.append(term)
+        return True
+    if term.kind() == TermKind.Sequence:
+        path.append(term)
+        for i in range(term.length()):
+            if locatehole(term.get(i), path):
+                return True
+        path.pop()
+        return False
+
+def plughole(into, term):
+    path = []
+    locatehole(into, path)
+    if len(path) != 0:
+        return copy_path_and_replace_last(path, term)
+    return into

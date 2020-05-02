@@ -148,24 +148,35 @@ class TermCodegen(term.TermTransformer):
         self.writer += 'def {}({}):'.format(funcname, parameters)
         self.writer.newline().indent()
 
-        term1func = inhole.term1.getattribute(term.TermAttribute.FunctionName)[0]
-        term2func = inhole.term2.getattribute(term.TermAttribute.FunctionName)[0]
-
-        term1parameters, _ = self._gen_params(inhole.term1)
-        term2parameters, _ = self._gen_params(inhole.term2)
 
         term1var = self.symgen.get('term1_')
-        term2var = self.symgen.get('term2_')
+        if isinstance(inhole.term1, term.TermLiteral):
+            sym = self.context.get_sym_for_lit_term(inhole.term1)
+            self.writer += '{} = {}'.format(term1var, sym)
+            self.writer.newline()
+        else:
+            term1func = inhole.term1.getattribute(term.TermAttribute.FunctionName)[0]
+            term1parameters, _ = self._gen_params(inhole.term1)
+            self.writer += '{} = {}({})'.format(term1var, term1func, term1parameters)
+            self.writer.newline()
 
-        self.writer += '{} = {}({})'.format(term1var, term1func, term1parameters)
-        self.writer.newline()
-        self.writer += '{} = {}({})'.format(term2var, term2func, term2parameters)
-        self.writer.newline()
+
+        term2var = self.symgen.get('term2_')
+        if isinstance(inhole.term2, term.TermLiteral):
+            sym = self.context.get_sym_for_lit_term(inhole.term2)
+            self.writer += '{} = {}'.format(term2var, sym)
+            self.writer.newline()
+        else:
+            term2func = inhole.term2.getattribute(term.TermAttribute.FunctionName)[0]
+            term2parameters, _ = self._gen_params(inhole.term2)
+            self.writer += '{} = {}({})'.format(term2var, term2func, term2parameters)
+            self.writer.newline()
+
         self.writer += 'return plughole({}, {})'.format(term1var, term2var)
         self.writer.newline().dedent().newline()
-
         self.transform(inhole.term1)
         self.transform(inhole.term2)
+        return inhole
 
 
 
@@ -257,3 +268,4 @@ class TermCodegen(term.TermTransformer):
         else:
             self.writer += 'return {}'.format(args[0][1])
         self.writer.newline().dedent().newline()
+        return node

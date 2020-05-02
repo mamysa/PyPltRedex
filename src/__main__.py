@@ -33,7 +33,7 @@ def codegen(tree, context):
     writer.newline()
     writer += 'from parser import Parser'
     writer.newline()
-    writer += 'from term import Hole, copy_path_and_replace_last, Sequence'
+    writer += 'from term import Hole, copy_path_and_replace_last, Sequence, plughole'
     writer.newline()
     writer += 'hole = Hole()'
     writer.newline()

@@ -42,3 +42,48 @@
    [x 2 (term (()(a)))])
   (term ((n  x ...) ...))
   (term ((1) (2 a))))
+
+(assert-term-eq 
+  ([E 0 (term (1 hole))]
+   [n 1 (term (5 6))])
+  (term ((in-hole E n) ...))
+  (term ((1 5) (1 6))))
+
+(assert-term-eq 
+  ([E 1 (term ((1 hole) (2 hole))) ]
+   [n 1 (term (5 6) )])
+   (term ((in-hole E n) ...))
+   (term ((1 5) (2 6))))
+
+(assert-term-eq 
+  ([E 1 (term ((1 hole) (2 hole))) ]
+   [n 0  (term 12)])
+   (term ((in-hole (E) n) ...))
+   (term (((1 12)) ((2 12)))))
+
+(assert-term-eq 
+  ([E 1 (term ((1 hole) (2 hole))) ]
+   [n 0  (term 12)])
+   (term ((in-hole E n) ...))
+   (term ((1 12) (2 12))))
+
+(assert-term-eq 
+  ([n 0 (term 2)])
+  (term (in-hole (1 hole (hole x)) n))
+  (term (1 2 (hole x))))
+
+(assert-term-eq 
+  ([n 0 (term 2)])
+  (term (in-hole (1 hole (hole x)) n))
+  (term (1 2 (hole x))))
+
+(assert-term-eq
+  ([E 1 (term (1 2 3))])
+  (term ((in-hole E x) ...))
+  (term (1 2 3)))
+
+
+(assert-term-eq
+  ([E 1 (term (1 2 3))])
+  (term (in-hole 35 x))
+  (term 35))
