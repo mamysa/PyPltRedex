@@ -39,6 +39,18 @@ class TermAnnotate(term.TermTransformer):
         self.context.add_lit_term(literal)
         return literal
 
+    def transformPyCall(self, pycall):
+        assert isinstance(pycall, term.PyCall)
+        sym = self.symgen.get('{}_gen_term'.format(self.idof))
+        terms = []
+        for t in pycall.termargs:
+            idof = self.symgen.get('{}_pycall_gen_term_'.format(self.idof))
+            transformer = TermAnnotate(self.variables, idof, self.context)
+            terms.append( transformer.transform(t) )
+
+        return term.PyCall(pycall.mode, pycall.functionname, terms) \
+                   .addattribute(term.TermAttribute.FunctionName, sym)
+
     def transformRepeat(self, repeat):
         assert isinstance(repeat, term.Repeat)
         nrepeat = term.Repeat(self.transform(repeat.term)).copyattributesfrom(repeat)

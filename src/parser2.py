@@ -16,6 +16,8 @@ reserved = {
     'match'          : 'MATCH',
     'bind'           : 'BIND',
     'assert-term-eq' : 'ASSERTTERMEQ',
+    ','              : 'COMMA',
+    '@'              : 'ATSIGN',
 }
 
 tokens = [
@@ -24,6 +26,8 @@ tokens = [
     'BOOLEAN',
     'LPAREN',
     'RPAREN',
+    'COMMA',
+    'ATSIGN',
 ]
 
 tokens = tokens + list(reserved.values())
@@ -37,7 +41,6 @@ t_BOOLEAN = r'\#t|\#f'
 def t_NEWLINE(t):
     r'\n+'
     t.lexer.lineno += len(t.value)
-
 
 # From http://www.dabeaz.com/ply/ply.html#ply_nn6
 # All tokens defined by functions are added in the same order as they appear in the lexer file. 
@@ -356,9 +359,25 @@ def p_term_template_hole(t):
     'term-template : HOLE'
     t[0] = term.TermLiteral(term.TermLiteralKind.Hole, t[1])
 
+def p_term_pycall_append_list(t):
+    'term-template : COMMA LPAREN IDENT list-of-term-template-top RPAREN'
+    t[0] = term.PyCall(term.PyCallInsertionMode.Append, t[3], t[4])
+
 def p_term_template_unresolved(t):
     'term-template : IDENT'
     t[0] = term.UnresolvedSym(t[1])
+
+
+def p_list_of_template_list_top(t):
+    """
+    list-of-term-template-top : list-of-term-template-top term-template-top
+                              | term-template-top
+    """
+    if len(t) == 3:
+        t[0] = t[1]
+        t[0].append(t[2])
+    else:
+        t[0] = [t[1]]
 
 def p_term_template_list(t):
     """
@@ -380,6 +399,7 @@ def p_term_under_ellipsis(t):
         t[0] = t[1]
     else:
         t[0] = term.Repeat(t[1])
+
 
 # ---------------------LITERAL TERMS -----------------------
 # Parsing 'literal' terms. These will be inserted into output directly using runtime classes.

@@ -65,8 +65,6 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.writer = writer 
         self.context = context
 
-        
-
     def transformDefineLanguage(self, node):
         assert isinstance(node, ast.DefineLanguage)
 

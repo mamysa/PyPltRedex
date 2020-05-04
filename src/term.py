@@ -90,6 +90,21 @@ class PatternVariable(Term):
     def __repr__(self):
         return 'PatternVariable({}, {})'.format(self.sym, self._attributes)
 
+class PyCallInsertionMode(enum.Enum):
+    Append = 0
+    Extend = 1
+
+class PyCall(Term):
+    def __init__(self, mode, functionname, termargs):
+        assert isinstance(mode, PyCallInsertionMode)
+        super().__init__()
+        self.mode = mode
+        self.functionname = functionname
+        self.termargs = termargs 
+
+    def __repr__(self):
+        return 'PythonFunctionCall({}, {}, {})'.format(self.mode, self.functionname, self.termargs)
+
 class TermTransformer:
     def transform(self, element):
         assert isinstance(element, Term)
@@ -118,6 +133,12 @@ class TermTransformer:
         t1 = self.transform(inhole.term1)
         t2 = self.transform(inhole.term2)
         return InHole(t1, t2).copyattributesfrom(inhole)
+
+    def transformPyCall(self, pycall):
+        assert isinstance(pycall, PyCall)
+        return PyCall(pycall.mode, pycall.functionname, pycall.termargs).copyattributesfrom(pycall)
+
+
 
     def transformTermLiteral(self, node):
         return node
