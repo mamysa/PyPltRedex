@@ -82,8 +82,31 @@
   (term ((in-hole E x) ...))
   (term (1 2 3)))
 
-
 (assert-term-eq
   ([E 1 (term (1 2 3))])
   (term (in-hole 35 x))
   (term 35))
+
+; Python Function Call Tests of the form ,(function-name term-template ...)
+(assert-term-eq
+  ([n1 0 (term 4)])
+  (term ,(number_add (term n1) (term 1333)))
+  (term 1337))
+
+(assert-term-eq
+  ([n1 0 (term 4)])
+  (term (n1 ,(number_add (term n1) (term 1333))))
+  (term (4 1337)))
+
+(assert-term-eq
+  ([n1 0 (term 4)]
+   [n2 1 (term (1 2))])
+  (term ((n2 ,(number_add (term n1) (term 1333))) ...))
+  (term ((1 1337) (2 1337))))
+
+(assert-term-eq
+  ([n 1 (term (1 2 3))]
+   [x 1 (term (x y z))])
+  (term ,(zzip (term ((n x) ...))))
+  (term (x_1 y_2 z_3)))
+
