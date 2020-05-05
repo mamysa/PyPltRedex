@@ -17,7 +17,7 @@ reserved = {
     'bind'           : 'BIND',
     'assert-term-eq' : 'ASSERTTERMEQ',
     ','              : 'COMMA',
-    '@'              : 'ATSIGN',
+    ',@'              : 'COMMAATSIGN',
 }
 
 tokens = [
@@ -392,12 +392,17 @@ def p_term_under_ellipsis(t):
     """
     term-template-under-ellipsis : term-template ELLIPSIS
                                  | term-template
+                                 | term-template-pycall-extend
     """
     if len(t) == 2:
         t[0] = t[1]
     else:
         t[0] = term.Repeat(t[1])
 
+
+def p_term_template_pycall_extend(t):
+    'term-template-pycall-extend : COMMAATSIGN LPAREN IDENT list-of-term-template-top RPAREN'
+    t[0] = term.PyCall(term.PyCallInsertionMode.Extend, t[3], t[4])
 
 # ---------------------LITERAL TERMS -----------------------
 # Parsing 'literal' terms. These will be inserted into output directly using runtime classes.

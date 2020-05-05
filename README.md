@@ -27,7 +27,7 @@ and then
 * `match-equals?` form (not part of Redex) used for comparing results produced by `redex-match` against expected matches.
 * Matching `hole` pattern.
 * Matching `in-hole` pattern.
-* Plugging terms into terms, including `(in-hole term term)`. See `plugtest.rkt` for testcases.
+* Plugging terms into terms, including `(in-hole term term)` and python function calls (',' and ',@'). See `plugtest.rkt` for testcases.
 
 ## TODOs
 From most to least important.

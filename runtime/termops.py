@@ -11,3 +11,11 @@ def zzip(nxseq):
         x = elem.get(1)
         seq.append(term.Variable('{}_{}'.format(x, n)))
     return term.Sequence(seq)
+
+def mmap3mul2(n_1, n_2, n_3):
+    seq = []
+    seq.append( term.Integer(2 * n_1.value()) )
+    seq.append( term.Integer(2 * n_2.value()) )
+    seq.append( term.Integer(2 * n_3.value()) )
+    return term.Sequence(seq)
+

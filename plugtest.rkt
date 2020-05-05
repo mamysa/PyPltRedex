@@ -110,3 +110,25 @@
   (term ,(zzip (term ((n x) ...))))
   (term (x_1 y_2 z_3)))
 
+; nested evaluation
+(assert-term-eq
+  ([n_1 0 (term 6)]
+   [n_2 0 (term -2)]
+   [n_3 0 (term 4)])
+  (term ,(number_add (term ,(number_add (term n_1) (term n_2))) (term n_3)))
+  (term 8))
+
+(assert-term-eq
+  ([n_1 0 (term 1)]
+   [n_2 0 (term 2)]
+   [n_3 0 (term 3)])
+  (term (n_1 n_2 n_3 ,(mmap3mul2 (term n_1) (term n_2) (term n_3))))
+  (term (1 2 3 (2 4 6))))
+
+(assert-term-eq
+  ([n_1 0 (term 1)]
+   [n_2 0 (term 2)]
+   [n_3 0 (term 3)])
+  (term (n_1 n_2 n_3 ,@(mmap3mul2 (term n_1) (term n_2) (term n_3))))
+  (term (1 2 3 2 4 6)))
+

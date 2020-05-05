@@ -282,13 +282,25 @@ class TermCodegen(term.TermTransformer):
                 self.writer.newline()
 
             if isinstance(t, term.PyCall):
-                assert t.mode == term.PyCallInsertionMode.Append
                 entries_to_transform.append(t)
                 funcname = t.getattribute(term.TermAttribute.FunctionName)[0]
                 parameters, numparameters = self._gen_params(t)
                 assert numparameters == 1
-                self.writer += '{}.append( {}({}) )'.format(seq, funcname, parameters)
-                self.writer.newline()
+
+                if t.mode == term.PyCallInsertionMode.Append:
+                    self.writer += '{}.append( {}({}) )'.format(seq, funcname, parameters)
+                    self.writer.newline()
+                else:
+                    var = self.symgen.get()
+                    self.writer += '{} = {}({})'.format(var, funcname, parameters)
+                    self.writer.newline()
+                    self.writer += 'assert {}.kind() == TermKind.Sequence'.format(var)
+                    self.writer.newline()
+                    it = self.symgen.get()
+                    self.writer += 'for {} in range({}.length()):'.format(it, var)
+                    self.writer.newline().indent()
+                    self.writer += '{}.append( {}.get({}) )'.format(seq, var, it)
+                    self.writer.newline().dedent()
 
             if isinstance(t, term.TermLiteral):
                 self.writer += '{}.append( {} )'.format(seq, self.context.get_sym_for_lit_term(t))
