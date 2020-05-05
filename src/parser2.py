@@ -26,8 +26,6 @@ tokens = [
     'BOOLEAN',
     'LPAREN',
     'RPAREN',
-    'COMMA',
-    'ATSIGN',
 ]
 
 tokens = tokens + list(reserved.values())

@@ -37,6 +37,17 @@ def codegen(tree, context):
     writer.newline()
     writer += 'hole = Hole()'
     writer.newline()
+    writer += 'import term'
+    writer.newline()
+
+    # append to output file. We will be doing this for all files eventually.
+    writer.newline()
+    f = open('runtime/termops.py')
+    buf = f.read()
+    writer += buf
+    f.close()
+    writer.newline()
+
     codegen = DefineLanguagePatternCodegen3(writer, context)
     codegen.transform(tree.definelanguage)
     for rm in tree.redexmatches:

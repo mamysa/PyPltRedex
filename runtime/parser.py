@@ -164,7 +164,7 @@ class Parser:
 
     def parse_atom(self):
         if self.peek() == TokenKind.Integer:
-            return term.Integer(self.expect(TokenKind.Integer))
+            return term.Integer(int(self.expect(TokenKind.Integer)))
         if self.peek() == TokenKind.Ident:
             tokkind, tokval = self.peekv() 
             if tokval == 'hole':

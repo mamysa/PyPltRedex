@@ -146,6 +146,41 @@ class TermCodegen(term.TermTransformer):
         except KeyError:
             return []
 
+    def transformPyCall(self, pycall):
+        assert isinstance(pycall, term.PyCall)
+        # codegen nested terms 
+        for t in pycall.termargs:
+            self.transform(t)
+
+        funcname = pycall.getattribute(term.TermAttribute.FunctionName)[0]
+        parameters, _ = self._gen_params(pycall) 
+
+        self.writer += '# {}'.format(repr(pycall))
+        self.writer.newline()
+        self.writer += 'def {}({}):'.format(funcname, parameters)
+        self.writer.newline().indent()
+
+        pycallarguments = []
+        for t in pycall.termargs:
+            var = self.symgen.get()
+            pycallarguments.append(var)
+            if isinstance(t, term.TermLiteral):
+                sym = self.context.get_sym_for_lit_term(t)
+                self.writer += '{} = {}'.format(var, sym)
+                self.writer.newline()
+            else:
+                funcname = t.getattribute(term.TermAttribute.FunctionName)[0]
+                parameters, numparams = self._gen_params(t) 
+                assert numparams == 1 
+                self.writer += '{} = {}({})'.format(var, funcname, parameters)
+                self.writer.newline()
+
+        pycallarguments = ', '.join(pycallarguments)
+        self.writer += 'return {}({})'.format(pycall.functionname, pycallarguments)
+        self.writer.newline().dedent().newline()
+
+        return pycall
+
 
     def transformInHole(self, inhole):
         assert isinstance(inhole, term.InHole)
@@ -244,6 +279,15 @@ class TermCodegen(term.TermTransformer):
                 parameters, _ = self._gen_params(t)
                 func_tocall = t.getattribute(term.TermAttribute.FunctionName)[0]
                 self.writer += '{}.append( {}({}) )'.format(seq, func_tocall, parameters)
+                self.writer.newline()
+
+            if isinstance(t, term.PyCall):
+                assert t.mode == term.PyCallInsertionMode.Append
+                entries_to_transform.append(t)
+                funcname = t.getattribute(term.TermAttribute.FunctionName)[0]
+                parameters, numparameters = self._gen_params(t)
+                assert numparameters == 1
+                self.writer += '{}.append( {}({}) )'.format(seq, funcname, parameters)
                 self.writer.newline()
 
             if isinstance(t, term.TermLiteral):
