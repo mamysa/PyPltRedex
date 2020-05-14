@@ -9,7 +9,10 @@ import enum
 # For an example, see ForEachInRange (prettyprinting it would result in 'for ... in range(...)')
 
 # PyValue represents variables, literal arrays, tuples and other goodies.
-class  PyValue:
+class PyAst:
+    pass 
+
+class  PyValue(PyAst):
     def typeof(self):
         raise Exception('unimplemented')
 
@@ -59,11 +62,13 @@ class BinaryOp(enum.Enum):
 # Few classes like IfStmt/WhileStmt start out with empty bodies and 
 # statements have to be appended to them using +=.
 # Calling End "freezes" the object and does not allow any further insertions.
-class Module:
+
+
+class Module(PyAst):
     def __init__(self, statements):
         self.statements = statements
 
-class Stmt:
+class Stmt(PyAst):
     pass
 
 class IncludePythonSourceStmt(Stmt):
@@ -83,46 +88,30 @@ class AssignStmt(Stmt):
         self.expr  = expr
 
 class ForEachStmt(Stmt):
-    def __init__(self, variables, iterable):
+    def __init__(self, variables, iterable, body):
         self.variables = variables
         self.iterable = iterable
-
-    def __iadd__(self, stmt):
-        assert isinstance(stmt, Stmt)
-        self.stmt.append(stmt)
-        return self
-
-    def End(self):
-        assert self.body != None
-        assert len(self.body) != 0
+        self.body = body
 
 class ForEachInRangeStmt(Stmt):
-    def __init__(self, variables, _range):
+    def __init__(self, variables, _range, body):
         self.variables = variables
         self.range = _range 
-        self.body = []
+        self.body = body
 
-    def __iadd__(self, stmt):
-        assert isinstance(stmt, Stmt)
-        self.stmt.append(stmt)
-        return self
 
-    def End(self):
-        assert self.body != None
-        assert len(self.body) != 0
-
-class WhileStmt:
+class WhileStmt(Stmt):
     def __init__(self, cond, body):
         self.cond = cond 
         self.body = body 
 
-class IfStmt:
+class IfStmt(Stmt):
     def __init__(self, cond, thenbr, elsebr):
         self.cond = cond 
         self.thenbr = thenbr
         self.elsebr = elsebr 
 
-class Expr:
+class Expr(PyAst):
     pass
 
 class BinaryExpr(Expr):
@@ -254,7 +243,7 @@ class BlockBuilder:
                     self.parent = parent
 
                 def Begin(self):
-                    return ForBuilder(self.iteratorvariables, self.iterable, inrange=True, parent=self.parent)
+                    return ForBuilder(self.iteratorvariables, self.iterable, self.inrange, parent=self.parent)
 
             def __init__(self, iteratorvariables, parent):
                 self.iteratorvariables = iteratorvariables
@@ -441,9 +430,165 @@ class ForBuilder(BlockBuilder):
     def End(self):
         assert len(self.statements) > 0, 'loop body must not empty'
         if self.inrange:
-            stmt = ForEachInRangeStmt(self.iteratorvariables, self.iterable)
+            stmt = ForEachInRangeStmt(self.iteratorvariables, self.iterable, self.statements)
         else: 
-            stmt = ForEachStmt(self.iteratorvariables, self.iterable)
+            stmt = ForEachStmt(self.iteratorvariables, self.iterable, self.statements)
         if self.parent != None:
             self.parent._appendnested(stmt)
         self._frozen = True
+
+
+# Rpython Dump
+
+class RPythonWriter:
+    def __init__(self):
+        self.indents = 0
+        self.buf = []
+        self.indentstr = ''
+
+    def write(self, module):
+        self.visit(module)
+        return ''.join(self.buf)
+
+    def _indent(self):
+        self.indents += 1
+        self.indentstr = ' '*self.indents*4
+        return self
+
+    def _dedent(self):
+        self.indents -= 1
+        self.indentstr = ' '*self.indents*4
+        assert self.indents >= 0
+        return self
+
+    def emit(self, string):
+        self.buf.append(string)
+
+    def emit_space(self):
+        self.buf.append(' ')
+
+    def emit_indentstring(self):
+        self.buf.append(self.indentstr)
+
+    def emit_comma_separated_list(self, lst):
+        if len(lst) > 0:
+            for element in lst[:-1]:
+                self.visit(element)
+                self.buf.append(', ')
+            self.visit(lst[-1])
+
+    def emit_newline(self):
+        self.buf.append('\n')
+
+    def visit(self, element):
+        assert isinstance(element, PyAst)
+        method_name = 'visit' + element.__class__.__name__
+        method_ref = getattr(self, method_name)
+        return method_ref(element)
+
+    def visitModule(self, module):
+        assert isinstance(module, Module)
+        for stmt in module.statements:
+            self.visit(stmt)
+
+    def visitFunctionStmt(self, stmt):
+        assert isinstance(stmt, FunctionStmt)
+        self.emit_indentstring()
+        self.emit('def')
+        self.emit_space()
+        self.emit(stmt.name)
+        self.emit('(')
+        self.emit_comma_separated_list(stmt.parameters)
+        self.emit(')')
+        self.emit(':')
+        self.emit_newline()
+        self._indent()
+        for s in stmt.body:
+            self.visit(s)
+        self._dedent()
+        self.emit_newline()
+
+    def visitForEachStmt(self, stmt):
+        assert isinstance(stmt, ForEachStmt)
+        self.emit_indentstring()
+        self.emit('for')
+        self.emit_space()
+        self.emit_comma_separated_list(stmt.variables)
+        self.emit_space()
+        self.emit('in')
+        self.emit_space()
+        self.visit(stmt.iterable)
+        self.emit(':')
+        self.emit_newline()
+        self._indent()
+        for s in stmt.body:
+            self.visit(s)
+        self._dedent()
+
+    def visitIfStmt(self, stmt):
+        assert isinstance(stmt, IfStmt)
+        self.emit_indentstring()
+        self.emit('if')
+        self.emit_space()
+        self.visit(stmt.cond)
+        self.emit(':')
+        self.emit_newline()
+
+        self._indent()
+        for s in stmt.thenbr:
+            self.visit(s)
+        self._dedent()
+        
+        if stmt.elsebr != None:
+            self.emit_indentstring()
+            self.emit('else:')
+            self.emit_newline()
+            self._indent()
+            for s in stmt.elsebr:
+                self.visit(s)
+            self._dedent()
+
+    def visitAssignStmt(self, stmt):
+        assert isinstance(stmt, AssignStmt)
+        self.emit_indentstring()
+        self.emit_comma_separated_list(stmt.names) 
+        self.emit_space()
+        self.emit('=')
+        self.emit_space()
+        self.visit(stmt.expr)
+        self.emit_newline()
+
+    
+
+    def visitBinaryExpr(self, expr):
+        assert isinstance(expr, BinaryExpr)
+        self.visit(expr.lhs)
+        self.emit_space()
+        self.emit(expr.op.value)
+        self.emit_space()
+        self.visit(expr.rhs)
+
+    def visitPyId(self, ident):
+        assert isinstance(ident, PyId)
+        self.emit(ident.name)
+
+    def visitPyInt(self, pyint):
+        assert isinstance(pyint, PyInt)
+        self.emit(str(pyint.value))
+
+mb = ModuleBuilder()
+fb = mb.Function('hello').WithParameters(PyId('x'), PyId('a')).Begin()
+fb.AssignTo( PyId('x'), PyId('y') ).Add( PyInt(12), PyId('b') )
+ifb = fb.If.Equal(  PyId('x'), PyId('y') ).Then()
+ifb.AssignTo( PyId('x'), PyId('y') ).Add( PyInt(12), PyId('b') )
+ifb.Else()
+ifb.AssignTo( PyId('m'), PyId('y') ).Add( PyInt(12), PyId('b') )
+ifb.End()
+forb = fb.For( PyId('n') ).In( PyId('m') ).Begin()
+forb.AssignTo( PyId('m'), PyId('y') ).Add( PyInt(12), PyId('b') )
+forb.End()
+fb.End()
+module = mb.End()
+
+x = RPythonWriter().write(module)
+print(x)
