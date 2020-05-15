@@ -1,4 +1,5 @@
 import enum
+#from src.symgen import SymGen
 
 # Classes representing Python abstract syntax tree. 
 # Complex nested expressions are not allowed and something similar to 
@@ -21,6 +22,9 @@ class PyId(PyValue):
         assert isinstance(name, str)
         self.name = name 
 
+    def __repr__(self):
+        return 'PyId({})'.format(self.name)
+
 class PyInt(PyValue):
     def __init__(self, value):
         assert isinstance(value, int)
@@ -35,6 +39,7 @@ class PyBoolean(PyValue):
     def __init__(self, value):
         assert isinstance(value, bool)
         self.value = value
+
 
 class PyString(PyValue):
     def __init__(self, value):
@@ -68,6 +73,10 @@ class Module(PyAst):
     def __init__(self, statements):
         self.statements = statements
 
+class SingleLineComment(PyAst):
+    def __init__(self, comment):
+        self.comment = comment
+
 class Stmt(PyAst):
     pass
 
@@ -82,10 +91,15 @@ class FunctionStmt(Stmt):
         self.parameters = parameters 
         self.body = body 
 
+
 class AssignStmt(Stmt):
     def __init__(self, names, expr):
         self.names = names
         self.expr  = expr
+
+class ReturnStmt(Stmt):
+    def __init__(self, expr):
+        self.expr = expr
 
 class ForEachStmt(Stmt):
     def __init__(self, variables, iterable, body):
@@ -98,7 +112,6 @@ class ForEachInRangeStmt(Stmt):
         self.variables = variables
         self.range = _range 
         self.body = body
-
 
 class WhileStmt(Stmt):
     def __init__(self, cond, body):
@@ -113,6 +126,11 @@ class IfStmt(Stmt):
 
 class Expr(PyAst):
     pass
+
+class NewObject(Expr):
+    def __init__(self,  typename, args):
+        self.typename = typename
+        self.args = args
 
 class BinaryExpr(Expr):
     def __init__(self, op, lhs, rhs):
@@ -133,16 +151,39 @@ class CallExpr(Expr):
         self.name = name
         self.args = args 
 
+class CallMethodExpr(Expr):
+    def __init__(self, instance, name, args):
+        self.instance = instance
+        self.name = name
+        self.args = args 
+
+
 class NewExpr(Expr):
     def __init__(self, typename, args):
         self.typename = typename 
         self.args = args
 
+class InExpr(Expr):
+    def __init__(self, lhs, rhs, neg=False):
+        self.lhs = lhs
+        self.rhs = rhs
+        self.neg = neg
 
 class LenExpr(Expr):
     def __init__(self, value):
         assert isinstance(value, PyValue)
         self.value = value 
+
+
+# ------------------------------------------------- 
+# Helper functions that take strings and return tuple of PyId.
+def gen_pyid_for(*syms):
+    return tuple(map(lambda sym: PyId(sym), syms))
+
+def gen_pyid_temporaries(qty, symgen):
+    return tuple([PyId(symgen.get()) for i in range(qty)])
+
+
 
 # ------------------------------------------------------------
 # RPython AST creation helpers. Instead of directly instantiating classes above to create statements, 
@@ -151,16 +192,6 @@ class LenExpr(Expr):
 # 
 # Instead of writing AssignStmt([x,y,z], BinaryExpr(BinaryOperator.Add, x, y))  (which is very tedious!) one would write
 # Statement.AssignTo(x, y, z).Add(x, y) instead.
-
-def ensure_no_active_nested_builders(func):
-    def wrapper(*args):
-        assert isinstance(args[0], BlockBuilder)
-        if args[0].building_nested_block:
-            raise Exception('unable to add statement while building nested block')
-        return func(*args)
-    return wrapper
-
-
 def ensure_not_previously_built(func):
     def wrapper(*args):
         assert isinstance(args[0], BlockBuilder)
@@ -170,24 +201,64 @@ def ensure_not_previously_built(func):
     return wrapper
 
 class BlockBuilder:
-    def __init__(self, parent=None):
-        self.parent = parent
-        self.building_nested_block = False
+    def __init__(self):
         self.statements = []
         self._frozen = False
 
     @ensure_not_previously_built
-    @ensure_no_active_nested_builders
+    def build(self):
+        self._frozen = True
+        return self.statements
+
     def IncludeFromPythonSource(self, filename):
         self.statements.append(IncludePythonSourceStmt(filename))
 
+    def SingleLineComment(self, comment):
+        self.statements.append(SingleLineComment(comment))
+
+    @property
     @ensure_not_previously_built
-    @ensure_no_active_nested_builders
+    def Return(self):
+        class ReturnPhase1:
+            def __init__(self, parent):
+                self.parent = parent
+
+            def PyList(self, *initializer):
+                stmt = ReturnStmt(PyList(initializer))
+                self.parent.statements.append(stmt) 
+
+            def PyTuple(self, *initializer):
+                stmt = ReturnStmt(PyTuple(initializer))
+                self.parent.statements.append(stmt) 
+
+            def PyBoolean(self, value):
+                stmt = ReturnStmt(PyBoolean(value))
+                self.parent.statements.append(stmt) 
+
+            def Equal(self, lhs, rhs):
+                stmt = ReturnStmt(BinaryExpr(BinaryOp.Eq, lhs, rhs))
+                self.parent.statements.append(stmt) 
+
+            def PyId(self, ident):
+                stmt = ReturnStmt(PyId(ident))
+                self.parent.statements.append(stmt) 
+
+        return ReturnPhase1(parent=self)
+
+
+
+    @ensure_not_previously_built
     def AssignTo(self, *args):
         class AssignToPhase1:
             def __init__(self, args, parent):
                 self.args = args 
                 self.parent = parent
+
+            def MethodCall(self, instance, methodname, *args):
+                self.parent.statements.append( CallMethodExpr(instance, name, list(args)) )
+
+            def FunctionCall(self, name, *args):
+                self.parent.statements.append( CallExpr(name, list(args)) )
 
             def Add(self, lhs, rhs):
                 stmt = AssignStmt(self.args, BinaryExpr(BinaryOp.Add, lhs, rhs))
@@ -209,237 +280,151 @@ class BlockBuilder:
                 stmt = AssignStmt(self.args, PyTuple(initializer))
                 self.parent.statements.append(stmt) 
 
+            def New(self, typename, *args):
+                stmt = AssignStmt(self.args, NewExpr(typename, list(args)))
+                self.parent.statements.append(stmt) 
+
+
         return AssignToPhase1(list(args), parent=self)
 
     @ensure_not_previously_built
-    @ensure_no_active_nested_builders
     def Function(self, name):
-        self.building_nested_block = True
-        return FunctionBuilderStage1(name, parent=self)
+        return FunctionBuilderStage1(self.sourcebuilder, name, self.statements)
+
+    def MethodCall(self, instance, methodname, *args):
+        self.statements.append( CallMethodExpr(instance, name, list(args)) )
+
+    def FunctionCall(self, name, *args):
+        self.statements.append( CallExpr(name, list(args)) )
 
     @property
     @ensure_not_previously_built
-    @ensure_no_active_nested_builders
     def If(self):
-        self.building_nested_block = True
-        return IfOrWhileBuilderPreStage1(IfOrWhileBuilderPreStage1.IfBuilderPreStage3, parent=self)
+        return IfOrWhileBuilderPreStage1(IfOrWhileBuilderPreStage1.IfBuilderPreStage3, self.statements)
 
     @property
     @ensure_not_previously_built
-    @ensure_no_active_nested_builders
     def While(self):
-        self.building_nested_block = True
-        return IfOrWhileBuilderPreStage1(IfOrWhileBuilderPreStage1.WhileBuilderPreStage3, parent=self)
+        return IfOrWhileBuilderPreStage1(IfOrWhileBuilderPreStage1.WhileBuilderPreStage3, self.statements)
 
     @ensure_not_previously_built
-    @ensure_no_active_nested_builders
     def For(self, *iteratorvariables):
         class ForPrePhase1:
             class ForPrePhase2:
-                def __init__(self, iteratorvariables, iterable, parent, inrange=False):
+                def __init__(self, iteratorvariables, iterable, statements, inrange=False):
                     self.iteratorvariables = iteratorvariables 
                     self.iterable = iterable
+                    self.statements = statements
                     self.inrange = inrange
-                    self.parent = parent
 
-                def Begin(self):
-                    return ForBuilder(self.iteratorvariables, self.iterable, self.inrange, parent=self.parent)
+                def WithBlock(self, blockbuilder):
+                    assert isinstance(blockbuilder, BlockBuilder)
+                    block = blockbuilder.build()
+                    if self.inrange:
+                        stmt = ForEachInRangeStmt(self.iteratorvariables, self.iterable, block)
+                    else:
+                        stmt = ForEachStmt(self.iteratorvariables, self.iterable, block)
 
-            def __init__(self, iteratorvariables, parent):
+                    self.statements.append(stmt)
+
+
+
+            def __init__(self, iteratorvariables, statements):
                 self.iteratorvariables = iteratorvariables
-                self.parent = parent
+                self.statements = statements
 
             def In(self, iterable):
-                return self.ForPrePhase2(self.iteratorvariables, iterable, parent=self.parent)
+                return self.ForPrePhase2(self.iteratorvariables, iterable, self.statements)
 
             def InRange(self, _range):
-                return self.ForPrePhase2(self.iteratorvariables, _range, parent=self.parent, inrange=True)
+                return self.ForPrePhase2(self.iteratorvariables, _range, self.statements, inrange=True)
 
-        self.building_nested_block = True
-        return ForPrePhase1( list(iteratorvariables), parent=self )
-
-    @property
-    @ensure_not_previously_built
-    @ensure_no_active_nested_builders
-    def Call(self):
-        class CallPrePhase1:
-            def __init__(self, parent):
-                self.parent = parent
-
-            def WithArguments(self, *args):
-                class CallPrePhase2:
-                    def __init__(self, args, parent):
-                        self.args = args
-                        self.parent = parent
-
-                    def Function(self, name):
-                        self.parent.statements.append( CallExpr(name, self.args) )
-                
-                return CallPrePhase2( list(args), self.parent )
-
-            def Function(self, name):
-                self.parent.statements.append( CallExpr(name, []) )
-
-        return CallPrePhase1(parent=self)
-
-    @ensure_not_previously_built
-    @ensure_no_active_nested_builders
-    def End(self):
-        raise Exception('Unable to build generic block.')
-
-    def _appendnested(self, obj):
-        assert self.building_nested_block 
-        self.statements.append(obj)
-        self.building_nested_block = False 
+        return ForPrePhase1( list(iteratorvariables), self.statements)
 
 class FunctionBuilderStage1:
-    def __init__(self, name, parent):
+    def __init__(self, name, statements):
         self.name = name
-        self.parent = parent
+        self.statements = statements 
+
+    def WithBlock(self, blockbuilder):
+        assert isinstance(blockbuilder, BlockBuilder)
+        stmt = FunctionStmt(self.name, [], blockbuilder.build())
+        self.statements.append(stmt)
 
     def WithParameters(self, *parameters):
         class FunctionBuilderStage2:
-            def __init__(self, name, parameters, parent):
+            def __init__(self, name, parameters, statements):
                 self.name = name 
                 self.parameters = parameters 
-                self.parent = parent
+                self.statements = statements
 
-            def Begin(self):
-                return FunctionBuilder(self.name, list(parameters), self.parent)
+            def WithBlock(self, blockbuilder):
+                assert isinstance(blockbuilder, BlockBuilder)
+                stmt = FunctionStmt(self.name, list(parameters), blockbuilder.build())
+                self.statements.append(stmt)
 
-        return FunctionBuilderStage2(self.name, list(parameters), self.parent)
+        return FunctionBuilderStage2(self.sourcebuilder, self.name, list(parameters), self.statements)
+    
 
-    def Begin(self):
-        return FunctionBuilder(self.name, [], self.parent)
-
-class FunctionBuilder(BlockBuilder):
-    def __init__(self, name, parameters, parent=None):
-        BlockBuilder.__init__(self, parent)
-        self.name = name
-        self.parameters = parameters
-
-    @ensure_not_previously_built
-    @ensure_no_active_nested_builders
-    def End(self):
-        f = FunctionStmt(self.name, self.parameters, self.statements)
-        if self.parent != None:
-            self.parent._appendnested(f)
-        self._frozen = True
-
-class ModuleBuilder(BlockBuilder):
-    def __init__(self, parent=None):
-        BlockBuilder.__init__(self, parent)
-
-    @ensure_not_previously_built
-    @ensure_no_active_nested_builders
-    def End(self):
-        self._frozen = True
-        return Module(self.statements)
 
 # If/While statements use same condition writing logic. The only bit that differs is that 
 # for While statements we need to write Begin() and for If we need to write Then().
 # Pass classes around for that.
 class IfOrWhileBuilderPreStage1:
     class IfBuilderPreStage3:
-        def __init__(self, cond, parent):
+        def __init__(self, cond, statements):
             self.cond = cond
-            self.parent = parent
+            self.statements = statements 
 
-        def Then(self):
-            return IfBuilder(self.cond, parent=self.parent)
+        def WithThenBlock(self, blockbuilder):
+            assert isinstance(blockbuilder, BlockBuilder)
+            stmt = IfStmt(self.cond, blockbuilder.build(), None)
+            self.statements.append(stmt)
 
     class WhileBuilderPreStage3:
-        def __init__(self, cond, parent):
+        def __init__(self, cond, statements):
             self.cond = cond
-            self.parent = parent
+            self.statements = statements 
 
-        def Begin(self):
-            return WhileBuilder(self.cond, parent=self.parent)
+        def WithBlock(self, blockbuilder):
+            assert isinstance(blockbuilder, BlockBuilder)
+            stmt = WhileStmt(self.cond, blockbuilder.build())
+            self.statements.append(stmt)
 
-    def __init__(self, lastprestage, parent):
+
+    def __init__(self, lastprestage, statements):
         self.lastprestage = lastprestage 
-        self.parent = parent
+        self.statements = statements 
 
     def Equal(self, lhs, rhs):
-        return self.lastprestage(BinaryExpr(BinaryOp.Eq, lhs, rhs), parent=self.parent)
+        return self.lastprestage(BinaryExpr(BinaryOp.Eq, lhs, rhs), self.statements)
+
+    def ContainsValueIn(self, value, where):
+        return self.lastprestage(InExpr(lhs, rhs), self.statements)
+
+    def NotContainsValueIn(self, value, where):
+        return self.lastprestage(InExpr(lhs, rhs, neg=True), self.statements)
+
 
     def NotEqual(self, lhs, rhs):
-        return self.lastprestage(BinaryExpr(BinaryOp.NotEq, lhs, rhs), parent=self.parent)
+        return self.lastprestage(BinaryExpr(BinaryOp.NotEq, lhs, rhs), self.statements)
 
     def LengthOf(self, item):
         class IfBuilderPreStage2:
-            def __init__(self, lastprestage, iterable, parent):
+            def __init__(self, lastprestage, iterable, statements):
                 self.lastprestage = lastprestage 
                 self.lengthof = LenExpr(iterable)
-                self.parent = parent
+                self.statements = statements
             
-            def EqualTo(self, value):
-                return self.lastprestage( BinaryExpr(BinaryOp.Eq, self.lengthof, value), parent=self.parent )
+            def Equal(self, value):
+                return self.lastprestage( BinaryExpr(BinaryOp.Eq, self.lengthof, value), self.statements )
 
-        return IfBuilderPreStage2(self.lastprestage, item, parent=self.parent)
+            def NotEqual(self, value):
+                return self.lastprestage( BinaryExpr(BinaryOp.NotEq, self.lengthof, value), self.statements )
 
-class IfBuilder(BlockBuilder):
-    def __init__(self, cond, parent=None):
-        BlockBuilder.__init__(self, parent)
-        self.cond = cond
-        self._thenbr = self.statements 
-        self._elsebr = None
-
-    @ensure_not_previously_built
-    @ensure_no_active_nested_builders
-    def Else(self):
-        assert self._elsebr == None
-        self._elsebr = []
-        self.statements = self._elsebr
-        return self
-
-    @ensure_not_previously_built
-    @ensure_no_active_nested_builders
-    def End(self):
-        assert self._thenbr != None and len(self._thenbr) != 0, 'then branch must not be empty'
-        if self._elsebr != None:
-            assert len(self._elsebr) != 0, 'optional else branch must not be empty'
-        ifstmt = IfStmt(self.cond, self._thenbr, self._elsebr)
-        if self.parent != None:
-            self.parent._appendnested(ifstmt)
-        self._frozen = True
-
-class WhileBuilder(BlockBuilder):
-    def __init__(self, cond, parent=None):
-        BlockBuilder.__init__(self, parent)
-        self.cond = cond
-
-    @ensure_not_previously_built
-    @ensure_no_active_nested_builders
-    def End(self):
-        assert len(self.statements) > 0, 'loop body must not empty'
-        stmt = WhileStmt(self.cond, self.statements)
-        if self.parent != None:
-            self.parent._appendnested(stmt)
-        self._frozen = True
-
-class ForBuilder(BlockBuilder):
-    def __init__(self, iteratorvariables, iterable, inrange=False, parent=None):
-        BlockBuilder.__init__(self, parent)
-        self.iteratorvariables = iteratorvariables 
-        self.iterable = iterable
-        self.inrange = inrange
-
-    @ensure_not_previously_built
-    @ensure_no_active_nested_builders
-    def End(self):
-        assert len(self.statements) > 0, 'loop body must not empty'
-        if self.inrange:
-            stmt = ForEachInRangeStmt(self.iteratorvariables, self.iterable, self.statements)
-        else: 
-            stmt = ForEachStmt(self.iteratorvariables, self.iterable, self.statements)
-        if self.parent != None:
-            self.parent._appendnested(stmt)
-        self._frozen = True
-
+        return IfBuilderPreStage2(self.lastprestage, item, self.statements)
 
 # Rpython Dump
-
 class RPythonWriter:
     def __init__(self):
         self.indents = 0
@@ -575,20 +560,3 @@ class RPythonWriter:
     def visitPyInt(self, pyint):
         assert isinstance(pyint, PyInt)
         self.emit(str(pyint.value))
-
-mb = ModuleBuilder()
-fb = mb.Function('hello').WithParameters(PyId('x'), PyId('a')).Begin()
-fb.AssignTo( PyId('x'), PyId('y') ).Add( PyInt(12), PyId('b') )
-ifb = fb.If.Equal(  PyId('x'), PyId('y') ).Then()
-ifb.AssignTo( PyId('x'), PyId('y') ).Add( PyInt(12), PyId('b') )
-ifb.Else()
-ifb.AssignTo( PyId('m'), PyId('y') ).Add( PyInt(12), PyId('b') )
-ifb.End()
-forb = fb.For( PyId('n') ).In( PyId('m') ).Begin()
-forb.AssignTo( PyId('m'), PyId('y') ).Add( PyInt(12), PyId('b') )
-forb.End()
-fb.End()
-module = mb.End()
-
-x = RPythonWriter().write(module)
-print(x)
