@@ -300,12 +300,12 @@ class BlockBuilder:
     @property
     @ensure_not_previously_built
     def If(self):
-        return IfOrWhileBuilderPreStage1(IfOrWhileBuilderPreStage1.IfBuilderPreStage3, self.statements)
+        return IfOrWhileBuilderPreStage1(IfOrWhileBuilderPreStage1.IfBuilderPreStage4, self.statements)
 
     @property
     @ensure_not_previously_built
     def While(self):
-        return IfOrWhileBuilderPreStage1(IfOrWhileBuilderPreStage1.WhileBuilderPreStage3, self.statements)
+        return IfOrWhileBuilderPreStage1(IfOrWhileBuilderPreStage1.WhileBuilderPreStage4, self.statements)
 
     @ensure_not_previously_built
     def For(self, *iteratorvariables):
@@ -317,7 +317,7 @@ class BlockBuilder:
                     self.statements = statements
                     self.inrange = inrange
 
-                def WithBlock(self, blockbuilder):
+                def Block(self, blockbuilder):
                     assert isinstance(blockbuilder, BlockBuilder)
                     block = blockbuilder.build()
                     if self.inrange:
@@ -346,7 +346,7 @@ class FunctionBuilderStage1:
         self.name = name
         self.statements = statements 
 
-    def WithBlock(self, blockbuilder):
+    def Block(self, blockbuilder):
         assert isinstance(blockbuilder, BlockBuilder)
         stmt = FunctionStmt(self.name, [], blockbuilder.build())
         self.statements.append(stmt)
@@ -358,7 +358,7 @@ class FunctionBuilderStage1:
                 self.parameters = parameters 
                 self.statements = statements
 
-            def WithBlock(self, blockbuilder):
+            def Block(self, blockbuilder):
                 assert isinstance(blockbuilder, BlockBuilder)
                 stmt = FunctionStmt(self.name, list(parameters), blockbuilder.build())
                 self.statements.append(stmt)
@@ -371,22 +371,22 @@ class FunctionBuilderStage1:
 # for While statements we need to write Begin() and for If we need to write Then().
 # Pass classes around for that.
 class IfOrWhileBuilderPreStage1:
-    class IfBuilderPreStage3:
+    class IfBuilderPreStage4:
         def __init__(self, cond, statements):
             self.cond = cond
             self.statements = statements 
 
-        def WithThenBlock(self, blockbuilder):
+        def ThenBlock(self, blockbuilder):
             assert isinstance(blockbuilder, BlockBuilder)
             stmt = IfStmt(self.cond, blockbuilder.build(), None)
             self.statements.append(stmt)
 
-    class WhileBuilderPreStage3:
+    class WhileBuilderPreStage4:
         def __init__(self, cond, statements):
             self.cond = cond
             self.statements = statements 
 
-        def WithBlock(self, blockbuilder):
+        def Block(self, blockbuilder):
             assert isinstance(blockbuilder, BlockBuilder)
             stmt = WhileStmt(self.cond, blockbuilder.build())
             self.statements.append(stmt)
@@ -399,12 +399,17 @@ class IfOrWhileBuilderPreStage1:
     def Equal(self, lhs, rhs):
         return self.lastprestage(BinaryExpr(BinaryOp.Eq, lhs, rhs), self.statements)
 
-    def ContainsValueIn(self, value, where):
-        return self.lastprestage(InExpr(lhs, rhs), self.statements)
+    def NotContains(self, value):
+        class IfOrWhileBuilderPreStage3:
+            def __init__(self, value, lastprestage, statements):
+                self.value = value
+                self.lastprestage = lastprestage
+                self.statements = statements
 
-    def NotContainsValueIn(self, value, where):
-        return self.lastprestage(InExpr(lhs, rhs, neg=True), self.statements)
+            def In(self, iterable):
+                return self.lastprestage(InExpr(value, iterable), self.statements)
 
+        return IfOrWhileBuilderPreStage3(value, self.lastprestage, self.statements)
 
     def NotEqual(self, lhs, rhs):
         return self.lastprestage(BinaryExpr(BinaryOp.NotEq, lhs, rhs), self.statements)
