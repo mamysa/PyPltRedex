@@ -46,12 +46,13 @@ class PyString(PyValue):
         assert isinstance(value, str)
         self.value = value
 
-class PyList(PyValue):
+class PySet(PyValue):
     def __init__(self, *initializer):
         self.initializer = list(initializer)
 
-    def __infer_typeof_elements(self):
-        pass
+class PyList(PyValue):
+    def __init__(self, *initializer):
+        self.initializer = list(initializer)
 
 class PyTuple(PyValue):
     def __init__(self, *values):
@@ -123,6 +124,9 @@ class WhileStmt(Stmt):
 class ContinueStmt(Stmt):
     pass
 
+class PrintStmt(Stmt):
+    def __init__(self, value):
+        self.value = value 
 
 class IfStmt(Stmt):
     def __init__(self, cond, thenbr, elsebr):
@@ -283,6 +287,10 @@ class BlockBuilder:
                 stmt = AssignStmt(self.args, PyList(initializer))
                 self.parent.statements.append(stmt) 
 
+            def PySet(self, *initializer):
+                stmt = AssignStmt(self.args, PySet(initializer))
+                self.parent.statements.append(stmt) 
+
             def PyTuple(self, *initializer):
                 stmt = AssignStmt(self.args, PyTuple(initializer))
                 self.parent.statements.append(stmt) 
@@ -297,12 +305,6 @@ class BlockBuilder:
     @ensure_not_previously_built
     def Function(self, name):
         return FunctionBuilderStage1(self.sourcebuilder, name, self.statements)
-
-    def MethodCall(self, instance, methodname, *args):
-        self.statements.append( CallMethodExpr(instance, name, list(args)) )
-
-    def FunctionCall(self, name, *args):
-        self.statements.append( CallExpr(name, list(args)) )
 
     @property
     @ensure_not_previously_built
@@ -319,6 +321,10 @@ class BlockBuilder:
     def Continue(self):
         self.statements.append( ContinueStmt() )
 
+    @property
+    @ensure_not_previously_built
+    def Print(self, value):
+        self.statements.append( PrintStmt(value) )
     @ensure_not_previously_built
     def For(self, *iteratorvariables):
         class ForPrePhase1:

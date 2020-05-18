@@ -61,20 +61,25 @@ class RetrieveBindableElements(ast.PatternTransformer):
 class DefineLanguagePatternCodegen3(ast.PatternTransformer):
     def __init__(self, writer, context):
         assert isinstance(context, LanguageContext)
-        assert isinstance(writer, SourceWriter)
         self.symgen = SymGen()
-        self.writer = writer 
         self.context = context
-
         self.modulebuilder = rpy.BlockBuilder()
 
     def transformDefineLanguage(self, node):
         assert isinstance(node, ast.DefineLanguage)
 
-        var, variables = self.context.get_variables_mentioned()
-        self.writer += '{} = set({})'.format(var, list(variables))
-        self.writer.newline()
 
+        var, variables = self.context.get_variables_mentioned()
+        var = rpy.gen_pyid_for(var)
+
+        self.modulebuilder.AssignTo(var).PySet(*variables)
+
+        # FIXME this shoudn't be here.
+        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
+        for term, sym in self.context._litterms.items():
+            sym = rpy.gen_pyid_for(sym)
+            self.modulebuilder.AssignTo(tmp0).New('Parser', rpy.PyString(term))
+            self.modulebuilder.AssignTo(sym).MethodCall(tmp0, 'parse')
 
         self.definelanguage = node
         for nt in node.nts.values():
@@ -83,100 +88,120 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
     def transformMatchEqual(self, me):
         assert isinstance(me, ast.MatchEqual)
 
-        self.transform(me.redexmatch)
-        matches = Var('matches') # just because we define matches in redex-match 
+        matches, match = rpy.gen_pyid_for('matches', 'match')
 
-        expected_matches, match = Var('expected_matches'), Var('match') 
-        processed_matches = []
+        fb = rpy.BlockBuilder()
+
+        symgen = SymGen()
+
+        # FIXME CODE DUPLICATION - see redex-match
+        matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
+        tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
+
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(tmp0).New('Parser', rpy.PyString(node.termstr))
+        fb.AssignTo(tmp1).MethodCall(tmp0, 'parse') 
+
+
+        # FIXME shouldnt handle in-hole patterns separately
+        if isinstance(node.pat, ast.BuiltInPat) and node.pat.kind == ast.BuiltInPatKind.InHole:
+            fb.AssignTo(matches).FunctionCall(fnname, term)
+        else:
+            rbe = RetrieveBindableElements()
+            rbe.transform(node.pat)
+            bindables = list(map(lambda x: x.sym,   rbe.bindables))
+            fb.AssignTo(match).New('Match', tuple(set(bindables)))
+            fb.AssignTo(matches).FunctionCall(fnname, term, match, rpy.PyInt(0), rpy.PyInt(1))
+        fb.Print(matches)
+        # ----- End code duplication
+
+        processedmatches = []
         for m in me.list_of_matches:
-            current_match = self.symgen.get('match_to_compare')
-            processed_matches.append(current_match)
-            self.writer += '{} = Match()'.format(current_match)
-            self.writer.newline()
-            for sym, term in m.bindings:
-                self.writer += '{} = Parser(\"{}\").parse()'.format(sym, term)
-                self.writer.newline()
-                self.writer += '{}.{}(\"{}\")'.format(current_match, MatchMethodTable.AddKey, sym)
-                self.writer.newline()
-                self.writer += '{}.{}(\"{}\", {})'.format(current_match, MatchMethodTable.AddToBinding, sym, sym)
-                self.writer.newline()
-        
-        list_of_matches = self.symgen.get('list_of_matches')
-        self.writer += '{} = ['.format(list_of_matches)
-        for m in processed_matches:
-            self.writer += '{}, '.format(m)
-        self.writer += ']'.format()
-        self.writer.newline()
-        self.writer += 'assert_compare_match_lists({}, {})'.format(matches, list_of_matches)
-        self.writer.newline()
+            tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+            fb.AssignTo(tmp1).New('Match')
+            processedmatches.append(tmp0) 
 
+            for sym, term in m.bindings:
+                tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
+
+                fb.AssignTo(tmp1).New('Parser', rpy.PyString(term))
+                fb.AssignTo(tmp2).MethodCall(tmp1, 'parse')
+                fb.AssignTo(tmp3).MethodCall(tmp1, MatchMethodTable.AddKey, rpy.PyString(sym))
+                fb.AssignTo(tmp4).MethodCall(tmp1, MatchMethodTable.AddToBinding, rpy.PyString(sym), tmp2)
+
+        tmp5, tmp6 = rpy.gen_pyid_temporaries(2, symgen)
+        fb.AssignTo(tmp5).PyList(*processedmatches)
+        fb.AssignTo(tmp6).FunctionCall('assert_compare_match_lists', matches, tmp5)
+
+        sym = self.symgen.get('assertmatchesequal')
+        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
+        self.modulebuilder.Function(sym).Block(fb)
+        self.modulebuilder.AssignTo(tmp0).FunctionCall(sym)
 
     def transformAssertTermsEqual(self, termlet):
         assert isinstance(termlet, ast.AssertTermsEqual)
         idof = self.symgen.get('termlet')
         template = genterm.TermAnnotate(termlet.variable_assignments, idof, self.context).transform(termlet.template)
-        for term, sym in self.context._litterms.items():
-            self.writer += '{} = Parser(\"{}\").parse()'.format(sym, term)
-            self.writer.newline()
 
-        compareto = self.symgen.get('expected')
-        self.writer += '{} = Parser(\"{}\").parse()'.format(compareto, termlet.literal)
-        self.writer.newline()
+        fb = rpy.BlockBuilder()
+        symgen = SymGen()
 
-        result = self.symgen.get()
+        expected, match = rpy.gen_pyid_for('expected', 'match')
 
+        tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+        fb.AssignTo(tmp0).New('Parser', rpy.PyString(termlet.literal))
+        fb.AssignTo(expected).MethodCall(tmp0, 'parse') 
 
         template = genterm.TermCodegen(self.writer, self.context).transform(template)
         funcname = template.getattribute(TERM.TermAttribute.FunctionName)[0]
 
-        match = Var(self.symgen.get('match'))
-
-        self.writer += '{} = Match()'.format(match)
-        self.writer.newline()
-
+        fb.AssignTo(match).New('Match')
         for variable, (_, term) in termlet.variable_assignments.items():
-            self.writer += '{} = Parser(\"{}\").parse()'.format(variable, term)
-            self.writer.newline()
-            self.writer += '{}.{}(\"{}\")'.format(match, MatchMethodTable.AddKey, variable)
-            self.writer.newline()
-            self.writer += '{}.{}(\"{}\", {})'.format(match, MatchMethodTable.AddToBinding, variable, variable)
-            self.writer.newline()
-        self.writer += '{} = {}({})'.format(result, funcname, match)
-        self.writer.newline()
-        self.writer += 'print({})'.format(result)
-        self.writer.newline()
-        self.writer += 'assert {} == {}'.format(result, compareto)
-        self.writer.newline()
+            tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
+            fb.AssignTo(tmp1).New('Parser', rpy.PyString(term))
+            fb.AssignTo(tmp2).MethodCall(tmp1, 'parse')
+            fb.AssignTo(tmp3).MethodCall(tmp1, MatchMethodTable.AddKey, rpy.PyString(variable))
+            fb.AssignTo(tmp4).MethodCall(tmp1, MatchMethodTable.AddToBinding, rpy.PyString(variable), tmp2)
 
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(1, symgen)
+        fb.AssignTo(tmp0).FunctionCall(funcname, match)
+        fb.Print(tmp0)
+        fb.AssignTo(tmp1).FunctionCall('assertequal', tmp0, expected)
+
+        sym = self.symgen.get('asserttermequal')
+        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
+        self.modulebuilder.Function(sym).Block(fb)
+        self.modulebuilder.AssignTo(tmp0).FunctionCall(sym)
 
     def transformRedexMatch(self, node):
         assert isinstance(node, ast.RedexMatch)
-        
         self.transform(node.pat)
         fnname = self.context.get_function_for_pattern(repr(node.pat))
+        symgen = SymGen()
 
-        matches, match = Var('matches'), Var('match') 
-        term = Var(self.symgen.get('term'))
-        self.writer += '{} = Parser(\"{}\").parse()'.format(term, node.termstr)
-        self.writer.newline()
+        matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
+        tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
 
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(tmp0).New('Parser', rpy.PyString(node.termstr))
+        fb.AssignTo(tmp1).MethodCall(tmp0, 'parse') 
+
+
+        # FIXME shouldnt handle in-hole patterns separately
         if isinstance(node.pat, ast.BuiltInPat) and node.pat.kind == ast.BuiltInPatKind.InHole:
-            self.writer += '{} = {}({})'.format(matches, fnname, term)
-            self.writer.newline()
-            self.writer += 'print({})'.format(matches)
-            self.writer.newline()
-            return
+            fb.AssignTo(matches).FunctionCall(fnname, term)
+        else:
+            rbe = RetrieveBindableElements()
+            rbe.transform(node.pat)
+            bindables = list(map(lambda x: x.sym,   rbe.bindables))
+            fb.AssignTo(match).New('Match', tuple(set(bindables)))
+            fb.AssignTo(matches).FunctionCall(fnname, term, match, rpy.PyInt(0), rpy.PyInt(1))
+        fb.Print(matches)
 
-
-        rbe = RetrieveBindableElements()
-        rbe.transform(node.pat)
-        bindables = list(map(lambda x: x.sym,   rbe.bindables))
-        self.writer += '{} = Match({})'.format(match, list(set(bindables)))
-        self.writer.newline()
-        self.writer += '{} = {}({}, {}, {}, {})'.format(matches, fnname, term, match, 0, 1)
-        self.writer.newline()
-        self.writer += 'print({})'.format(matches)
-        self.writer.newline()
+        sym = self.symgen.get('redexmatch')
+        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
+        self.modulebuilder.Function(sym).Block(fb)
+        self.modulebuilder.AssignTo(tmp0).FunctionCall(sym)
 
     def transformNtDefinition(self, node):
         assert isinstance(node, ast.NtDefinition)
@@ -267,9 +292,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
             # stick initial match object into array - simplifies codegen.
             previousmatches = rpy.gen_pyid_for('matches')
-            self.writer += '{} = [({}, {}, {})]'.format(pmatches, match, subhead, subtail)
-            self.writer.newline()
-
+            fb.AssignTo(previousmatches).PyList( rpy.PyTuple(match, subhead, subtail) )
 
             for i, pat in enumerate(seq):
                 matches = symgen.get('matches')
