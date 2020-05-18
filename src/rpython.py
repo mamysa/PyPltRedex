@@ -56,7 +56,7 @@ class PyList(PyValue):
 
 class PyTuple(PyValue):
     def __init__(self, *values):
-        self.values = list(typ)
+        self.values = list(values)
 
 
 class BinaryOp(enum.Enum):
@@ -71,17 +71,16 @@ class BinaryOp(enum.Enum):
 # statements have to be appended to them using +=.
 # Calling End "freezes" the object and does not allow any further insertions.
 
-
 class Module(PyAst):
     def __init__(self, statements):
         self.statements = statements
 
-class SingleLineComment(PyAst):
-    def __init__(self, comment):
-        self.comment = comment
-
 class Stmt(PyAst):
     pass
+
+class SingleLineComment(Stmt):
+    def __init__(self, comment):
+        self.comment = comment
 
 class IncludePythonSourceStmt(Stmt):
     def __init__(self, filename):
@@ -121,6 +120,12 @@ class WhileStmt(Stmt):
         self.cond = cond 
         self.body = body 
 
+class IfStmt(Stmt):
+    def __init__(self, cond, thenbr, elsebr):
+        self.cond = cond 
+        self.thenbr = thenbr
+        self.elsebr = elsebr 
+
 class ContinueStmt(Stmt):
     pass
 
@@ -128,19 +133,8 @@ class PrintStmt(Stmt):
     def __init__(self, value):
         self.value = value 
 
-class IfStmt(Stmt):
-    def __init__(self, cond, thenbr, elsebr):
-        self.cond = cond 
-        self.thenbr = thenbr
-        self.elsebr = elsebr 
-
 class Expr(PyAst):
     pass
-
-class NewObject(Expr):
-    def __init__(self,  typename, args):
-        self.typename = typename
-        self.args = args
 
 class BinaryExpr(Expr):
     def __init__(self, op, lhs, rhs):
@@ -150,11 +144,6 @@ class BinaryExpr(Expr):
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
-
-class IsTrueExpr(Expr):
-    def __init__(self, value):
-        assert isinstance(value, PyValue)
-        self.value = value
 
 class CallExpr(Expr):
     def __init__(self, name, args):
@@ -235,11 +224,11 @@ class BlockBuilder:
                 self.parent = parent
 
             def PyList(self, *initializer):
-                stmt = ReturnStmt(PyList(initializer))
+                stmt = ReturnStmt(PyList(*initializer))
                 self.parent.statements.append(stmt) 
 
             def PyTuple(self, *initializer):
-                stmt = ReturnStmt(PyTuple(initializer))
+                stmt = ReturnStmt(PyTuple(*initializer))
                 self.parent.statements.append(stmt) 
 
             def PyBoolean(self, value):
@@ -284,15 +273,15 @@ class BlockBuilder:
                 self.parent.statements.append(stmt) 
 
             def PyList(self, *initializer):
-                stmt = AssignStmt(self.args, PyList(initializer))
+                stmt = AssignStmt(self.args, PyList(*initializer))
                 self.parent.statements.append(stmt) 
 
             def PySet(self, *initializer):
-                stmt = AssignStmt(self.args, PySet(initializer))
+                stmt = AssignStmt(self.args, PySet(*initializer))
                 self.parent.statements.append(stmt) 
 
             def PyTuple(self, *initializer):
-                stmt = AssignStmt(self.args, PyTuple(initializer))
+                stmt = AssignStmt(self.args, PyTuple(*initializer))
                 self.parent.statements.append(stmt) 
 
             def New(self, typename, *args):
@@ -506,6 +495,13 @@ class RPythonWriter:
         for stmt in module.statements:
             self.visit(stmt)
 
+    def visitSingleLineComment(self, comment):
+        self.emit('#')
+        self.emit(comment.comment)
+
+    def visitIncludePythonSourceStmt(self, stmt):
+        pass
+
     def visitFunctionStmt(self, stmt):
         assert isinstance(stmt, FunctionStmt)
         self.emit_indentstring()
@@ -523,6 +519,21 @@ class RPythonWriter:
         self._dedent()
         self.emit_newline()
 
+    def visitAssignStmt(self, stmt):
+        assert isinstance(stmt, AssignStmt)
+        self.emit_indentstring()
+        self.emit_comma_separated_list(stmt.names) 
+        self.emit_space()
+        self.emit('=')
+        self.emit_space()
+        self.visit(stmt.expr)
+        self.emit_newline()
+
+    def visitReturnStmt(self, stmt):
+        self.emit('return')
+        self.emit_space()
+        self.visit(stmt.expr)
+
     def visitForEachStmt(self, stmt):
         assert isinstance(stmt, ForEachStmt)
         self.emit_indentstring()
@@ -537,6 +548,39 @@ class RPythonWriter:
         self.emit_newline()
         self._indent()
         for s in stmt.body:
+            self.visit(s)
+        self._dedent()
+
+    def visitForEachInRangeStmt(self, stmt):
+        assert isinstance(stmt, ForEachStmt)
+        self.emit_indentstring()
+        self.emit('for')
+        self.emit_space()
+        self.emit_comma_separated_list(stmt.variables)
+        self.emit_space()
+        self.emit('in')
+        self.emit_space()
+        self.emit('range(')
+        self.visit(stmt.iterable)
+        self.emit(')')
+        self.emit(':')
+        self.emit_newline()
+        self._indent()
+        for s in stmt.body:
+            self.visit(s)
+        self._dedent()
+
+    def visitWhileStmt(self, stmt):
+        assert isinstance(stmt, While)
+        self.emit_indentstring()
+        self.emit('while')
+        self.emit_space()
+        self.visit(stmt.cond)
+        self.emit(':')
+        self.emit_newline()
+
+        self._indent()
+        for s in stmt.thenbr:
             self.visit(s)
         self._dedent()
 
@@ -563,17 +607,14 @@ class RPythonWriter:
                 self.visit(s)
             self._dedent()
 
-    def visitAssignStmt(self, stmt):
-        assert isinstance(stmt, AssignStmt)
-        self.emit_indentstring()
-        self.emit_comma_separated_list(stmt.names) 
-        self.emit_space()
-        self.emit('=')
-        self.emit_space()
-        self.visit(stmt.expr)
-        self.emit_newline()
+    def visitContinueStmt(self, stmt):
+        self.emit('continue')
 
-    
+    def visitPrintStmt(self, stmt):
+        self.emit('print')
+        self.emit('(')
+        self.visit(stmt.expr)
+        self.emit(')')
 
     def visitBinaryExpr(self, expr):
         assert isinstance(expr, BinaryExpr)
@@ -583,6 +624,42 @@ class RPythonWriter:
         self.emit_space()
         self.visit(expr.rhs)
 
+    def visitCallExpr(self, expr):
+        self.emit(expr.name)
+        self.emit('(')
+        self.emit_comma_separated_list(expr.args)
+        self.emit(')')
+
+    def visitCallMethodExpr(self, expr):
+        self.visit(expr.instance)
+        self.emit('.')
+        self.emit(expr.name)
+        self.emit('(')
+        self.emit_comma_separated_list(expr.args)
+        self.emit(')')
+
+    def visitNewExpr(self, expr):
+        self.emit(expr.typename)
+        self.emit('(')
+        self.emit_comma_separated_list(expr.args)
+        self.emit(')')
+
+    def visitInExpr(self, expr):
+        self.visit(expr.lhs)
+        self.emit_space()
+        if expr.neg:
+            self.emit('not')
+            self.emit_space()
+        self.emit('in')
+        self.emit_space()
+        self.visit(expr.rhs)
+
+    def visitLenExpr(Expr):
+        self.emit('len')
+        self.emit('(')
+        self.emit_comma_separated_list(expr.args)
+        self.emit(')')
+
     def visitPyId(self, ident):
         assert isinstance(ident, PyId)
         self.emit(ident.name)
@@ -590,3 +667,46 @@ class RPythonWriter:
     def visitPyInt(self, pyint):
         assert isinstance(pyint, PyInt)
         self.emit(str(pyint.value))
+
+    def visitPyBoolean(self, pybool):
+        assert isinstance(pybool, PyBoolean)
+        self.emit(str(pybool.value))
+
+    def visitPyString(self, pystr):
+        assert isinstance(pystr, PyString)
+        self.emit('"')
+        self.emit(pystr.value)
+        self.emit('"')
+
+    def visitPySet(self, pyset):
+        assert isinstance(pyset, PySet)
+        self.emit('set')
+        self.emit('(')
+        self.emit('[')
+        self.emit_comma_separated_list(pyset.initializer)
+        self.emit(']')
+        self.emit(')')
+
+    def visitPyList(self, pylist):
+        assert isinstance(pylist, PyList)
+        self.emit('[')
+        self.emit_comma_separated_list(list(pylist.initializer))
+        self.emit(']')
+
+    def visitPyTuple(self, pytuple):
+        assert isinstance(pytuple, PyTuple)
+        self.emit('(')
+        self.emit_comma_separated_list(pytuple.values)
+        self.emit(',')
+        self.emit(')')
+
+
+
+
+
+bb = BlockBuilder()
+bb.AssignTo(PyId('x')).PyList(PyInt(1), PyString('duck you'), PyBoolean(True))
+bb = Module(bb.build())
+
+x = RPythonWriter().write(bb)
+print(x)
