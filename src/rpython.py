@@ -63,6 +63,8 @@ class BinaryOp(enum.Enum):
     Sub = '-'
     Eq    = '=='
     NotEq = '!='
+    GrEq = '>='
+    Lt   = '<'
 
 # Few classes like IfStmt/WhileStmt start out with empty bodies and 
 # statements have to be appended to them using +=.
@@ -117,6 +119,10 @@ class WhileStmt(Stmt):
     def __init__(self, cond, body):
         self.cond = cond 
         self.body = body 
+
+class ContinueStmt(Stmt):
+    pass
+
 
 class IfStmt(Stmt):
     def __init__(self, cond, thenbr, elsebr):
@@ -183,7 +189,8 @@ def gen_pyid_for(*syms):
 def gen_pyid_temporaries(qty, symgen):
     return tuple([PyId(symgen.get()) for i in range(qty)])
 
-
+def gen_pyid_temporary_with_sym(sym, symgen):
+    return PyId(sym, symgen.get(sym))
 
 # ------------------------------------------------------------
 # RPython AST creation helpers. Instead of directly instantiating classes above to create statements, 
@@ -307,6 +314,11 @@ class BlockBuilder:
     def While(self):
         return IfOrWhileBuilderPreStage1(IfOrWhileBuilderPreStage1.WhileBuilderPreStage4, self.statements)
 
+    @property
+    @ensure_not_previously_built
+    def Continue(self):
+        self.statements.append( ContinueStmt() )
+
     @ensure_not_previously_built
     def For(self, *iteratorvariables):
         class ForPrePhase1:
@@ -398,6 +410,13 @@ class IfOrWhileBuilderPreStage1:
 
     def Equal(self, lhs, rhs):
         return self.lastprestage(BinaryExpr(BinaryOp.Eq, lhs, rhs), self.statements)
+
+    def LessThan(self, lhs, rhs):
+        return self.lastprestage(BinaryExpr(BinaryOp.Lt, lhs, rhs), self.statements)
+
+    def GreaterEqual(self, lhs, rhs):
+        return self.lastprestage(BinaryExpr(BinaryOp.GrEq, lhs, rhs), self.statements)
+
 
     def NotContains(self, value):
         class IfOrWhileBuilderPreStage3:

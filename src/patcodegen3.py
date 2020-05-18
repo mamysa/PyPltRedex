@@ -188,28 +188,30 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             for pat in node.patterns: 
                 self.transform(pat)
 
-            term, match, matches = Var('term'), Var('match'), Var('matches')
-            self.writer += 'def {}({}):'.format(this_function_name, term)
-            self.writer.newline().indent()
+            term, match, matches = rpy.gen_pyid_for('term', 'match', 'matches')
+
+            # for each pattern in ntdefinition
+            # match = Match(...)
+            # matches = matchpat(term, match, 0, 1)
+            # if len(matches) != 0:
+            #   return True
+            fb = rpy.BlockBuilder()
 
             for pat in node.patterns:
                 rbe = RetrieveBindableElements()
                 rbe.transform(pat)
                 bindables = list(map(lambda x: x.sym,   rbe.bindables))
-
                 functionname = self.context.get_function_for_pattern(repr(pat))
-                self.writer += '{} = Match({})'.format(match, list(set(bindables)))
-                self.writer.newline()
-                self.writer += '{} = {}({}, {}, {}, {})'.format(matches, functionname, term, match, 0, 1)
-                self.writer.newline()
-                self.writer += 'if len({}) != {}:'.format(matches, 0)
 
-                self.writer.newline().indent()
-                self.writer += 'return True'
-                self.writer.newline().dedent()
+                ifb = rpy.BlockBuilder()
+                ifb.Return.PyBoolean(True)
 
-            self.writer += 'return False'
-            self.writer.newline().dedent().newline()
+                fb.AssignTo(match).New('Match', tuple(set(bindables)))
+                fb.AssignTo(matches).FunctionCall(functionname, term, match, rpy.PyInt(0), rpy.PyInt(1))
+                fb.If.LengthOf(matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb)
+            fb.Return.PyBoolean(False)
+
+            self.modulebuilder.Function(this_function_name).WithParameters(term).Block(fb)
 
     def transformPatSequence(self, seq):
         assert isinstance(seq, ast.PatSequence)
@@ -224,165 +226,187 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
             # symgen for the function
             symgen = SymGen()
-            # function parameters
+            term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
+            m, h, t = rpy.gen_pyid_for('m', 'h', 't')
+            subhead, subtail = rpy.gen_pyid_for('subhead', 'subtail')
 
-            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
-            m, h, t = Var('m'), Var('h'), Var('t')
+            fb = rpy.BlockBuilder()
 
-            # ensure the term is actually a sequence
-            self.writer += '#{}'.format(repr(seq))
-            self.writer.newline()
-            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
-            self.writer.newline().indent()
-            self.writer += 'if {}.{}() != {}:'.format(term, TermMethodTable.Kind, TermKind.Sequence)
-            self.writer.newline().indent()
-            self.writer += 'return []'
-            self.writer.newline().dedent()
+            # ensure term is actually a sequence.
+            #
+            # tmp{i} = term.kind()
+            # if tmp{i} != TermKind.Sequence:
+            #   return []
+            tmpi = rpy.gen_pyid_temporaries(1, symgen)
 
-            subhead, subtail = Var('subhead'), Var('subtail')
-            tmp = Var('tmp')
+            ifb = rpy.BlockBuilder()
+            ifb.Return.PyList()
+            
+            fb.AssignTo(tmpi).MethodCall(term, TermMethodTable.Kind)
+            fb.If.NotEqual(tmpi, rpy.PyInt(TermKind.Sequence)).ThenBlock(ifb)
 
             # 'enter' the term
-            self.writer += '{} = {}'.format(subhead, 0)
-            self.writer.newline()
-            self.writer += '{} = {}.{}()'.format(subtail, term, TermMethodTable.Length)
-            self.writer.newline()
-
+            # subhead = 0
+            # subtail = term.length()
+            fb.AssignTo(subhead).PyInt(0)
+            fb.AssignTo(subtail).MethodCall(term, TermMethodTable.Length)
 
             # ensure number of terms in the sequence is at least equal to number of non Repeat patterns. 
             # if num_required is zero, condition is always false.
+            # tmp{i} = subtail - subhead
+            # if tmp{i} < num_required:
+            #   return []
             num_required = seq.get_number_of_nonoptional_matches_between(0, len(seq))
-            if num_required != 0:
-                self.writer += 'if {} - {} < {}:'.format(subtail, subhead, num_required)
-                self.writer.newline().indent()
-                self.writer += 'return []'
-                self.writer.newline().dedent()
+            tmpi = rpy.gen_pyid_temporaries(1, symgen)
 
-            # stick intial match object into array - simplifies codegen.
-            pmatches = Var('matches')
+            ifb = rpy.BlockBuilder()
+            ifb.Return.PyList()
+
+            fb.AssignTo(tmpi).Subtract(subhead, subtail).
+            fb.If.LessThan(tmpi, rpy.PyInt(num_required)).ThenBlock(ifb)
+
+            # stick initial match object into array - simplifies codegen.
+            previousmatches = rpy.gen_pyid_for('matches')
             self.writer += '{} = [({}, {}, {})]'.format(pmatches, match, subhead, subtail)
             self.writer.newline()
+
 
             for i, pat in enumerate(seq):
                 matches = symgen.get('matches')
                 self.writer += '#{}'.format(repr(pat))
                 self.writer.newline()
 
+                matches = rpy.gen_pyid_temporary_with_sym('matches', symgen)
+
                 if isinstance(pat, ast.Repeat) or isinstance(pat, ast.PatSequence):
+                    # matches{i} = [] # get temporary with symbol
+                    # for m,h,t in matches{i-1}:
+                    #   tmp{i} = matchfn(term, m, h, t)   // if pat IS repeat
+                    #   tmp{j} = term.get(h)              // if pat IS NOT repeat
+                    #   tmp{i} = matchfn(tmp{j}, m, h, t) // if pat IS NOT repeat 
+                    #   matches{i} = matches{i} + tmp{i}
                     functionname = self.context.get_function_for_pattern(repr(pat))
-                    self.writer += '{} = []'.format(matches)
-                    self.writer.newline()
-                    self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
-                    self.writer.newline().indent()
+
+                    tmpi, tmpj  = rpy.gen_pyid_temporaries(2, symgen)
+                    forb = rpy.BlockBuilder()
                     if isinstance(pat, ast.Repeat):
-                        self.writer += '{} += {}({}, {}, {}, {})'.format(matches, functionname, term, m, h, t)
+                        forb.AssignTo(tmpi).FunctionCall(functionname, term, m, h, t)
                     else:
-                        self.writer += '{} += {}({}.{}({}), {}, {}, {})'.format(matches, functionname, term, TermMethodTable.Get, h, m, h, t)
-                    self.writer.newline().dedent()
+                        forb.AssignTo(tmpj).MethodCall(term, TermMethodTable.Get, h)
+                        forb.AssignTo(tmpi).FunctionCall(functionname, tmpj, m, h, t)
+                    forb.AssignTo(matches).Add(matches, tmpi)
+                    fb.For(m, h, t).In(previousmatches)
 
                     # ensure number of terms in the sequence is at least equal to number of non Repeat patterns after 
-                    # this repeat pattern. 
+                    # this repeat pattern.
+                    #
+                    # matches{i} = []
+                    # for m, h, t in matches{i-1}:
+                    #   tmp{i} = t - h
+                    #   if tmp{i} >= num_required:
+                    #     tmp{j} = matches{i}.append((m, h, t))
+                    # if len(matches{i}) == 0:
+                    #   return matches{i} 
                     if isinstance(pat, ast.Repeat):
                         num_required = seq.get_number_of_nonoptional_matches_between(i, len(seq))
                         if num_required > 0:
-                            pmatches = matches
-                            matches = symgen.get('matches')
-                            self.writer += '{} = []'.format(matches)
-                            self.writer.newline()
-                            self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
-                            self.writer.newline().indent()
-                            self.writer += 'if {} - {} >= {}:'.format(t, h, num_required)
-                            self.writer.newline().indent()
-                            self.writer += '{}.append(({}, {}, {}))'.format(matches, m, h, t)
-                            self.writer.newline().dedent().dedent()
+                            matches = rpy.gen_pyid_temporary_with_sym('matches', symgen)
+                            tmpi, tmpj  = rpy.gen_pyid_temporaries(2, symgen)
 
+                            ifb1 = rpy.BlockBuilder()
+                            ifb1.AssignTo(tmpj).MethodCall(matches, 'append', rpy.PyTuple(m, h, t))
+
+                            forb = rpy.BlockBuilder()
+                            forb.AssignTo(tmpi).Subtract(t, h)
+                            forb.If.GreaterEqual(tmpi, rpy.PyInt(num_required)).ThenBlock(ifb1)
+
+                            ifb2 = rpy.BlockBuilder()
+                            ifb2.Return.PyId(matches)
+
+                            fb.AssignTo(matches).PyList()
+                            fb.For(m, h, t).In(previousmatches).Block(forb)
+                            fb.If.LengthOf(matches).Equal(rpy.PyInt(0)).ThenBlock(ifb2)
+
+                            previousmatches = matches
+                            
                 elif isinstance(pat, ast.CheckConstraint):
-                    self.writer += '{} = []'.format(matches)
-                    self.writer.newline()
-                    self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
-                    self.writer.newline().indent()
-                    self.writer += 'if {}.{}(\"{}\", \"{}\"):'.format(m, MatchMethodTable.CompareKeys, pat.sym1, pat.sym2)
-                    self.writer.newline().indent()
-                    self.writer += '{}.{}(\"{}\")'.format(m, MatchMethodTable.RemoveKey, pat.sym2)
-                    self.writer.newline()
-                    self.writer += '{}.append(({}, {}, {}))'.format(matches, m, h, t)
-                    self.writer.newline().dedent().dedent()
+                    # matches{i} = []
+                    # for m, h, t in matches{i-1}:
+                    #   tmp{i} = m.CompareKeys(sym1, sym2)
+                    #   if tmp{i} == True:
+                    #     tmp{j} = matches{i}.append( (m, h, t) )
+                    # if len(matches{i}) == 0:
+                    #   return matches{i} 
+                    tmpi, tmpj  = rpy.gen_pyid_temporaries(2, symgen)
 
-                    self.writer += 'if len({}) == 0:'.format(matches)
-                    self.writer.newline().indent()
-                    self.writer += 'return {}'.format(matches)
-                    self.writer.newline().dedent()
+                    ifb1 = rpy.BlockBuilder()
+                    ifb1.AssignTo(tmpj).MethodCall(matches, 'append', rpy.PyTuple(m, h, t))
+
+                    forb = rpy.BlockBuilder()
+                    forb.AssignTo(tmpi).MethodCall(m, MatchMethodTable.CompareKeys, rpy.PyString(pat.sym1), rpy.PyString(pat.sym2))
+                    forb.If.Equal(tmpi, rpy.PyBoolean(True)).ThenBlock(ifb1)
+
+                    ifb2 = rpy.BlockBuilder()
+                    ifb2.Return.PyId(matches)
+
+                    fb.AssignTo(matches).PyList()
+                    fb.For(m, h, t).In(previousmatches).Block(forb)
+                    fb.If.LengthOf(matches).Equal(rpy.PyInt(0)).ThenBlock(ifb2)
 
                 else:
-                    # matches = []
-                    # for m, h, t in matches:
-                    # if isa_blah(term.get(h)):
-                    #   m.addtobinding(m, term.get(h)) if pat is Builtin or Nt 
-                    #   matches.append((m, h+1, t))
-                    # if len(matches) == 0: return None
-                    isa_functionname = self.context.get_function_for_pattern(repr(pat))
-                    self.writer += '{} = []'.format(matches)
-                    self.writer.newline()
-                    self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
-                    self.writer.newline().indent()
+                    # matches{i} = []
+                    # for m, h, t in matches{i-1}:
+                    #   tmp{i} = func(term, m, h, t)
+                    #   matches{i} = matches{i} + tmp{i}
+                    # if len(matches{i}) == 0: 
+                    #   return  matches{i} 
+                    function = self.context.get_function_for_pattern(repr(pat))
+                    tmpi = rpy.gen_pyid_temporaries(1, symgen)
 
-                    if isinstance(pat, ast.Nt) or isinstance(pat, ast.BuiltInPat):
-                        isa_functionname = self.context.get_isa_function_name(pat.prefix)
-                        self.writer += 'if {}({}.{}({})):'.format(isa_functionname, term, TermMethodTable.Get, h)
-                    else: 
-                        functionname = self.context.get_function_for_pattern(repr(pat))
-                        self.writer += 'if {}({}.{}({}), {}, {}, {}):'.format(functionname, term, TermMethodTable.Get, h, m, h, t)
+                    forb = rpy.BlockBuilder()
+                    forb.AssignTo(tmpi).FunctionCall(function, term, m, h, t)
+                    forb.AssignTo(matches).Add(matches, tmpi)
 
-                    self.writer.newline().indent()
+                    ifb1 = rpy.BlockBuilder()
+                    ifb1.Return.PyId(matches)
 
-                    if isinstance(pat, ast.Nt): 
-                        self.writer += '{}.{}({}, {}.{}({}))'.format(m, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term, TermMethodTable.Get, h)
-                        self.writer.newline()
+                    fb.AssignTo(matches).PyList()
+                    fb.For(m, h, t).In(previousmatches).Block(forb)
+                    fb.If.LengthOf(matches).Equal(rpy.PyInt(0)).ThenBlock(ifb1)
 
-                    if isinstance(pat, ast.BuiltInPat) and pat.kind != ast.BuiltInPatKind.Hole:
-                        self.writer += '{}.{}({}, {}.{}({}))'.format(m, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term, TermMethodTable.Get, h)
-                        self.writer.newline()
-
-                    self.writer += '{}.append(({}, {}+1, {}))'.format(matches, m, h, t)
-                    self.writer.newline().dedent().dedent()
-
-                    self.writer += 'if len({}) == 0:'.format(matches)
-                    self.writer.newline().indent()
-                    self.writer += 'return {}'.format(matches)
-                    self.writer.newline().dedent()
-
-                pmatches = matches
+               previousmatches = matches 
 
             # exit term
-            matches = symgen.get('matches')
-            self.writer += '{} = []'.format(matches)
-            self.writer.newline()
-            self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, pmatches)
-            self.writer.newline().indent()
-            self.writer += 'if {} == {}:'.format(h, t)
-            self.writer.newline().indent()
-            self.writer += '{}.append(({}, {}+1, {}))'.format(matches, m, head, tail)
-            self.writer.newline().dedent().dedent()
-            self.writer += 'return {}'.format(matches)
-            self.writer.newline().dedent().newline()
+            # 
+            # matches{i} = []
+            # for m, h, t in matches{i-1}:
+            #   if h == t:
+            #     head = head + 1
+            #     tmp{i} = (m, head, tail)
+            #     tmp{j} = matches{i}.append(tmp{i})
+            # return matches{i}
+            tmpi, tmpj = rpy.gen_pyid_temporaries(2, symgen)
+            matches = rpy.gen_pyid_temporary_with_sym('matches', symgen)
 
+            fb.AssignTo(matches).PyList()
+
+            ifb = rpy.BlockBuilder()
+            ifb.AssignTo(head).Add(head, rpy.PyInt(1))
+            ifb.AssignTo(tmpi).PyTuple(m, head, tail)
+            ifb.AssignTo(tmpj).MethodCall(matches, 'append', tmpi)
+
+            forb = rpy.BlockBuilder()
+            forb.If.Equal(h, t).ThenBlock(ifb)
+
+            fb.AssignTo(matches).PyList()
+            fb.For(m, h, t).In(previousmatches).Block(forb)
+            fb.Return.PyId(matches)
+
+            self.modulebuilder.SingleLineComment(repr(seq))
+            self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
 
     def transformRepeat(self, repeat):
         assert isinstance(repeat, ast.Repeat)
-        # match.increasedepth(...)
-        # matches = [ match ]
-        # queue   = [ match ]
-        # while len(queue) != 0:
-        #   m, h, t = queue.pop(0)
-        #   if h == t:
-        #      continue
-        #   m = m.copy()
-        #   tmp = match_term(term[h], m, h, t)
-        #   if tmp != None:
-        #      matches += tmp
-        #      queue   += tmp 
-        # for m, h, t in matches:
-        #   m.decreasedepth(...)
         if not self.context.get_function_for_pattern(repr(repeat)):
             match_fn = 'match_term_{}'.format(self.symgen.get())
             self.context.add_function_for_pattern(repr(repeat), match_fn)
@@ -390,81 +414,102 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
             # codegen enclosed pattern 
             self.transform(repeat.pat)
 
-
             functionname = self.context.get_function_for_pattern(repr(repeat.pat))
 
             # retrieve all bindable elements
             rbe = RetrieveBindableElements()
             rbe.transform(repeat.pat)
 
+            symgen = SymGen()
+            term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
+            matches, queue = rpy.gen_pyid_for('matches', 'queue')
+            m, h, t = rpy.gen_pyid_for('m', 'h', 't')
+            tmp0, tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(5, symgen)
 
-            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
-            matches, queue = Var('matches'), Var('queue')
-            tmp = Var('tmp')
-            m, h, t = Var('m'), Var('h'), Var('t')
+            # tmp0 = match.increasedepth(...)
+            # tmp1 = (match, head, tail)
+            # matches = [ tmp1 ]
+            # queue   = [ tmp1 ]
+            # while len(queue) != 0:
+            #   m, h, t = queue.pop(0)
+            #   if h == t:
+            #      continue
+            #   m = m.copy()
+            #   tmp2 = term.get[h]
+            #   tmp3 = match_term(tmp2, m, h, t)
+            #   matches = matches + tmp3
+            #   queue   = queue + tmp3
+            # for m, h, t in matches:
+            #   tmp4 = m.decreasedepth(...)
+            # return matches
+            ifb = rpy.BlockBuilder()
+            ifb.Continue
 
-            self.writer += '#{} non-deterministic'.format(repr(repeat))
-            self.writer.newline()
-            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
-            self.writer.newline().indent()
+            wb = rpy.BlockBuilder()
+            wb.AssignTo(m, h, t).MethodCall(queue, 'pop', rpy.PyInt(0))
+            wb.If.Equal(h, t).ThenBlock(ifb)
+            wb.AssignTo(m).MethodCall(m, MatchMethodTable.Copy)
+            wb.AssignTo(tmp2).MethodCall(term, TermMethodTable.Get, h)
+            wb.AssignTo(tmp3).FunctionCall(functionname, tmp2, m, h, t)
+            wb.AssignTo(matches).Add(matches, tmp3)
+            wb.AssignTo(queue).Add(queue, tmp3)
+
+            forb = rpy.BlockBuilder()
             for bindable in rbe.bindables:
-                self.writer += '{}.{}(\"{}\")'.format(match, MatchMethodTable.IncreaseDepth, bindable.sym)
-                self.writer.newline()
-            self.writer += '{} = [ ({}, {}, {}) ]'.format(matches, match, head, tail)
-            self.writer.newline()
-            self.writer += '{} = [ ({}, {}, {}) ]'.format(queue, match, head, tail)
-            self.writer.newline()
-            self.writer += 'while len({}) != 0:'.format(queue)
-            self.writer.newline().indent()
-            self.writer += '{}, {}, {} = {}.pop({})'.format(m, h, t, queue, 0)
-            self.writer.newline()
-            self.writer += 'if {} == {}: continue'.format(h, t)
-            self.writer.newline()
-            self.writer += '{} = {}.{}()'.format(m, m, MatchMethodTable.Copy)
-            self.writer.newline()
-            self.writer += '{} = {}({}.{}({}), {}, {}, {})'.format(tmp, functionname, term, TermMethodTable.Get, h, m, h, t)
-            self.writer.newline()
-            self.writer += '{} += {}'.format(queue, tmp)
-            self.writer.newline()
-            self.writer += '{} += {}'.format(matches, tmp)
-            self.writer.newline().dedent()
+                forb.AssignTo(tmp4).MethodCall(match, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable.sym))
 
-            self.writer += 'for {}, {}, {} in {}:'.format(m, h, t, matches)
-            self.writer.newline().indent()
+            fb = rpy.BlockBuilder()
             for bindable in rbe.bindables:
-                self.writer += '{}.{}(\"{}\")'.format(m, MatchMethodTable.DecreaseDepth, bindable.sym)
-                self.writer.newline()
-            self.writer.newline().dedent()
-            self.writer += 'return {}'.format(matches)
-            self.writer.newline().newline().dedent()
+                fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.IncreaseDepth, rpy.PyString(bindable.sym))
+            fb.AssignTo(tmp1).PyTuple(match, head, tail)
+            fb.AssignTo(matches).PyList(tmp1)
+            fb.AssignTo(queue).PyList(tmp1)
+            fb.While.LengthOf(queue).NotEqual(rpy.PyInt(0)).Block(wb)
+            fb.For(m, h, t).In(matches).Block(forb)
+            fb.Return(matches)
 
+            self.modulebuilder.SingleLineComment('{} non-deterministic'.format(repr(repeat)))
+            self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
+
+    # Most matching functions for builtins/nt are the same - call isa function on term and 
+    # add binding.
+    def _gen_match_function_for_primitive(self, functionname, isafunction, patstr, sym=None):
+        # tmp0 = asafunction(term)
+        # if tmp0 == True:
+        #   tmp1 = match.addtobinding(sym, term) # this is optional of sym != None; useful for holes.
+        #   head = head + 1
+        #   return [(match, head, tail)]
+        # return []
+        symgen = SymGen()
+        term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(1, symgen)
+
+        ifb1 = rpy.BlockBuilder()
+        if sym is not None:
+            ifb1.AssignTo(tmp0).MethodCall(match, MatchMethodTable.AddToBinding, rpy.PyString(sym), term)
+        ifb1.AssignTo(head).Add(head, rpy.PyInt(1))
+        ifb1.Return.PyList( rpy.PyTuple(match, head, tail) )
+
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(tmp0).FunctionCall(isafunction, term)
+        fb.If.Equal(tmp0, rpy.PyBoolean(True)).ThenBlock(ifb1)
+        fb.Return.PyList()
+
+        self.modulebuilder.SingleLineComment(patstr)
+        self.modulebuilder.Function(functionname).WithParameters(term, match, head, tail).Block(fb)
 
     def transformNt(self, nt):
         assert isinstance(nt, ast.Nt)
         if not self.context.get_function_for_pattern(repr(nt)):
-            match_fn = 'lang_{}_match_nt_{}'.format('blah', self.symgen.get())
-            self.context.add_function_for_pattern(repr(nt), match_fn)
-
+            
             # first generate isa for NtDefinition 
             if not self.context.get_isa_function_name(nt.prefix):
                 self.transform(self.definelanguage.nts[nt.prefix])
 
-            isa_functionname = self.context.get_isa_function_name(nt.prefix)
-
-            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
-            self.writer += '#{}'.format(repr(nt))
-            self.writer.newline()
-            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
-            self.writer.newline().indent()
-            self.writer += 'if {}({}):'.format(isa_functionname, term)
-            self.writer.newline().indent()
-            self.writer += '{}.{}({}, {})'.format(match, MatchMethodTable.AddToBinding, '\"{}\"'.format(nt.sym), term)
-            self.writer.newline()
-            self.writer += 'return [({}, {}+1, {})]'.format(match, head, tail)
-            self.writer.newline().dedent()
-            self.writer += 'return []'
-            self.writer.newline().dedent().newline()
-
+            match_fn = 'lang_{}_match_nt_{}'.format('blah', self.symgen.get())
+            self.context.add_function_for_pattern(repr(nt), match_fn)
+            isafunction = self.context.get_isa_function_name(nt.prefix)
+            self._gen_match_function_for_primitive(match_fn, isafunction, repr(nt), sym=nt.sym
 
     def transformBuiltInPat(self, pat):
         assert isinstance(pat, ast.BuiltInPat)
@@ -474,34 +519,30 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 functionname = 'lang_{}_isa_builtin_{}'.format(self.definelanguage.name, pat.prefix)
                 self.context.add_isa_function_name(pat.prefix, functionname)
 
-                term = Var('term')
-                self.writer += '#Is this term {}?'.format(pat.prefix)
-                self.writer.newline()
-                self.writer += 'def {}({}):'.format(functionname, term)
-                self.writer.newline().indent()
-                self.writer += 'if {}.{}() == {}:'.format(term, TermMethodTable.Kind, TermKind.Integer)
-                self.writer.newline().indent()
-                self.writer += 'return True'
-                self.writer.newline().dedent()
-                self.writer += 'return False'
-                self.writer.newline().dedent().newline()
+                # FIXME code duplication
+                # tmp0 = term.kind()
+                # if tmp0 == TermKind.Integer:
+                #  return True
+                # return False
+                symgen = SymGen()
 
+                term = rpy.gen_pyid_for('term')
+                tmp0 = rpy.gen_pyid_temporaries(2, symgen)
+                fb = rpy.BlockBuilder()
 
-            term, match, head, tail = Var('term'), Var('match'), Var('head'), Var('tail')
-            self.writer += '#{}'.format(repr(pat))
-            self.writer.newline()
+                ifb = rpy.BlockBuilder()
+                ifb.Return.PyBoolean(True)
+
+                fb = rpy.BlockBuilder()
+                fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
+                fb.If.Equal(tmp0, rpy.PyInt(TermKind.Integer)).ThenBlock(ifb)
+
+                self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
+                self.modulebuilder.Function(functionname).WithParameters(term).Block(fb)
+
             match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
-            self.context.add_function_for_pattern(repr(pat), match_fn)
-            self.writer += 'def {}({}, {}, {}, {}):'.format(match_fn, term, match, head, tail)
-            self.writer.newline().indent()
-            self.writer += 'if {}({}):'.format(self.context.get_isa_function_name(pat.prefix), term) #context.findisa_method_forpat FIXME maybe add context object?
-            self.writer.newline().indent()
-            self.writer += '{}.{}({}, {})'.format(match, MatchMethodTable.AddToBinding, '\"{}\"'.format(pat.sym), term)
-            self.writer.newline()
-            self.writer += 'return [({}, {}+1, {})]'.format(match,head, tail)
-            self.writer.newline().dedent()
-            self.writer += 'return []'
-            self.writer.newline().dedent().newline()
+            isafunc = self.context.get_isa_function_name(pat.prefix)
+            self._gen_match_function_for_primitive(match_fn, isafunc, repr(pat), sym=pat.sym)
 
         if pat.kind == ast.BuiltInPatKind.VariableNotOtherwiseDefined:
             if not self.context.get_isa_function_name(pat.prefix):
@@ -518,6 +559,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 #   if tmp0 not in var:
                 #     return True
                 # return False
+                # This one is different from other built-in isa funcs because we do set membership test here.
                 ifb2 = rpy.BlockBuilder()
                 ifb2.Return.PyBoolean(True)
 
@@ -533,30 +575,9 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
                 self.modulebuilder.Function(functionname).WithParameters(term).Block(fb)
 
-            # FIXME code duplication; same as above
-            symgen = SymGen()
-            term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
-            tmp0, tmp1 = rpy.gen_pyid_temporaries(1, symgen)
-
-            # FIXME CODE DUPLICATION
-            # tmp0 = isa(term)
-            # if tmp0 == True:
-            #   tmp1 = match.addtobinding(sym, term)
-            #   head = head + 1
-            #   return [(match, head, tail)]
-            # return []
-            ifb1 = rpy.BlockBuilder()
-            ifb1.AssignTo(tmp0).MethodCall(match, MatchMethodTable.AddToBinding, rpy.PyString(pat.sym), term)
-            ifb1.AssignTo(head).Add(head, rpy.PyInt(1))
-            ifb1.Return.PyList( rpy.PyTuple(match, head, tail) )
-
-            fb = rpy.BlockBuilder()
-            fb.AssignTo(tmp0).FunctionCall(self.context.get_isa_function_name(pat.prefix), term)
-            fb.If.Equal(tmp0, rpy.PyBoolean(True)).ThenBlock(ifb1)
-            fb.Return.PyList()
-
-            self.modulebuilder.SingleLineComment('#{}'.format(repr(pat)))
-            self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
+            match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
+            isafunc = self.context.get_isa_function_name(pat.prefix)
+            self._gen_match_function_for_primitive(match_fn, isafunc, repr(pat), sym=pat.sym)
 
         if pat.kind == ast.BuiltInPatKind.InHole:
             if not self.context.get_function_for_pattern(repr(pat)):
@@ -692,28 +713,10 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
                 
             if not self.context.get_function_for_pattern(repr(pat)):
-                symgen = SymGen()
                 match_fn = 'match_lang_{}_builtin_{}'.format('blah', self.symgen.get())
                 self.context.add_function_for_pattern(repr(pat), match_fn)
-                term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
-                tmp0 = rpy.gen_pyid_temporaries(1, symgen)
-
-                # tmp0 = isa(term)
-                # if tmp0 == True:
-                #   head = head + 1
-                #   return [(match, head, tail)]
-                # return []
-                ifb1 = rpy.BlockBuilder()
-                ifb1.AssignTo(head).Add(head, rpy.PyInt(1))
-                ifb1.Return.PyList( rpy.PyTuple(match, head, tail) )
-
-                fb = rpy.BlockBuilder()
-                fb.AssignTo(tmp0).FunctionCall(self.context.get_isa_function_name(pat.prefix), term)
-                fb.If.Equal(tmp0, rpy.PyBoolean(True)).ThenBlock(ifb1)
-                fb.Return.PyList()
-
-                self.modulebuilder.SingleLineComment('#{}'.format(repr(pat)))
-                self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
+                isafunc = self.context.get_isa_function_name(pat.prefix)
+                self._gen_match_function_for_primitive(match_fn, isafunc, repr(pat))
 
     def transformLit(self, lit):
         assert isinstance(lit, ast.Lit)
