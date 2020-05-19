@@ -77,6 +77,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
         # variable-not-otherwise-mentioned of given define language
         var, variables = self.context.get_variables_mentioned()
+        variables = map(lambda v: rpy.PyString(v), variables)
         var = rpy.gen_pyid_for(var)
         self.modulebuilder.AssignTo(var).PySet(*variables)
     
@@ -102,52 +103,56 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
     def transformMatchEqual(self, me):
         assert isinstance(me, ast.MatchEqual)
-
         matches, match = rpy.gen_pyid_for('matches', 'match')
 
         fb = rpy.BlockBuilder()
         symgen = SymGen()
+
+
+        if self.context.get_function_for_pattern(repr(me.redexmatch.pat)) is None:
+            self.transform(me.redexmatch.pat)
+        fnname = self.context.get_function_for_pattern(repr(me.redexmatch.pat))
 
         # FIXME CODE DUPLICATION - see redex-match
         matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
         tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
 
         fb = rpy.BlockBuilder()
-        fb.AssignTo(tmp0).New('Parser', rpy.PyString(node.termstr))
+        fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(me.redexmatch.termstr)))
         fb.AssignTo(term).MethodCall(tmp0, 'parse') 
 
 
         # FIXME shouldnt handle in-hole patterns separately
-        if isinstance(node.pat, ast.BuiltInPat) and node.pat.kind == ast.BuiltInPatKind.InHole:
+        if isinstance(me.redexmatch.pat, ast.BuiltInPat) and me.redexmatch.pat.kind == ast.BuiltInPatKind.InHole:
             fb.AssignTo(matches).FunctionCall(fnname, term)
         else:
             rbe = RetrieveBindableElements()
-            rbe.transform(node.pat)
-            fb.AssignTo(match).New('Match', rbe.get_rpystr())
+            rbe.transform(me.redexmatch.pat)
+            fb.AssignTo(match).New('Match', rbe.get_rpylist())
             fb.AssignTo(matches).FunctionCall(fnname, term, match, rpy.PyInt(0), rpy.PyInt(1))
         fb.Print(matches)
         # ----- End code duplication
 
         processedmatches = []
         for m in me.list_of_matches:
-            tmp0, = rpy.gen_pyid_temporaries(1, symgen)
-            fb.AssignTo(tmp1).New('Match')
+            tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+            fb.AssignTo(tmp0).New('Match')
             processedmatches.append(tmp0) 
 
-            for sym, term in m.bindings:
+            for sym, termx in m.bindings:
                 tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
 
-                fb.AssignTo(tmp1).New('Parser', rpy.PyString(term))
+                fb.AssignTo(tmp1).New('Parser', rpy.PyString(repr(termx)))
                 fb.AssignTo(tmp2).MethodCall(tmp1, 'parse')
-                fb.AssignTo(tmp3).MethodCall(tmp1, MatchMethodTable.AddKey, rpy.PyString(sym))
-                fb.AssignTo(tmp4).MethodCall(tmp1, MatchMethodTable.AddToBinding, rpy.PyString(sym), tmp2)
+                fb.AssignTo(tmp3).MethodCall(tmp0, MatchMethodTable.AddKey, rpy.PyString(sym))
+                fb.AssignTo(tmp4).MethodCall(tmp0, MatchMethodTable.AddToBinding, rpy.PyString(sym), tmp2)
 
         tmp5, tmp6 = rpy.gen_pyid_temporaries(2, symgen)
         fb.AssignTo(tmp5).PyList(*processedmatches)
         fb.AssignTo(tmp6).FunctionCall('assert_compare_match_lists', matches, tmp5)
 
         sym = self.symgen.get('assertmatchesequal')
-        tmp0, = rpy.gen_pyid_temporaries(1, self.symgen)
+        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
         self.modulebuilder.Function(sym).Block(fb)
         self.modulebuilder.AssignTo(tmp0).FunctionCall(sym)
 
@@ -368,12 +373,14 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                     # for m, h, t in matches{i-1}:
                     #   tmp{i} = m.CompareKeys(sym1, sym2)
                     #   if tmp{i} == True:
+                    #     tmp{k} = m.removebinding(sym2)
                     #     tmp{j} = matches{i}.append( (m, h, t) )
                     # if len(matches{i}) == 0:
                     #   return matches{i} 
-                    tmpi, tmpj  = rpy.gen_pyid_temporaries(2, symgen)
+                    tmpi, tmpj, tmpk  = rpy.gen_pyid_temporaries(3, symgen)
 
                     ifb1 = rpy.BlockBuilder()
+                    ifb1.AssignTo(tmpk).MethodCall(m, MatchMethodTable.RemoveKey, rpy.PyString(pat.sym2))
                     ifb1.AssignTo(tmpj).MethodCall(matches, 'append', rpy.PyTuple(m, h, t))
 
                     forb = rpy.BlockBuilder()
@@ -587,14 +594,14 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 self.context.add_isa_function_name(pat.prefix, functionname)
 
                 var, _ = self.context.get_variables_mentioned()
-                var = rpy.gen_pyid_temporary_with_sym(var, symgen)
+                var = rpy.gen_pyid_for(var)
                 term = rpy.gen_pyid_for('term')
                 tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
 
                 # tmp0 = term.kind()
                 # tmp1 = term.value()
                 # if tmp0 == TermKind.Variable:
-                #   if tmp0 not in var:
+                #   if tmp1 not in var:
                 #     return True
                 # return False
                 # This one is different from other built-in isa funcs because we do set membership test here.
@@ -602,7 +609,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 ifb2.Return.PyBoolean(True)
 
                 ifb1 = rpy.BlockBuilder()
-                ifb1.If.NotContains(tmp0).In(var).ThenBlock(ifb2)
+                ifb1.If.NotContains(tmp1).In(var).ThenBlock(ifb2)
 
                 fb = rpy.BlockBuilder()
                 fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
@@ -676,15 +683,15 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 matches, hole = rpy.gen_pyid_for('matches', 'hole')
 
                 term, path = rpy.gen_pyid_for('term', 'path')
-                m1, h1, h1 = rpy.gen_pyid_for('m1', 'h1', 't1')
-                m2, h2, h2 = rpy.gen_pyid_for('m2', 'h2', 't2')
+                m1, h1, t1 = rpy.gen_pyid_for('m1', 'h1', 't1')
+                m2, h2, t2 = rpy.gen_pyid_for('m2', 'h2', 't2')
 
                 pat1matches, inpat1match = rpy.gen_pyid_for('pat1matches', 'inpat1match')
                 pat2matches, inpat2match = rpy.gen_pyid_for('pat2matches', 'inpat2match')
 
                 tmp0, tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(5, symgen)
                 tmp5, tmp6, tmp7, tmp8, tmp9 = rpy.gen_pyid_temporaries(5, symgen)
-                tmp10, = rpy.gen_pyid_temporaries(1, symgen)
+                tmp10 = rpy.gen_pyid_temporaries(1, symgen)
 
                 forb2 = rpy.BlockBuilder()
                 forb2.AssignTo(tmp2).FunctionCall(MatchHelperFuncs.CombineMatches, m1, m2) 
@@ -693,12 +700,15 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 forb1 = rpy.BlockBuilder()
                 forb1.For(m2, h2, t2).In(pat2matches).Block(forb2)
 
+                forb0 = rpy.BlockBuilder()
+                forb0.For(m1, h1, t1).In(pat1matches).Block(forb1)
+
                 ifb1 = rpy.BlockBuilder()
                 ifb1.AssignTo(inpat1match).New('Match', rbe1.get_rpylist())
                 ifb1.AssignTo(tmp0).Add(path, rpy.PyList(term))
                 ifb1.AssignTo(tmp1).FunctionCall(TermHelperFuncs.CopyPathAndReplaceLast, tmp0, hole)
                 ifb1.AssignTo(pat1matches).FunctionCall(matchpat1, tmp1, inpat1match, rpy.PyInt(0), rpy.PyInt(1)) 
-                ifb1.If.LengthOf(pat1matches).NotEqual(rpy.PyInt(0)).ThenBlock(forb1)
+                ifb1.If.LengthOf(pat1matches).NotEqual(rpy.PyInt(0)).ThenBlock(forb0)
 
                 # ---------------
 
@@ -709,7 +719,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
                 ifb3 = rpy.BlockBuilder()
                 ifb3.AssignTo(tmp5).MethodCall(path, 'append', term)
-                ifb3.AssignTo(tmp6).FunctionCall(term, TermMethodTable.Length)
+                ifb3.AssignTo(tmp6).MethodCall(term, TermMethodTable.Length)
                 ifb3.For(tmp10).InRange(tmp6).Block(forb1)
                 ifb3.AssignTo(tmp9).MethodCall(path, 'pop')
 
@@ -719,10 +729,19 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 fb.AssignTo(matches).PyList()
                 fb.AssignTo(inpat2match).New('Match', rbe2.get_rpylist())
                 fb.AssignTo(pat2matches).FunctionCall(matchpat2, term, inpat2match, rpy.PyInt(0), rpy.PyInt(1))
-                fb.If.LengthOf(pat2matches).NotEqual(rpy.PyInt(0)).Block(ifb1)
+                fb.If.LengthOf(pat2matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb1)
                 fb.AssignTo(tmp4).MethodCall(term, TermMethodTable.Kind)
                 fb.If.Equal(tmp4, rpy.PyInt(TermKind.Sequence)).ThenBlock(ifb3)
                 fb.Return.PyId(matches)
+
+                self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
+                self.modulebuilder.Function(lookupfuncname).WithParameters(term, path).Block(fb)
+
+                fb = rpy.BlockBuilder()
+                fb.AssignTo(tmp0).FunctionCall(lookupfuncname, term, rpy.PyList())
+                fb.Return.PyId(tmp0)
+
+                self.modulebuilder.Function(functionname).WithParameters(term).Block(fb)
 
         if pat.kind == ast.BuiltInPatKind.Hole:
             if not self.context.get_isa_function_name(pat.prefix):
@@ -736,15 +755,16 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 symgen = SymGen()
 
                 term = rpy.gen_pyid_for('term')
-                tmp0 = rpy.gen_pyid_temporaries(2, symgen)
-                fb = rpy.BlockBuilder()
+                tmp0 = rpy.gen_pyid_temporaries(1, symgen)
 
                 ifb = rpy.BlockBuilder()
                 ifb.Return.PyBoolean(True)
 
                 fb = rpy.BlockBuilder()
+                fb = rpy.BlockBuilder()
                 fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
                 fb.If.Equal(tmp0, rpy.PyInt(TermKind.Hole)).ThenBlock(ifb)
+                fb.Return.PyBoolean(False)
 
                 self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
                 self.modulebuilder.Function(functionname).WithParameters(term).Block(fb)
@@ -778,12 +798,12 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 ifb2.Return.PyList( rpy.PyTuple(match, head, tail) )
 
                 ifb1 = rpy.BlockBuilder()
-                ifb1.If.Equal(tmp1, rpy.PyString('\"{}\"'.format(lit.lit))).ThenBlock(ifb2)
+                ifb1.If.Equal(tmp1, rpy.PyString(lit.lit)).ThenBlock(ifb2)
 
                 fb = rpy.BlockBuilder()
                 fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
                 fb.AssignTo(tmp1).MethodCall(term, TermMethodTable.Value)
-                fb.If.Equal(tmp0, PyInt(TermKind.Variable)).ThenBlock(ifb1)
+                fb.If.Equal(tmp0, rpy.PyInt(TermKind.Variable)).ThenBlock(ifb1)
                 fb.Return.PyList()
 
                 self.modulebuilder.SingleLineComment('#{}'.format(repr(lit)))

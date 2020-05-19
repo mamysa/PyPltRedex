@@ -31,8 +31,16 @@ and then
 
 ## TODOs
 From most to least important.
+* Refactor pattern code generation - atm `redex-match` forms create `Match` objects by themselves to be fed into pattern matching function. Instead of doing that, create top-level function for the pattern that creates `Match` objects and calls pattern matching function. I.e. something like this:
+
+```
+def match_pat(term):
+	match = Match(...)
+	return match_pat_impl(term, match, 0, 1)
+```
+Need to figure out how to handle this inside `define-language` patterns too.
+* Code cleanup - decide in which order to create pattern matching functions - maybe store them in ordered dict?
 * Add `assert-term-throws` to test term plugging that is supposed to fail due to wrong ellipsis match counts.
-* Code cleanup  - improve codegen, decide on AST to represent PltRedex syntax (a bit all over the place for now), either improve `PatternTransformer` or do something completely different. 
 * Codegen cleanup: Generate class with static methods for `define-language` form. Generate a stand-alone procedure for `redex-let` and such instead of having its functionality in global namespace.
 * `reduction-relation` and `apply-reduction-relation`
 * Perform input validation:

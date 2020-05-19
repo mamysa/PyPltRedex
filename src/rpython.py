@@ -432,7 +432,7 @@ class IfOrWhileBuilderPreStage1:
                 self.statements = statements
 
             def In(self, iterable):
-                return self.lastprestage(InExpr(value, iterable), self.statements)
+                return self.lastprestage(InExpr(value, iterable, neg=True), self.statements)
 
         return IfOrWhileBuilderPreStage3(value, self.lastprestage, self.statements)
 
@@ -517,7 +517,7 @@ class RPythonWriter:
 
         self.emit('###------------------------------')
         self.emit_newline()
-        self.emit('###Contents of {}'.format(stmt.filename))
+        self.emit('### Contents of {}'.format(stmt.filename))
         self.emit_newline()
         self.emit('###------------------------------')
         self.emit_newline()
@@ -578,7 +578,7 @@ class RPythonWriter:
         self._dedent()
 
     def visitForEachInRangeStmt(self, stmt):
-        assert isinstance(stmt, ForEachStmt)
+        assert isinstance(stmt, ForEachInRangeStmt)
         self.emit_indentstring()
         self.emit('for')
         self.emit_space()
@@ -587,7 +587,7 @@ class RPythonWriter:
         self.emit('in')
         self.emit_space()
         self.emit('range(')
-        self.visit(stmt.iterable)
+        self.visit(stmt.range)
         self.emit(')')
         self.emit(':')
         self.emit_newline()
