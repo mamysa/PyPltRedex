@@ -18,6 +18,26 @@ from src.symgen import SymGen
 # TODO Need to check for non-terminal cycles in define-language patterns 
 # such as (y ::= x) (x ::= y) or even (x ::= x)
 
+# We have two kinds of functions
+# (1) So called "IsA" functions. ...
+class Context:
+    def __init__(self):
+        self._isa_functions = {}
+        self._match_functions = {}
+
+    def add_isa_function(self, languagename, patternsym, pattern, function):
+        key = languagename + patternsym
+        assert key not in self._isa_functions
+        self._isa_functions[key] = (pattern, function)
+
+    def get_isa_function(self, languagename, patternsym):
+        return self._isa_functions[languagename + patternsym]
+
+    def add_match_function(self, languagename, patternrepr, function):
+        key = languagename + patternrepr
+        assert key not in self._match_functions
+        self._match_functions[key] = function
+
 class LanguageContext:
     def __init__(self):
         self.__variables_mentioned = None
@@ -126,6 +146,14 @@ class UnderscoreIdUniquify(ast.PatternTransformer):
         node.sym = '{}_{}'.format(node.prefix, self.id)
         self.id += 1
         return node
+
+# collect all elements that should be inside 'is-a' function - 
+# this includes all non-terminals of the language and built-in patterns.
+# Non-terminals are pulled from DefineLanguage
+
+# (n ::= e
+# (e (is_{}_nt_e) ::=
+
 
 def module_preprocess(node):
     assert isinstance(node, ast.Module)

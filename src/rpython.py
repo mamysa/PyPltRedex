@@ -40,7 +40,6 @@ class PyBoolean(PyValue):
         assert isinstance(value, bool)
         self.value = value
 
-
 class PyString(PyValue):
     def __init__(self, value):
         assert isinstance(value, str)
@@ -96,6 +95,7 @@ class FunctionStmt(Stmt):
 
 class AssignStmt(Stmt):
     def __init__(self, names, expr):
+        assert [isinstance(n, PyId) for n in names]
         self.names = names
         self.expr  = expr
 
@@ -147,6 +147,7 @@ class BinaryExpr(Expr):
 
 class CallExpr(Expr):
     def __init__(self, name, args):
+        assert isinstance(name, str)
         self.name = name
         self.args = args 
 
@@ -177,13 +178,17 @@ class LenExpr(Expr):
 # ------------------------------------------------- 
 # Helper functions that take strings and return tuple of PyId.
 def gen_pyid_for(*syms):
-    return tuple(map(lambda sym: PyId(sym), syms))
+    if len(syms) > 1:
+        return tuple(map(lambda sym: PyId(sym), syms))
+    return PyId(syms[0])
 
 def gen_pyid_temporaries(qty, symgen):
-    return tuple([PyId(symgen.get()) for i in range(qty)])
+    if qty > 1:
+        return tuple([PyId(symgen.get()) for i in range(qty)])
+    return PyId(symgen.get())
 
 def gen_pyid_temporary_with_sym(sym, symgen):
-    return PyId(sym, symgen.get(sym))
+    return PyId(symgen.get(sym))
 
 # ------------------------------------------------------------
 # RPython AST creation helpers. Instead of directly instantiating classes above to create statements, 
@@ -239,8 +244,9 @@ class BlockBuilder:
                 stmt = ReturnStmt(BinaryExpr(BinaryOp.Eq, lhs, rhs))
                 self.parent.statements.append(stmt) 
 
-            def PyId(self, ident):
-                stmt = ReturnStmt(PyId(ident))
+            def PyId(self, pyid):
+                assert isinstance(pyid, PyId)
+                stmt = ReturnStmt(pyid)
                 self.parent.statements.append(stmt) 
 
         return ReturnPhase1(parent=self)
@@ -255,10 +261,14 @@ class BlockBuilder:
                 self.parent = parent
 
             def MethodCall(self, instance, methodname, *args):
-                self.parent.statements.append( CallMethodExpr(instance, name, list(args)) )
+                expr = CallMethodExpr(instance, methodname, list(args)) 
+                stmt = AssignStmt(self.args, expr)
+                self.parent.statements.append(stmt)
 
             def FunctionCall(self, name, *args):
-                self.parent.statements.append( CallExpr(name, list(args)) )
+                expr = CallExpr(name, list(args)) 
+                stmt = AssignStmt(self.args, expr)
+                self.parent.statements.append(stmt)
 
             def Add(self, lhs, rhs):
                 stmt = AssignStmt(self.args, BinaryExpr(BinaryOp.Add, lhs, rhs))
@@ -288,12 +298,11 @@ class BlockBuilder:
                 stmt = AssignStmt(self.args, NewExpr(typename, list(args)))
                 self.parent.statements.append(stmt) 
 
-
         return AssignToPhase1(list(args), parent=self)
 
     @ensure_not_previously_built
     def Function(self, name):
-        return FunctionBuilderStage1(self.sourcebuilder, name, self.statements)
+        return FunctionBuilderStage1(name, self.statements)
 
     @property
     @ensure_not_previously_built
@@ -310,10 +319,10 @@ class BlockBuilder:
     def Continue(self):
         self.statements.append( ContinueStmt() )
 
-    @property
     @ensure_not_previously_built
     def Print(self, value):
         self.statements.append( PrintStmt(value) )
+
     @ensure_not_previously_built
     def For(self, *iteratorvariables):
         class ForPrePhase1:
@@ -361,6 +370,8 @@ class FunctionBuilderStage1:
     def WithParameters(self, *parameters):
         class FunctionBuilderStage2:
             def __init__(self, name, parameters, statements):
+                for p in parameters:
+                    assert isinstance(p, PyId)
                 self.name = name 
                 self.parameters = parameters 
                 self.statements = statements
@@ -370,7 +381,7 @@ class FunctionBuilderStage1:
                 stmt = FunctionStmt(self.name, list(parameters), blockbuilder.build())
                 self.statements.append(stmt)
 
-        return FunctionBuilderStage2(self.sourcebuilder, self.name, list(parameters), self.statements)
+        return FunctionBuilderStage2(self.name, list(parameters), self.statements)
     
 
 
@@ -466,6 +477,7 @@ class RPythonWriter:
         return self
 
     def emit(self, string):
+        assert isinstance(string, str)
         self.buf.append(string)
 
     def emit_space(self):
@@ -498,9 +510,21 @@ class RPythonWriter:
     def visitSingleLineComment(self, comment):
         self.emit('#')
         self.emit(comment.comment)
+        self.emit_newline()
 
     def visitIncludePythonSourceStmt(self, stmt):
-        pass
+        assert isinstance(stmt, IncludePythonSourceStmt)
+
+        self.emit('###------------------------------')
+        self.emit_newline()
+        self.emit('###Contents of {}'.format(stmt.filename))
+        self.emit_newline()
+        self.emit('###------------------------------')
+        self.emit_newline()
+        f = open(stmt.filename, 'r')
+        self.emit( f.read() )
+        self.emit_newline()
+        f.close()
 
     def visitFunctionStmt(self, stmt):
         assert isinstance(stmt, FunctionStmt)
@@ -530,9 +554,11 @@ class RPythonWriter:
         self.emit_newline()
 
     def visitReturnStmt(self, stmt):
+        self.emit_indentstring()
         self.emit('return')
         self.emit_space()
         self.visit(stmt.expr)
+        self.emit_newline()
 
     def visitForEachStmt(self, stmt):
         assert isinstance(stmt, ForEachStmt)
@@ -571,7 +597,7 @@ class RPythonWriter:
         self._dedent()
 
     def visitWhileStmt(self, stmt):
-        assert isinstance(stmt, While)
+        assert isinstance(stmt, WhileStmt)
         self.emit_indentstring()
         self.emit('while')
         self.emit_space()
@@ -580,7 +606,7 @@ class RPythonWriter:
         self.emit_newline()
 
         self._indent()
-        for s in stmt.thenbr:
+        for s in stmt.body:
             self.visit(s)
         self._dedent()
 
@@ -608,13 +634,18 @@ class RPythonWriter:
             self._dedent()
 
     def visitContinueStmt(self, stmt):
+        self.emit_indentstring()
         self.emit('continue')
+        self.emit_newline()
 
     def visitPrintStmt(self, stmt):
+        assert isinstance(stmt, PrintStmt)
+        self.emit_indentstring()
         self.emit('print')
         self.emit('(')
-        self.visit(stmt.expr)
+        self.visit(stmt.value)
         self.emit(')')
+        self.emit_newline()
 
     def visitBinaryExpr(self, expr):
         assert isinstance(expr, BinaryExpr)
@@ -652,12 +683,14 @@ class RPythonWriter:
             self.emit_space()
         self.emit('in')
         self.emit_space()
+        print(expr.rhs)
         self.visit(expr.rhs)
 
-    def visitLenExpr(Expr):
+    def visitLenExpr(self, expr):
+        assert isinstance(expr, LenExpr)
         self.emit('len')
         self.emit('(')
-        self.emit_comma_separated_list(expr.args)
+        self.visit(expr.value)
         self.emit(')')
 
     def visitPyId(self, ident):
@@ -699,14 +732,3 @@ class RPythonWriter:
         self.emit_comma_separated_list(pytuple.values)
         self.emit(',')
         self.emit(')')
-
-
-
-
-
-bb = BlockBuilder()
-bb.AssignTo(PyId('x')).PyList(PyInt(1), PyString('duck you'), PyBoolean(True))
-bb = Module(bb.build())
-
-x = RPythonWriter().write(bb)
-print(x)

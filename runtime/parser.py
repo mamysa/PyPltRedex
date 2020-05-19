@@ -1,8 +1,5 @@
 import enum
-import re
-import ast
-import term
-from match import Match
+import re 
 
 class TokenKind(enum.Enum):
     Integer = 0
@@ -164,13 +161,13 @@ class Parser:
 
     def parse_atom(self):
         if self.peek() == TokenKind.Integer:
-            return term.Integer(int(self.expect(TokenKind.Integer)))
+            return Integer(int(self.expect(TokenKind.Integer)))
         if self.peek() == TokenKind.Ident:
             tokkind, tokval = self.peekv() 
             if tokval == 'hole':
                 self.expect(TokenKind.Ident)
-                return term.Hole()
-            return term.Variable(self.expect(TokenKind.Ident))
+                return Hole()
+            return Variable(self.expect(TokenKind.Ident))
         assert False, 'unreachable'
 
     def parse_sequence(self):
@@ -182,7 +179,7 @@ class Parser:
             else:  
                 seq.append(self.parse_atom())
         self.expect(TokenKind.RParen)
-        sequence = term.Sequence(seq)
+        sequence = Sequence(seq)
         return sequence
 
     def parse(self):

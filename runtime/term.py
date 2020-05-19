@@ -1,7 +1,6 @@
 import copy 
 
 class TermKind:
-    Root = -1
     Variable = 0
     Integer  = 1
     Sequence = 2 

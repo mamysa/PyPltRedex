@@ -1,5 +1,4 @@
 import copy
-from term import TermKind, Sequence
 
 class Binding:
     def __init__(self, var):
