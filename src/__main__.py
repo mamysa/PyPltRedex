@@ -21,9 +21,9 @@ def create_output(module):
     lang.write(text)
     lang.close()
 
-def codegen(tree, context):
+def codegen(tree, context, includepy):
     codegen = DefineLanguagePatternCodegen3(context)
-    codegen.init_module()
+    codegen.init_module(includepy)
     codegen.transform(tree.definelanguage)
     for rm in tree.redexmatches:
         codegen.transform(rm)
@@ -38,6 +38,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('src', help='.rkt containing Redex spec')
 parser.add_argument('-dump-ast', action='store_true', help='Write spec to stdout')
 parser.add_argument('-dump-term-attribs', action='store_true', help='Blah')
+parser.add_argument('--include-py', nargs=1)
 args = parser.parse_args()
 
 tree = parse(args.src)
@@ -52,9 +53,8 @@ if args.dump_term_attribs:
     sys.exit(0)
 """
 
-
 if args.dump_ast:
     print(tree)
     sys.exit(0)
 
-codegen(tree, context)
+codegen(tree, context, args.include_py)

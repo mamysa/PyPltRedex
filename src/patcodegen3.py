@@ -1,6 +1,6 @@
 import src.astdefs as ast
 import src.term as TERM 
-import src.genterm as genterm
+import src.genterm2 as genterm
 from src.preprocdefinelang import LanguageContext
 from src.symgen import SymGen
 from src.common import SourceWriter, Var
@@ -70,10 +70,14 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         self.context = context
         self.modulebuilder = rpy.BlockBuilder()
 
-    def init_module(self):
+    def init_module(self, optionalincludes):
         self.modulebuilder.IncludeFromPythonSource('runtime/term.py')
         self.modulebuilder.IncludeFromPythonSource('runtime/parser.py')
         self.modulebuilder.IncludeFromPythonSource('runtime/match.py')
+
+        if optionalincludes is not None:
+            for include in optionalincludes:
+                self.modulebuilder.IncludeFromPythonSource(include)
 
         # variable-not-otherwise-mentioned of given define language
         var, variables = self.context.get_variables_mentioned()
@@ -81,12 +85,6 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         var = rpy.gen_pyid_for(var)
         self.modulebuilder.AssignTo(var).PySet(*variables)
     
-        # parse all term literals.
-        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
-        for term, sym in self.context._litterms.items():
-            sym = rpy.gen_pyid_for(sym)
-            self.modplebuilder.AssignTo(tmp0).New('Parser', rpy.PyString(repr(term)))
-            self.modulebuilder.AssignTo(sym).MethodCall(tmp0, 'parse')
 
         hole = rpy.gen_pyid_for('hole')
         self.modulebuilder.AssignTo(hole).New('Hole')
@@ -151,16 +149,15 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         fb.AssignTo(tmp5).PyList(*processedmatches)
         fb.AssignTo(tmp6).FunctionCall('assert_compare_match_lists', matches, tmp5)
 
-        sym = self.symgen.get('assertmatchesequal')
         tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
         self.modulebuilder.Function(sym).Block(fb)
         self.modulebuilder.AssignTo(tmp0).FunctionCall(sym)
 
     def transformAssertTermsEqual(self, termlet):
         assert isinstance(termlet, ast.AssertTermsEqual)
-        """
         idof = self.symgen.get('termlet')
         template = genterm.TermAnnotate(termlet.variable_assignments, idof, self.context).transform(termlet.template)
+        template = genterm.TermCodegen(self.modulebuilder, self.context).transform(template)
 
         fb = rpy.BlockBuilder()
         symgen = SymGen()
@@ -168,30 +165,34 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         expected, match = rpy.gen_pyid_for('expected', 'match')
 
         tmp0 = rpy.gen_pyid_temporaries(1, symgen)
-        fb.AssignTo(tmp0).New('Parser', rpy.PyString(termlet.literal))
+        fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(termlet.literal)))
         fb.AssignTo(expected).MethodCall(tmp0, 'parse') 
-
-        template = genterm.TermCodegen(self.writer, self.context).transform(template)
-        funcname = template.getattribute(TERM.TermAttribute.FunctionName)[0]
 
         fb.AssignTo(match).New('Match')
         for variable, (_, term) in termlet.variable_assignments.items():
             tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
-            fb.AssignTo(tmp1).New('Parser', rpy.PyString(term))
+            fb.AssignTo(tmp1).New('Parser', rpy.PyString(repr(term)))
             fb.AssignTo(tmp2).MethodCall(tmp1, 'parse')
-            fb.AssignTo(tmp3).MethodCall(tmp1, MatchMethodTable.AddKey, rpy.PyString(variable))
-            fb.AssignTo(tmp4).MethodCall(tmp1, MatchMethodTable.AddToBinding, rpy.PyString(variable), tmp2)
+            fb.AssignTo(tmp3).MethodCall(match, MatchMethodTable.AddKey, rpy.PyString(variable))
+            fb.AssignTo(tmp4).MethodCall(match, MatchMethodTable.AddToBinding, rpy.PyString(variable), tmp2)
 
-        tmp0, tmp1 = rpy.gen_pyid_temporaries(1, symgen)
+        funcname = template.getattribute(TERM.TermAttribute.FunctionName)[0]
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
         fb.AssignTo(tmp0).FunctionCall(funcname, match)
         fb.Print(tmp0)
-        fb.AssignTo(tmp1).FunctionCall('assertequal', tmp0, expected)
+        fb.AssignTo(tmp1).FunctionCall('asserttermsequal', tmp0, expected)
 
         sym = self.symgen.get('asserttermequal')
-        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
         self.modulebuilder.Function(sym).Block(fb)
-        self.modulebuilder.AssignTo(tmp0).FunctionCall(sym)
-        """
+
+        # parse all term literals. FIXME shouldnt be here
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, self.symgen)
+        for term, sym1 in self.context._litterms.items():
+            sym1 = rpy.gen_pyid_for(sym1)
+            self.modulebuilder.AssignTo(tmp0).New('Parser', rpy.PyString(repr(term)))
+            self.modulebuilder.AssignTo(sym1).MethodCall(tmp0, 'parse')
+
+        self.modulebuilder.AssignTo(tmp1).FunctionCall(sym)
 
     def transformRedexMatch(self, node):
         assert isinstance(node, ast.RedexMatch)

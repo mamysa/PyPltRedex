@@ -133,6 +133,11 @@ class PrintStmt(Stmt):
     def __init__(self, value):
         self.value = value 
 
+class RaiseExceptionStmt(Stmt):
+    def __init__(self, message):
+        assert isinstance(message, str)
+        self.message = message
+
 class Expr(PyAst):
     pass
 
@@ -153,6 +158,7 @@ class CallExpr(Expr):
 
 class CallMethodExpr(Expr):
     def __init__(self, instance, name, args):
+        assert isinstance(instance, PyId)
         self.instance = instance
         self.name = name
         self.args = args 
@@ -215,11 +221,16 @@ class BlockBuilder:
         self._frozen = True
         return self.statements
 
+    @ensure_not_previously_built
     def IncludeFromPythonSource(self, filename):
         self.statements.append(IncludePythonSourceStmt(filename))
 
+    @ensure_not_previously_built
     def SingleLineComment(self, comment):
         self.statements.append(SingleLineComment(comment))
+
+    def RaiseException(self, message):
+        self.statements.append(RaiseExceptionStmt(message))
 
     @property
     @ensure_not_previously_built
@@ -644,6 +655,18 @@ class RPythonWriter:
         self.emit('print')
         self.emit('(')
         self.visit(stmt.value)
+        self.emit(')')
+        self.emit_newline()
+
+    def visitRaiseExceptionStmt(self, stmt):
+        assert isinstance(stmt, RaiseExceptionStmt)
+        self.emit_indentstring()
+        self.emit('raise')
+        self.emit_space()
+        self.emit('Exception(')
+        self.emit('"')
+        self.emit(stmt.message)
+        self.emit('"')
         self.emit(')')
         self.emit_newline()
 

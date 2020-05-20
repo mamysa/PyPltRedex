@@ -103,7 +103,7 @@ class PyCall(Term):
         self.termargs = termargs 
 
     def __repr__(self):
-        return 'PythonFunctionCall({}, {}, {})'.format(self.mode, self.functionname, self.termargs)
+        return 'PythonFunctionCall({}, {}, {}, {})'.format(self.mode, self.functionname, self.termargs, self._attributes)
 
 class TermTransformer:
     def transform(self, element):

@@ -161,3 +161,6 @@ def plughole(into, term):
     if len(path) != 0:
         return copy_path_and_replace_last(path, term)
     return into
+
+def asserttermsequal(t1, t2):
+    assert t1 == t2, 'term {} not equal to {}'.format(t1, t2)
