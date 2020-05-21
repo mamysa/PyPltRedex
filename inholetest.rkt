@@ -1,8 +1,11 @@
 (define-language HoleTest
   (n  ::= number)
   (e ::= (+ e e) n)
+  (x ::= variable-not-otherwise-mentioned)
   (P ::= (n ... E e ...))
-  (E  ::= (+ E e) ( + n E) hole))
+  (E  ::= (+ E e) ( + n E) hole)
+  (E2 ::= (n hole))
+  (E3 ::= (n ... hole)))
 
 (match-equal? 
   (redex-match HoleTest (in-hole P n) (term (1 2 3)))
@@ -38,3 +41,20 @@
   (match (bind n 1) (bind n_1 ()) (bind n_2 (2 3)))
   (match (bind n 2) (bind n_1 (1)) (bind n_2 (3)))
   (match (bind n 3) (bind n_1 (1 2)) (bind n_2 ())))
+
+; in-hole under ellipsis
+(match-equal?
+  (redex-match HoleTest ((in-hole E2 x) ...) (term ((1 a) (2 b))))
+  (match (bind E2 ((1 hole) (2 hole))) (bind x (a b))))
+
+(match-equal?
+  (redex-match HoleTest (n (in-hole E2 x) ...) (term (1337 (1 a) (2 b))))
+  (match (bind E2 ((1 hole) (2 hole))) (bind x (a b)) (bind n 1337)))
+
+(match-equal?
+  (redex-match HoleTest (n (in-hole E2 x) n) (term (1337 (1 a) 1337)))
+  (match (bind E2 (1 hole)) (bind n 1337) (bind x a)))
+
+(match-equal?
+  (redex-match HoleTest (((in-hole E3 x) ...) ...) (term (((1 2 a)(3 b))((c)(4 5 d)))))
+  (match (bind E3 (((1 2 hole) (3 hole)) ((hole) (4 5 hole)))) (bind x ((a b) (c d)))))
