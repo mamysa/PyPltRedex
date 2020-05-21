@@ -36,13 +36,27 @@
   (match (bind e 1) (bind E (+ hole 2)))
   (match (bind e 2) (bind E (+ 1 hole))))
 
+; non-determinism tests 
 (match-equal?
   (redex-match HoleTest (in-hole (n_1 ... hole n_2 ...) n) (term (1 2 3) ))
   (match (bind n 1) (bind n_1 ()) (bind n_2 (2 3)))
   (match (bind n 2) (bind n_1 (1)) (bind n_2 (3)))
   (match (bind n 3) (bind n_1 (1 2)) (bind n_2 ())))
 
-; in-hole under ellipsis
+(match-equal?
+  (redex-match HoleTest (in-hole hole (n_1 ... n_2 ...)) (term (1 2)))
+  (match (bind n_1 ())    (bind n_2 (1 2)))
+  (match (bind n_1 (1))   (bind n_2 (2)))
+  (match (bind n_1 (1 2)) (bind n_2 ())))
+
+(match-equal?
+  (redex-match HoleTest (in-hole ((n_1 ...) ... hole (n_2 ...) ...) (n_3 ...)) (term ((1 2) (3) () (4)) ))
+  (match (bind n_1 ()) (bind n_2 ((3) () (4))) (bind n_3 (1 2)))
+  (match (bind n_1 ((1 2))) (bind n_2 (() (4))) (bind n_3 (3)))
+  (match (bind n_1 ((1 2) (3))) (bind n_2 ((4))) (bind n_3 ()))
+  (match (bind n_1 ((1 2) (3) ())) (bind n_2 ()) (bind n_3 (4))))
+
+; in-hole pat under ellipsis
 (match-equal?
   (redex-match HoleTest ((in-hole E2 x) ...) (term ((1 a) (2 b))))
   (match (bind E2 ((1 hole) (2 hole))) (bind x (a b))))
@@ -58,3 +72,8 @@
 (match-equal?
   (redex-match HoleTest (((in-hole E3 x) ...) ...) (term (((1 2 a)(3 b))((c)(4 5 d)))))
   (match (bind E3 (((1 2 hole) (3 hole)) ((hole) (4 5 hole)))) (bind x ((a b) (c d)))))
+
+(match-equal?
+  (redex-match HoleTest ((in-hole ((n_1 ...) ... hole (n_2 ...) ...) (n_3 ...)) ...) (term (((1) (2 3))((4)))))
+  (match (bind n_1 (() ())) (bind n_2 (((2 3)) ())) (bind n_3 ((1) (4))))
+  (match (bind n_1 (((1)) ())) (bind n_2 (() ())) (bind n_3 ((2 3) (4)))))
