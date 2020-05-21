@@ -37,8 +37,6 @@ class TermKind:
     Sequence = 2 
     Hole = 3
 
-
-
 class RetrieveBindableElements(ast.PatternTransformer):
     def __init__(self):
         self.bindables = []
@@ -57,7 +55,7 @@ class RetrieveBindableElements(ast.PatternTransformer):
 
     def transformBuiltInPat(self, node):
         assert isinstance(node, ast.BuiltInPat)
-        if node.kind != ast.BuiltInPatKind.Hole:
+        if node.kind != ast.BuiltInPatKind.Hole and node.kind != ast.BuiltInPatKind.InHole:
             self.bindables.append(node)
         return node
 
@@ -119,15 +117,10 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(me.redexmatch.termstr)))
         fb.AssignTo(term).MethodCall(tmp0, 'parse') 
 
-
-        # FIXME shouldnt handle in-hole patterns separately
-        if isinstance(me.redexmatch.pat, ast.BuiltInPat) and me.redexmatch.pat.kind == ast.BuiltInPatKind.InHole:
-            fb.AssignTo(matches).FunctionCall(fnname, term)
-        else:
-            rbe = RetrieveBindableElements()
-            rbe.transform(me.redexmatch.pat)
-            fb.AssignTo(match).New('Match', rbe.get_rpylist())
-            fb.AssignTo(matches).FunctionCall(fnname, term, match, rpy.PyInt(0), rpy.PyInt(1))
+        rbe = RetrieveBindableElements()
+        rbe.transform(me.redexmatch.pat)
+        fb.AssignTo(match).New('Match', rbe.get_rpylist())
+        fb.AssignTo(matches).FunctionCall(fnname, term, match, rpy.PyInt(0), rpy.PyInt(1))
         fb.Print(matches)
         # ----- End code duplication
 
@@ -208,14 +201,10 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
         fb.AssignTo(term).MethodCall(tmp0, 'parse') 
 
 
-        # FIXME shouldnt handle in-hole patterns separately
-        if isinstance(node.pat, ast.BuiltInPat) and node.pat.kind == ast.BuiltInPatKind.InHole:
-            fb.AssignTo(matches).FunctionCall(fnname, term)
-        else:
-            rbe = RetrieveBindableElements()
-            rbe.transform(node.pat)
-            fb.AssignTo(match).New('Match', rbe.get_rpylist())
-            fb.AssignTo(matches).FunctionCall(fnname, term, match, rpy.PyInt(0), rpy.PyInt(1))
+        rbe = RetrieveBindableElements()
+        rbe.transform(node.pat)
+        fb.AssignTo(match).New('Match', rbe.get_rpylist())
+        fb.AssignTo(matches).FunctionCall(fnname, term, match, rpy.PyInt(0), rpy.PyInt(1))
         fb.Print(matches)
 
         sym = self.symgen.get('redexmatch')
@@ -653,7 +642,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 rbe2 = RetrieveBindableElements()
                 rbe2.transform(pat2)
 
-                # def inhole(term, path):
+                # def inhole(term, match, head, tail, path):
                 # matches = []
                 # inpat2match = Match(...)
                 # pat2matches = pat2matchfunc(term, inpat2match, 0, 1)
@@ -663,17 +652,19 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 #     tmp1 = copy_path_and_replace_last(tmp0, hole)
                 #     pat1matches = pat1matchfunc(tmp1, inpat1match, 0, 1)
                 #     if len(pat1matches) != 0:
+                #         tmp11 = head + 1
                 #         for m1, h1, t1 in pat1matches:
                 #             for m2, h2, t2 in pat2matches:
                 #                 tmp2 = combine_matches(m1, m2)
-                #                 tmp3 = matches.append((tmp2, h1, t1))
+                #                 tmp12 = combine_matches(match, tmp2)
+                #                 tmp3 = matches.append((tmp12, tmp11, tail))
                 # tmp4 = term.kind()
                 # if tmp4 == Term.Sequence:
                 #     tmp5 = path.append(term)
                 #     tmp6 = term.length()
                 #     for tmp10 in range(tmp6):
                 #         tmp7 = term.get(tmp10)
-                #         tmp8 = inhole(tmp7, path)
+                #         tmp8 = inhole(tmp7, match, head, tail, path)
                 #         matches = matches + tmp8
                 #     tmp9 = path.pop()
                 # return matches 
@@ -683,7 +674,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
                 matches, hole = rpy.gen_pyid_for('matches', 'hole')
 
-                term, path = rpy.gen_pyid_for('term', 'path')
+                term, match, head, tail, path = rpy.gen_pyid_for('term', 'match', 'head', 'tail', 'path')
                 m1, h1, t1 = rpy.gen_pyid_for('m1', 'h1', 't1')
                 m2, h2, t2 = rpy.gen_pyid_for('m2', 'h2', 't2')
 
@@ -692,16 +683,18 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
                 tmp0, tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(5, symgen)
                 tmp5, tmp6, tmp7, tmp8, tmp9 = rpy.gen_pyid_temporaries(5, symgen)
-                tmp10 = rpy.gen_pyid_temporaries(1, symgen)
+                tmp10, tmp11, tmp12 = rpy.gen_pyid_temporaries(3, symgen)
 
                 forb2 = rpy.BlockBuilder()
                 forb2.AssignTo(tmp2).FunctionCall(MatchHelperFuncs.CombineMatches, m1, m2) 
-                forb2.AssignTo(tmp3).MethodCall(matches, 'append', rpy.PyTuple(tmp2, h1, t1))
+                forb2.AssignTo(tmp12).FunctionCall(MatchHelperFuncs.CombineMatches, match, tmp2) 
+                forb2.AssignTo(tmp3).MethodCall(matches, 'append', rpy.PyTuple(tmp12, tmp11, tail))
 
                 forb1 = rpy.BlockBuilder()
                 forb1.For(m2, h2, t2).In(pat2matches).Block(forb2)
 
                 forb0 = rpy.BlockBuilder()
+                forb0.AssignTo(tmp11).Add(head, rpy.PyInt(1))
                 forb0.For(m1, h1, t1).In(pat1matches).Block(forb1)
 
                 ifb1 = rpy.BlockBuilder()
@@ -715,7 +708,7 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
                 forb1 = rpy.BlockBuilder()
                 forb1.AssignTo(tmp7).MethodCall(term, TermMethodTable.Get, tmp10)
-                forb1.AssignTo(tmp8).FunctionCall(lookupfuncname, tmp7, path)
+                forb1.AssignTo(tmp8).FunctionCall(lookupfuncname, tmp7, match, head, tail, path)
                 forb1.AssignTo(matches).Add(matches, tmp8)
 
                 ifb3 = rpy.BlockBuilder()
@@ -736,13 +729,13 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 fb.Return.PyId(matches)
 
                 self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
-                self.modulebuilder.Function(lookupfuncname).WithParameters(term, path).Block(fb)
+                self.modulebuilder.Function(lookupfuncname).WithParameters(term, match, head, tail, path).Block(fb)
 
                 fb = rpy.BlockBuilder()
-                fb.AssignTo(tmp0).FunctionCall(lookupfuncname, term, rpy.PyList())
+                fb.AssignTo(tmp0).FunctionCall(lookupfuncname, term, match, head, tail, rpy.PyList())
                 fb.Return.PyId(tmp0)
 
-                self.modulebuilder.Function(functionname).WithParameters(term).Block(fb)
+                self.modulebuilder.Function(functionname).WithParameters(term, match, head, tail).Block(fb)
 
         if pat.kind == ast.BuiltInPatKind.Hole:
             if not self.context.get_isa_function_name(pat.prefix):
@@ -761,7 +754,6 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
                 ifb = rpy.BlockBuilder()
                 ifb.Return.PyBoolean(True)
 
-                fb = rpy.BlockBuilder()
                 fb = rpy.BlockBuilder()
                 fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
                 fb.If.Equal(tmp0, rpy.PyInt(TermKind.Hole)).ThenBlock(ifb)

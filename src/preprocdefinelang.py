@@ -120,7 +120,6 @@ class UnderscoreRemover(ast.PatternTransformer):
         node.sym = node.prefix
         return node
 
-
 class UnderscoreIdUniquify(ast.PatternTransformer):
     def __init__(self):
         self.id = 0
