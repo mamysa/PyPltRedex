@@ -1,0 +1,110 @@
+import src.pat as pat
+
+# object containing other top-level forms...
+class Module:
+    def __init__(self, definelanguage, tlforms):
+        self.definelanguage = definelanguage
+        self.tlforms = tlforms
+
+    def __repr__(self):
+        out = []
+        out.append(repr(self.definelanguage))
+        for form in self.tlforms:
+            out.append(repr(form))
+        return "\n".join(out)
+
+class TopLevelForm:
+    pass
+
+class DefineLanguage(TopLevelForm):
+    # only used by define-language
+    class NtDefinition:
+        def __init__(self, nt, patterns):
+            assert isinstance(nt, pat.Nt)
+            self.nt = nt
+            self.patterns = patterns
+
+        def get_nt_sym(self):
+            return self.nt.sym
+
+        def __repr__(self):
+            return 'NtDefinition({}, {})'.format(repr(self.nt), repr(self.patterns))
+
+    def __init__(self, name, ntdefs):
+        self.name = name 
+        self.nts = {} 
+
+        # non-terminal-definitions must not contain underscores and each symbol can only appear once.
+        for ntdef in ntdefs:
+            ntsym = ntdef.get_nt_sym()
+            if ntsym.find('_') != -1:
+                raise ValueError('define-language: cannot use _ in a non-terminal name {}'.format(ntsym))
+
+            if ntsym in self.nts.keys():
+                raise ValueError('define-language: same non-terminal defined twice: {}'.format(ntsym))
+            self.nts[ntsym] = ntdef
+
+    def ntsyms(self):
+        return set(self.nts.keys())
+
+    def __repr__(self):
+        return 'DefineLanguage({}, {})'.format(self.name, self.nts)
+
+
+class RedexMatch(TopLevelForm):
+    def __init__(self, languagename, pat, termstr):
+        self.languagename = languagename
+        self.pat = pat
+        self.termstr = termstr 
+
+    def __repr__(self):
+        return 'RedexMatch({}, {}, {})'.format(self.languagename, repr(self.pat), self.termstr)
+
+# asserts that matches produced by redex-matches are equal to predefined list
+# only used for testing.
+class MatchEqual(TopLevelForm):
+
+    # Creates Match object with specified string-term bindings.
+    class Match:
+        def __init__(self, bindings):
+            self.bindings = bindings
+
+        def __repr__(self):
+            return 'Match({})'.format(repr(self.bindings))
+
+    def __init__(self, redexmatch, list_of_matches, equality=True):
+        self.redexmatch = redexmatch
+        self.list_of_matches = list_of_matches
+
+    def __repr__(self):
+        return 'MatchEqual({} {})'.format(self.redexmatch, self.list_of_matches)
+
+class AssertTermsEqual(TopLevelForm):
+    def __init__(self, variable_assignments, template, literal):
+        self.variable_assignments = variable_assignments
+        self.template = template
+        self.literal = literal
+
+    def __repr__(self):
+        return 'AssertTermsEqual({}, {}, {})'.format(repr(self.variable_assignments), repr(self.template), repr(self.literal))
+
+
+class TopLevelFormVisitor:
+
+    def _visit(self, element):
+        assert isinstance(element, AstNode)
+        method_name = '_visit' + element.__class__.__name__
+        method_ref = getattr(self, method_name)
+        return method_ref(element)
+
+    def _visitDefineLanguage(self, form):
+        return node
+
+    def _visitRedexMatch(self, form):
+        return node
+
+    def _visitMatchEqual(self, form):
+        return MatchEqual(self._visit(form.redexmatch), form.list_of_matches)
+
+    def _visitAssertTermEqual(self, form):
+        return node

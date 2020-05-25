@@ -1,7 +1,8 @@
 import ply.lex as lex
 import ply.yacc as yacc
-import src.astdefs as ast
 
+import src.tlform as tlform
+import src.pat as pat
 import src.term as term
 
 reserved = {
@@ -67,22 +68,14 @@ def t_comment(t):
 
 def p_module(t):
     'module : define-language top-level-form-list'
-    
-    redexmatches = []
-    matchequals = []
-    termlet = []
     for form in t[2]:
-        if isinstance(form, ast.RedexMatch):
-            redexmatches.append(form)
+        if isinstance(form, tlform.RedexMatch):
             if form.languagename != t[1].name:
                 raise Exception('undefined-language ' + form.languagename)
-        if isinstance(form, ast.MatchEqual):
-            matchequals.append(form)
+        if isinstance(form, tlform.MatchEqual):
             if form.redexmatch.languagename != t[1].name:
-                raise Exception('undefined-language ' + form.definelanguage.languagename)
-        if isinstance(form, ast.AssertTermsEqual):
-            termlet.append(form)
-    t[0] = ast.Module(t[1], redexmatches, matchequals, termlet) 
+                raise Exception('undefined-language ' + form.redexmatch.languagename)
+    t[0] = tlform.Module(t[1], t[2]) 
 
 def p_top_level_form_list(t):
     """
@@ -99,13 +92,12 @@ def p_top_level_form_list(t):
         t[0] = t[1]
         t[0].append(t[2])
 
-
 # ---------------------DEFINE-LANGUAGE FORM -----------------------
 # define-language  ::= (define-language lang-name non-terminal-def ...+)
 # non-terminal-def ::= (non-terminal-name ::= pattern ...+)
 def p_define_language(t):
     'define-language : LPAREN DEFINELANGUAGE IDENT non-terminal-def-list RPAREN'
-    t[0] = ast.DefineLanguage(t[3], t[4])
+    t[0] = tlform.DefineLanguage(t[3], t[4])
 
 def p_non_terminal_def_list(t):
     """
@@ -122,7 +114,7 @@ def p_non_terminal_def(t):
     """
     non-terminal-def : LPAREN IDENT NTDEFINITION pattern-list RPAREN
     """
-    t[0] = ast.NtDefinition(ast.Nt(t[2], t[2]),  t[4])
+    t[0] = tlform.DefineLanguage.NtDefinition(pat.Nt(t[2], t[2]),  t[4])
 
 def p_pattern_list(t):
     """
@@ -140,7 +132,7 @@ def p_pattern_list(t):
 # A bit inflexible at the moment - terms must be 'literal'
 def p_redex_match(t):
     'redex-match : LPAREN REDEXMATCH IDENT pattern term-literal-top RPAREN'
-    t[0] = ast.RedexMatch(t[3], t[4], t[5])
+    t[0] = tlform.RedexMatch(t[3], t[4], t[5])
 
 # --------------------- TERM-LET FORM -----------------------
 # term-let ::= (term-let ([tl-pat literal-term] ...) term-template)
@@ -149,7 +141,7 @@ def p_redex_match(t):
 
 def p_assert_term_eq(t):
     'assert-term-eq : LPAREN ASSERTTERMEQ LPAREN variable-assignment-list RPAREN term-template-top term-literal-top RPAREN'
-    t[0] = ast.AssertTermsEqual(t[4], t[6], t[7])
+    t[0] = tlform.AssertTermsEqual(t[4], t[6], t[7])
 
 def p_variable_assignment_list(t):
     """
@@ -180,9 +172,9 @@ def p_tl_pat(t):
            | LPAREN tl-pat-ele RPAREN
     """
     if len(t) == 2:
-        t[0] = ast.Nt(t[1], t[1])
+        t[0] = pat.Nt(t[1], t[1])
     else:
-        t[0] = ast.PatSequence(t[2])
+        t[0] = pat.PatSequence(t[2])
 
 def p_tl_pat_ele(t):
     """
@@ -192,7 +184,7 @@ def p_tl_pat_ele(t):
     if len(t) == 2:
         t[0] = t[1]
     else:
-        t[0] = ast.Repeat(t[1])
+        t[0] = pat.Repeat(t[1])
 
 
 # --------------------- MATCH-EQUAL? FORM -----------------------
@@ -205,9 +197,9 @@ def p_match_equal(t):
                 | LPAREN MATCHEQUAL redex-match LPAREN RPAREN RPAREN
     """
     if len(t) == 6:
-        t[0] = ast.MatchEqual(t[3], t[4])
+        t[0] = tlform.MatchEqual(t[3], t[4])
     else:
-        t[0] = ast.MatchEqual(t[3], [])
+        t[0] = tlform.MatchEqual(t[3], [])
 
 
 def p_match_list(t):
@@ -232,9 +224,9 @@ def p_match(t):
           | LPAREN MATCH match-bind-list RPAREN
     """
     if len(t) == 4:
-        t[0] = ast.Match([])
+        t[0] = tlform.MatchEqual.Match([])
     else:
-        t[0] = ast.Match(t[3])
+        t[0] = tlform.MatchEqual.Match(t[3])
 
 def p_match_bind_list(t):
     """
@@ -271,10 +263,10 @@ def p_pattern_ident(t):
     if prefix == 'hole': 
         raise Exception('before underscore must be either a non-terminal or build-in pattern {}'.format(prefix))
     try: 
-        case = ast.BuiltInPatKind(prefix).name
-        t[0] = ast.BuiltInPat(ast.BuiltInPatKind[case], prefix, t[1])
+        case = pat.BuiltInPatKind(prefix).name
+        t[0] = pat.BuiltInPat(pat.BuiltInPatKind[case], prefix, t[1])
     except ValueError:
-        t[0] = ast.UnresolvedSym(prefix, t[1])
+        t[0] = pat.UnresolvedSym(prefix, t[1])
 
 def p_pattern_sequence(t):
     """
@@ -282,21 +274,21 @@ def p_pattern_sequence(t):
             | LPAREN RPAREN 
     """
     if len(t) == 3:
-        t[0] = ast.PatSequence([])
+        t[0] = pat.PatSequence([])
     else:
-        t[0] = ast.PatSequence(t[2])
+        t[0] = pat.PatSequence(t[2])
 
 def p_pattern_hole(t):
     'pattern : HOLE'
-    t[0] = ast.BuiltInPat(ast.BuiltInPatKind.Hole, 'hole', 'hole')
+    t[0] = pat.BuiltInPat(pat.BuiltInPatKind.Hole, 'hole', 'hole')
       
 def p_pattern_inhole(t):
     'pattern : LPAREN INHOLE pattern pattern RPAREN'
-    t[0] = ast.BuiltInPat(ast.BuiltInPatKind.InHole, 'in-hole', 'in-hole', (t[3], t[4]))
+    t[0] = pat.BuiltInPat(pat.BuiltInPatKind.InHole, 'in-hole', 'in-hole', (t[3], t[4]))
 
 def p_pattern_literal_int(t):
     'pattern : INTEGER'
-    t[0] = ast.Lit(t[1], ast.LitKind.Integer)
+    t[0] = pat.Lit(t[1], pat.LitKind.Integer)
 
 
 def p_pattern_sequence_contents(t):
@@ -319,7 +311,7 @@ def p_pattern_under_ellipsis(t):
     if len(t) == 2:
         t[0] = t[1]
     else:
-        t[0] = ast.Repeat(t[1])
+        t[0] = pat.Repeat(t[1])
 
 # ---------------------TERM TEMPLATES -----------------------
 # Things that look like terms but instead are compiled into code.
