@@ -1,11 +1,7 @@
 import src.term as term
-import src.astdefs as ast
-import src.common as common
+import src.rpython as rpy
 from src.symgen import SymGen
-from src.preprocdefinelang import LanguageContext
-
-from src.gencommon import TermHelperFuncs, MatchHelperFuncs, \
-                          MatchMethodTable, TermKind
+from src.context import CompilationContext
 
 # Need to annotate term template to ease code generation. Given a pattern variable n
 # and associated ellipsis depth, we keep track of the path to the pattern variable in the term 
@@ -105,49 +101,80 @@ class TermAnnotate(term.TermTransformer):
         return term.PatternVariable(node.sym).copyattributesfrom(node).addattribute(term.TermAttribute.FunctionName, sym)
 
 
+# ---- FIXME code duplication from patcodegen
+class TermMethodTable:
+    Kind = 'kind'
+    Value = 'value'
+    Length = 'length'
+    Get = 'get'
+    ReplaceWith = 'replacewith'
+    CopyToRoot  = 'copy'
+
+class TermHelperFuncs:
+    CopyPathAndReplaceLast = 'copy_path_and_replace_last'
+
+class MatchHelperFuncs:
+    CombineMatches = 'combine_matches'
+
+class MatchMethodTable:
+    AddToBinding ='addtobinding'
+    AddKey = 'create_binding'
+    IncreaseDepth = 'increasedepth'
+    DecreaseDepth = 'decreasedepth'
+    Copy = 'copy'
+    CompareKeys = 'comparekeys'
+    RemoveKey   = 'removebinding'
+    GetBinding = 'getbinding'
+
+class TermKind:
+    Variable = 0
+    Integer  = 1
+    Sequence = 2 
+    Hole = 3
+#---End code duplication
 
 class TermCodegen(term.TermTransformer):
-    def __init__(self, writer, context):
-        assert isinstance(writer, common.SourceWriter)
+    def __init__(self, modulebuilder, context):
+        assert isinstance(modulebuilder, rpy.BlockBuilder)
+        assert isinstance(context, CompilationContext)
         self.context = context
-        self.writer  = writer
+        self.modulebuilder = modulebuilder 
         self.symgen = SymGen()
 
-
-    def _check_inconsistent_ellipsis_match_counts(self, foreach):
+    def _gen_inconsistent_ellipsis_match_counts(self, foreach, bb, symgen):
         # store in the set and assert length of the set is 1
-        arr = []
+        assert isinstance(bb, rpy.BlockBuilder)
+        tmps = []
         for ident, _ in foreach:
-            arr.append('{}.length()'.format(ident))
-        arr= ', '.join(arr)
+            idnt = rpy.gen_pyid_for(ident)
+            tmpi = rpy.gen_pyid_temporaries(1, symgen)
+            tmps.append(tmpi)
+            bb.AssignTo(tmpi).MethodCall(idnt, TermMethodTable.Length)
 
-        self.writer += '{} = set([{}])'.format('lengths', arr)
-        self.writer.newline()
-        self.writer += 'assert len(lengths) == 1, \"inconsistent ellipsis match counts \"'
-        self.writer.newline()
-            
-    # TODO clean up this mess.
-    def _gen_params(self, t):
-        fparameters = ['match']
+        ifb = rpy.BlockBuilder()
+        ifb.RaiseException('inconsistent ellipsis match counts')
+
+        lengths = rpy.gen_pyid_for('lengths')
+        bb.AssignTo(lengths).PySet(*tmps)
+        bb.If.LengthOf(lengths).NotEqual(rpy.PyInt(1)).ThenBlock(ifb)
+
+    # Reads InArg annotation and creates two arrays - one with function parameters 
+    # and another one with (PyID(paramname), PyString(sym)) pairs that will be used to create
+    # paramname = match.getbinding(sym) statements.
+    def _gen_inputs(self, t):
+        match = rpy.PyId('match') 
+        parameters = []
+        matchreads = []
         try:
-            parameters = t.getattribute(term.TermAttribute.InArg)
-            for _, paramname, _, frommatch in parameters:
-                if not frommatch:
-                    fparameters.append(paramname)
-            return ', '.join(fparameters), len(fparameters)
-        except KeyError:
-            return fparameters[0], 1
-
-    def _get_reads_from_match(self, t):
-        try: 
-            parameters = t.getattribute(term.TermAttribute.InArg)
-            bindings = []
-            for sym, paramname, _, frommatch in parameters:
+            inarg_annotations = t.getattribute(term.TermAttribute.InArg)
+            for sym, paramname, depth, frommatch in inarg_annotations:
                 if frommatch:
-                    bindings.append((sym, paramname))
-            return bindings
+                    matchreads.append((rpy.PyId(paramname), rpy.PyString(sym)))
+                else:
+                    parameters.append(rpy.PyId(paramname))
         except KeyError:
-            return []
+            pass
+        return match, parameters, matchreads
 
     def transformPyCall(self, pycall):
         assert isinstance(pycall, term.PyCall)
@@ -155,188 +182,205 @@ class TermCodegen(term.TermTransformer):
         for t in pycall.termargs:
             self.transform(t)
 
-        funcname = pycall.getattribute(term.TermAttribute.FunctionName)[0]
-        parameters, _ = self._gen_params(pycall) 
+        match, parameters, matchreads = self._gen_inputs(pycall)
+        assert len(matchreads) == 0 and len(parameters) == 0 # expecting only match parameter for pycalls.
+        
+        # First generate nested terms and then call python function with them as arguments
+        symgen = SymGen()
+        pycallarguments = [] # will be calling python function with these arguments.
 
-        self.writer += '# {}'.format(repr(pycall))
-        self.writer.newline()
-        self.writer += 'def {}({}):'.format(funcname, parameters)
-        self.writer.newline().indent()
 
-        pycallarguments = []
+        fb = rpy.BlockBuilder()
         for t in pycall.termargs:
-            var = self.symgen.get()
-            pycallarguments.append(var)
+            tmpi = rpy.gen_pyid_temporaries(1, symgen)
             if isinstance(t, term.TermLiteral):
-                sym = self.context.get_sym_for_lit_term(t)
-                self.writer += '{} = {}'.format(var, sym)
-                self.writer.newline()
+                litterm = rpy.gen_pyid_for( self.context.get_sym_for_lit_term(t) )
+                pycallarguments.append(litterm)
             else:
                 funcname = t.getattribute(term.TermAttribute.FunctionName)[0]
-                parameters, numparams = self._gen_params(t) 
-                assert numparams == 1 
-                self.writer += '{} = {}({})'.format(var, funcname, parameters)
-                self.writer.newline()
+                tmatch, tparameters, _ = self._gen_inputs(t)
+                tmpi = rpy.gen_pyid_temporaries(1, symgen)
+                pycallarguments.append(tmpi)
+                fb.AssignTo(tmpi).FunctionCall(funcname, tmatch, *tparameters)
 
-        pycallarguments = ', '.join(pycallarguments)
-        self.writer += 'return {}({})'.format(pycall.functionname, pycallarguments)
-        self.writer.newline().dedent().newline()
+
+        funcname = pycall.getattribute(term.TermAttribute.FunctionName)[0]
+        tmpi = rpy.gen_pyid_temporaries(1, symgen)
+
+        fb.AssignTo(tmpi).FunctionCall(pycall.functionname, *pycallarguments)
+        fb.Return.PyId(tmpi)
+
+        self.modulebuilder.SingleLineComment(repr(pycall))
+        self.modulebuilder.Function(funcname).WithParameters(match, *parameters).Block(fb)
 
         return pycall
-
 
     def transformInHole(self, inhole):
         assert isinstance(inhole, term.InHole)
         # T1 = call inhole.term1
         # T2 = call inhole.term2
         # plug(T1, T2)
-        funcname = inhole.getattribute(term.TermAttribute.FunctionName)[0]
-        parameters, _ = self._gen_params(inhole) 
-
-        self.writer += '# {}'.format(repr(inhole))
-        self.writer.newline()
-        self.writer += 'def {}({}):'.format(funcname, parameters)
-        self.writer.newline().indent()
-
-
-        term1var = self.symgen.get('term1_')
-        if isinstance(inhole.term1, term.TermLiteral):
-            sym = self.context.get_sym_for_lit_term(inhole.term1)
-            self.writer += '{} = {}'.format(term1var, sym)
-            self.writer.newline()
-        else:
-            term1func = inhole.term1.getattribute(term.TermAttribute.FunctionName)[0]
-            term1parameters, _ = self._gen_params(inhole.term1)
-            self.writer += '{} = {}({})'.format(term1var, term1func, term1parameters)
-            self.writer.newline()
-
-
-        term2var = self.symgen.get('term2_')
-        if isinstance(inhole.term2, term.TermLiteral):
-            sym = self.context.get_sym_for_lit_term(inhole.term2)
-            self.writer += '{} = {}'.format(term2var, sym)
-            self.writer.newline()
-        else:
-            term2func = inhole.term2.getattribute(term.TermAttribute.FunctionName)[0]
-            term2parameters, _ = self._gen_params(inhole.term2)
-            self.writer += '{} = {}({})'.format(term2var, term2func, term2parameters)
-            self.writer.newline()
-
-        self.writer += 'return plughole({}, {})'.format(term1var, term2var)
-        self.writer.newline().dedent().newline()
         self.transform(inhole.term1)
         self.transform(inhole.term2)
+
+        funcname = inhole.getattribute(term.TermAttribute.FunctionName)[0]
+        match, parameters, matchreads = self._gen_inputs(inhole)
+        #FIXME not sure about this. 
+        assert len(matchreads) == 0 
+
+        fb = rpy.BlockBuilder()
+
+        plugholeargs = []
+        if isinstance(inhole.term1, term.TermLiteral):
+            sym = self.context.get_sym_for_lit_term(inhole.term1)
+            plugholeargs.append( rpy.gen_pyid_for(sym) )
+        else:
+            t1 = rpy.gen_pyid_for('t1')
+            t1func = inhole.term1.getattribute(term.TermAttribute.FunctionName)[0]
+            t1match, t1parameters, _ = self._gen_inputs(inhole.term1)
+            fb.AssignTo(t1).FunctionCall(t1func, t1match, *t1parameters)
+            plugholeargs.append(t1)
+
+        if isinstance(inhole.term2, term.TermLiteral):
+            sym = self.context.get_sym_for_lit_term(inhole.term2)
+            plugholeargs.append( rpy.gen_pyid_for(sym) )
+        else:
+            t2 = rpy.gen_pyid_for('t2')
+            t2func = inhole.term2.getattribute(term.TermAttribute.FunctionName)[0]
+            t2match, t2parameters, _ = self._gen_inputs(inhole.term2)
+            fb.AssignTo(t2).FunctionCall(t2func, t2match, *t2parameters)
+            plugholeargs.append(t2)
+
+        ret = rpy.gen_pyid_for('ret')
+        fb.AssignTo(ret).FunctionCall('plughole', *plugholeargs)
+        fb.Return.PyId(ret)
+
+        self.modulebuilder.SingleLineComment(repr(inhole))
+        self.modulebuilder.Function(funcname).WithParameters(match, *parameters).Block(fb)
         return inhole
-
-
 
     def transformTermSequence(self, termsequence):
         assert isinstance(termsequence, term.TermSequence)
-        funcname = termsequence.getattribute(term.TermAttribute.FunctionName)[0]
-        parameters, _ = self._gen_params(termsequence)
+        seqfuncname = termsequence.getattribute(term.TermAttribute.FunctionName)[0]
+        symgen = SymGen()
 
-        seq = common.Var('seq')
+        match, parameters, matchreads = self._gen_inputs(termsequence)
+        lst = rpy.gen_pyid_for('lst')
+        fb = rpy.BlockBuilder()
 
-        self.writer += '# {}'.format(repr(termsequence))
-        self.writer.newline()
-        self.writer += 'def {}({}):'.format(funcname, parameters)
-        self.writer.newline().indent()
-        self.writer += '{} = []'.format(seq)
-        self.writer.newline()
+        fb.AssignTo(lst).PyList()
 
-        match_reads = self._get_reads_from_match(termsequence)
-        for sym, paramname in match_reads:
-            self.writer += '{} = {}.{}(\'{}\')'.format(paramname, 'match', 'getbinding', sym)
-            self.writer.newline()
+        for var, sym in matchreads:
+            fb.AssignTo(var).MethodCall(match, MatchMethodTable.GetBinding, sym)
 
-        entries_to_transform = []
-
+        terms2codegen = [] # we will generate all nested terms after doing this sequence first.
         for t in termsequence.seq:
             if isinstance(t, term.Repeat):
-                entries_to_transform.append(t.term)
+
+                # for i in range(len(term)):
+                #   tmp{i} = term{i}.get{i}
+                #   tmp{j} = term{j}.get{i}
+                #   ...
+                #   tmp{x} = gen_term(tmp{i}, tmp{j} ...)
+                #   seq.append(tmp{x})
+                
+                terms2codegen.append(t)
                 foreach = t.getattribute(term.TermAttribute.ForEach)
-                self._check_inconsistent_ellipsis_match_counts(foreach)
-                i = common.Var('i')
-                first = foreach[0][0]
+                self._gen_inconsistent_ellipsis_match_counts(foreach, fb, symgen)
 
-
-                self.writer += 'for {} in range({}.length()):'.format(i, first)
-                self.writer.newline().indent()
-                tmps = ['match']
-
+                forb = rpy.BlockBuilder() 
+                tmpi = rpy.gen_pyid_temporaries(1, symgen)
+                targuments = [] 
                 for param, _ in foreach:
-                    tmp, param = common.Var(self.symgen.get()), common.Var(param)
-                    self.writer += '{} = {}.get({})'.format(tmp, param, i)
-                    self.writer.newline()
-                    tmps.append(tmp.name)
+                    tmpj, param = rpy.gen_pyid_temporaries(1, symgen), rpy.gen_pyid_for(param)
+                    targuments.append(tmpj)
+                    forb.AssignTo(tmpj).MethodCall(param, TermMethodTable.Get, tmpi)
 
-                tmps = ', '.join(tmps)
-                func_tocall = t.term.getattribute(term.TermAttribute.FunctionName)[0]
-                self.writer += '{}.append( {}({}) )'.format(seq, func_tocall, tmps)
-                self.writer.newline().dedent()
+                tfunctionname = t.term.getattribute(term.TermAttribute.FunctionName)[0]
+                tmpx, tmpy, tmpz = rpy.gen_pyid_temporaries(3, symgen)
+                forb.AssignTo(tmpx).FunctionCall(tfunctionname, match, *targuments)
+                forb.AssignTo(tmpy).MethodCall(lst, 'append', tmpx)
+
+                fb.AssignTo(tmpz).MethodCall(rpy.gen_pyid_for(foreach[0][0]), TermMethodTable.Length)
+                fb.For(tmpi).InRange(tmpz).Block(forb)
 
             if isinstance(t, term.PatternVariable) or \
                isinstance(t, term.TermSequence)    or \
                isinstance(t, term.InHole):
-                entries_to_transform.append(t)
-                parameters, _ = self._gen_params(t)
+                terms2codegen.append(t)
+                tmatch, tparameters, _ = self._gen_inputs(t)
                 func_tocall = t.getattribute(term.TermAttribute.FunctionName)[0]
-                self.writer += '{}.append( {}({}) )'.format(seq, func_tocall, parameters)
-                self.writer.newline()
+                tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+
+                fb.AssignTo(tmp0).FunctionCall(func_tocall, tmatch, *tparameters)
+                fb.AssignTo(tmp1).MethodCall(lst, 'append', tmp0)
 
             if isinstance(t, term.PyCall):
-                entries_to_transform.append(t)
+                terms2codegen.append(t)
                 funcname = t.getattribute(term.TermAttribute.FunctionName)[0]
-                parameters, numparameters = self._gen_params(t)
-                assert numparameters == 1
+                tmatch, tparameters, _ = self._gen_inputs(t)
+                assert len(tparameters) == 0
 
                 if t.mode == term.PyCallInsertionMode.Append:
-                    self.writer += '{}.append( {}({}) )'.format(seq, funcname, parameters)
-                    self.writer.newline()
+                    tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+                    fb.AssignTo(tmp0).FunctionCall(funcname, tmatch, *tparameters)
+                    fb.AssignTo(tmp1).MethodCall(lst, 'append', tmp0)
                 else:
-                    var = self.symgen.get()
-                    self.writer += '{} = {}({})'.format(var, funcname, parameters)
-                    self.writer.newline()
-                    self.writer += 'assert {}.kind() == TermKind.Sequence'.format(var)
-                    self.writer.newline()
-                    it = self.symgen.get()
-                    self.writer += 'for {} in range({}.length()):'.format(it, var)
-                    self.writer.newline().indent()
-                    self.writer += '{}.append( {}.get({}) )'.format(seq, var, it)
-                    self.writer.newline().dedent()
+                    # tmp0 = genterm(...)
+                    # tmp1 = tmp0.kind()
+                    # if tmp1 != TermKind.Sequence:
+                    #  raise Exception(...)
+                    # tmp4 = tmp0.length()
+                    # for tmp5 in range(tmp4):
+                    #   tmp2 = tmp0.get(tmp5)
+                    #   tmp3 = lst.append(tmp2)
+                    tmp0, tmp1, tmp2, tmp3, tmp4, tmp5 = rpy.gen_pyid_temporaries(6, symgen)
+
+                    ifb = rpy.BlockBuilder()
+                    ifb.RaiseException('term is not Sequence!')
+
+                    forb = rpy.BlockBuilder()
+                    forb.AssignTo(tmp2).MethodCall(tmp0, TermMethodTable.Get, tmp5)
+                    forb.AssignTo(tmp3).MethodCall(lst, 'append', tmp2)
+
+                    fb.AssignTo(tmp0).FunctionCall(funcname, tmatch, *tparameters)
+                    fb.AssignTo(tmp1).MethodCall(tmp0, TermMethodTable.Kind)
+                    fb.If.NotEqual(tmp1, rpy.PyInt(TermKind.Sequence)).ThenBlock(ifb)
+                    fb.AssignTo(tmp4).MethodCall(tmp0, TermMethodTable.Length)
+                    fb.For(tmp5).InRange(tmp4).Block(forb)
 
             if isinstance(t, term.TermLiteral):
-                self.writer += '{}.append( {} )'.format(seq, self.context.get_sym_for_lit_term(t))
-                self.writer.newline()
+                tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+                lit = rpy.gen_pyid_for(self.context.get_sym_for_lit_term(t))
+                fb.AssignTo(tmp0).MethodCall(lst, 'append', lit)
+        
+        tmpi = rpy.gen_pyid_temporaries(1, symgen)
+        fb.AssignTo(tmpi).New('Sequence', lst)
+        fb.Return.PyId(tmpi)
 
+        self.modulebuilder.SingleLineComment(repr(termsequence))
+        self.modulebuilder.Function(seqfuncname).WithParameters(match, *parameters).Block(fb)
 
-        self.writer += 'return Sequence({})'.format(seq)
-        self.writer.newline().dedent().newline()
-
-        for t in entries_to_transform:
+        for t in terms2codegen:
             self.transform(t)
         return termsequence
 
     def transformPatternVariable(self, node):
         funcname = node.getattribute(term.TermAttribute.FunctionName)[0]
-        parameters, numparams = self._gen_params(node)
+        match, parameters, matchreads = self._gen_inputs(node)
 
-        self.writer += '# {}'.format(repr(node))
-        self.writer.newline()
-        self.writer += 'def {}({}):'.format(funcname, parameters)
-        self.writer.newline().indent()
+        bb = rpy.BlockBuilder()
 
-
-        args = node.getattribute(term.TermAttribute.InArg)
-        # must be ellipsis depth of 0
-        if numparams == 1:
-            args = self._get_reads_from_match(node)
-            assert len(args) == 1
-            for sym, paramname in  args:
-                self.writer += '{} = {}.{}(\'{}\')'.format(paramname, 'match', 'getbinding', sym)
-                self.writer.newline()
-                self.writer += 'return {}'.format(paramname)
+        if len(parameters) == 0:
+            # must be of ellipsis depth 0
+            assert len(matchreads) == 1
+            ident, sym = matchreads[0]
+            bb.AssignTo(ident).MethodCall(match, MatchMethodTable.GetBinding, sym)
+            bb.Return.PyId(ident)
         else:
-            self.writer += 'return {}'.format(args[0][1])
-        self.writer.newline().dedent().newline()
+            assert len(parameters) == 1
+            bb.Return.PyId(parameters[0])
+
+        self.modulebuilder.SingleLineComment(repr(node))
+        self.modulebuilder.Function(funcname).WithParameters(match, *parameters).Block(bb)
         return node

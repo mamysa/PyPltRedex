@@ -1,4 +1,4 @@
-from src.parser2 import parse 
+from src.parser import parse 
 from src.preprocdefinelang import DefineLanguageProcessor, TopLevelProcessor 
 
 from src.gentlform import TopLevelFormCodegen

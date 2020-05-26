@@ -3,7 +3,7 @@ import src.term as TERM
 import src.rpython as rpy
 import src.pat as pattern
 
-import src.genterm2 as genterm
+import src.genterm as genterm
 import src.genpat  as genpat
 
 from src.symgen  import SymGen

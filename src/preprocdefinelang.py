@@ -1,6 +1,6 @@
 import src.tlform as tlform
 import src.pat as pattern
-import src.genterm2 as genterm
+import src.genterm as genterm
 from src.symgen import SymGen
 
 from src.context import CompilationContext
