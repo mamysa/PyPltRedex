@@ -7,7 +7,6 @@ class TermLiteralKind:
     Hole = 2
     List = 3
 
-
 class TermAttribute(enum.Enum):
     FunctionName = 'FunctionName'
     InArg   = 'InArg'
@@ -137,8 +136,6 @@ class TermTransformer:
     def transformPyCall(self, pycall):
         assert isinstance(pycall, PyCall)
         return PyCall(pycall.mode, pycall.functionname, pycall.termargs).copyattributesfrom(pycall)
-
-
 
     def transformTermLiteral(self, node):
         return node

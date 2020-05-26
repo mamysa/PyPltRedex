@@ -90,12 +90,14 @@ class AssertTermsEqual(TopLevelForm):
 
 
 class TopLevelFormVisitor:
-
     def _visit(self, element):
-        assert isinstance(element, AstNode)
+        assert isinstance(element, TopLevelForm)
         method_name = '_visit' + element.__class__.__name__
         method_ref = getattr(self, method_name)
         return method_ref(element)
+
+    def run(self):
+        assert False, 'override this'
 
     def _visitDefineLanguage(self, form):
         return node
@@ -106,5 +108,5 @@ class TopLevelFormVisitor:
     def _visitMatchEqual(self, form):
         return MatchEqual(self._visit(form.redexmatch), form.list_of_matches)
 
-    def _visitAssertTermEqual(self, form):
+    def _visitAssertTermsEqual(self, form):
         return node

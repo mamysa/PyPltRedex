@@ -4,6 +4,9 @@ import src.common as common
 from src.symgen import SymGen
 from src.preprocdefinelang import LanguageContext
 
+from src.gencommon import TermHelperFuncs, MatchHelperFuncs, \
+                          MatchMethodTable, TermKind
+
 # Need to annotate term template to ease code generation. Given a pattern variable n
 # and associated ellipsis depth, we keep track of the path to the pattern variable in the term 
 # and annotate terms on the path as follows:

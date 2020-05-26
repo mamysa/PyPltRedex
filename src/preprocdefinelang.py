@@ -1,7 +1,9 @@
 import src.tlform as tlform
-import src.pat as pat
+import src.pat as pattern
 import src.genterm2 as genterm
 from src.symgen import SymGen
+
+from src.context import CompilationContext
 
 # Preprocessing define-language construct involves the following steps.
 # (1) Ensure all non-terminals are defined exactly once and contain no underscores. 
@@ -22,92 +24,23 @@ from src.symgen import SymGen
 
 # We have two kinds of functions
 # (1) So called "IsA" functions. ...
-class Context:
-    def __init__(self):
-        self._isa_functions = {}
-        self._match_functions = {}
-
-    def add_isa_function(self, languagename, patternsym, pattern, function):
-        key = languagename + patternsym
-        assert key not in self._isa_functions
-        self._isa_functions[key] = (pattern, function)
-
-    def get_isa_function(self, languagename, patternsym):
-        return self._isa_functions[languagename + patternsym]
-
-    def add_match_function(self, languagename, patternrepr, function):
-        key = languagename + patternrepr
-        assert key not in self._match_functions
-        self._match_functions[key] = function
-
-class LanguageContext:
-    def __init__(self):
-        self.__variables_mentioned = None
-        self.__isa_functions = {}
-        self.__pattern_code = {}
-        self.__term_template_funcs = {}
-
-        self._litterms = {}
-
-        self.symgen = SymGen()
-
-    def add_variables_mentioned(self, variables):
-        self.__variables_mentioned = ('variables_mentioned', variables)
-
-    def get_variables_mentioned(self):
-        return self.__variables_mentioned
-
-    def add_isa_function_name(self, prefix, function):
-        assert prefix not in self.__isa_functions
-        self.__isa_functions[prefix] = function
-    
-    def get_isa_function_name(self, prefix):
-        if prefix in self.__isa_functions:
-            return self.__isa_functions[prefix]
-        return None
-
-    def add_lit_term(self, term):
-        self._litterms[term] = self.symgen.get('literal_term_') 
-
-    def get_sym_for_lit_term(self, term):
-        return self._litterms[term]
-
-    # FIXME this should be in module-level context?
-    def add_function_for_pattern(self, prefix, function):
-        assert prefix not in self.__pattern_code, 'function for {} is present'.format(prefix)
-        self.__pattern_code[prefix] = function
-    
-    def get_function_for_pattern(self, prefix):
-        if prefix in self.__pattern_code:
-            return self.__pattern_code[prefix]
-        return None
-
-    def add_function_for_term_template(self, prefix, function):
-        assert prefix not in self.__term_template_funcs, 'function for {} is present'.format(prefix)
-        self.__term_template_funcs[prefix] = function
-
-    def get_function_for_term_template(self, prefix):
-        if prefix in self.__term_template_funcs:
-            return self.__term_template_funcs[prefix]
-        return None
-
-class NtResolver(pat.PatternTransformer):
+class NtResolver(pattern.PatternTransformer):
     def __init__(self, ntsyms):
         self.ntsyms = ntsyms
         self.variables = set([])
 
     def transformUnresolvedSym(self, node):
-        assert isinstance(node, pat.UnresolvedSym)
+        assert isinstance(node, pattern.UnresolvedSym)
         if node.prefix in self.ntsyms:
-            return pat.Nt(node.prefix, node.sym)
+            return pattern.Nt(node.prefix, node.sym)
         # not nt, check if there's underscore
         if node.prefix != node.sym:
             raise Exception('define-language: before underscore must be either a non-terminal or build-in pattern {}'.format(node.sym))
 
         self.variables.add(node.sym) # for variable-not-defined patterns.
-        return pat.Lit(node.sym, pat.LitKind.Variable)
+        return pattern.Lit(node.sym, pattern.LitKind.Variable)
 
-class UnderscoreRemover(pat.PatternTransformer):
+class UnderscoreRemover(pattern.PatternTransformer):
     """
     Transformer that removes underscores from all non-terminals / built-in patterns in the pattern.
     (since underscores in define-language patterns don't matter)
@@ -121,20 +54,20 @@ class UnderscoreRemover(pat.PatternTransformer):
         node.sym = node.prefix
         return node
 
-class EllipsisDepthChecker(pat.PatternTransformer):
+class EllipsisDepthChecker(pattern.PatternTransformer):
     def __init__(self):
         self.depth = 0
         self.vars = {}
 
     def transformRepeat(self, node):
-        assert isinstance(node, pat.Repeat)
+        assert isinstance(node, pattern.Repeat)
         self.depth += 1
         node.pat = self.transform(node.pat)
         self.depth -= 1
         return node
 
     def transformNt(self, node):
-        assert isinstance(node, pat.Nt)
+        assert isinstance(node, pattern.Nt)
         if node.sym not in self.vars:
             self.vars[node.sym] = self.depth
             return node
@@ -145,8 +78,9 @@ class EllipsisDepthChecker(pat.PatternTransformer):
     def transformUnresolvedSym(self, node):
         assert False, 'UnresolvedSym not allowed'
 
-class UnderscoreIdUniquify(pat.PatternTransformer):
+class UnderscoreIdUniquify(pattern.PatternTransformer):
     def __init__(self):
+        self.id = 0
 
     def transformBuiltInPat(self, node):
         node.sym = '{}_{}'.format(node.prefix, self.id)
@@ -165,13 +99,13 @@ class UnderscoreIdUniquify(pat.PatternTransformer):
 # (3) ((n_1 ... n_1#0 ... CheckEquality(n_1 n_1#0) (n_1#2 ... n_1#1 ... CheckEquality(n_1 n_1#1)) CheckEquality(n_1, n_1#2))
 # This class (1) renames all occurences of bindable symbol (except the first one)
 # (2) Inserts contraint checks when at least two syms have been seen in the sequence.
-class ConstraintCheckInserter(pat.PatternTransformer):
+class ConstraintCheckInserter(pattern.PatternTransformer):
     def __init__(self, sym):
         self.sym = sym
         self.symgen = SymGen()
 
     def transformPatSequence(self, seq):
-        assert isinstance(seq, pat.PatSequence) 
+        assert isinstance(seq, pattern.PatSequence) 
         nseq = [] 
         syms = []
         for pat in seq:
@@ -181,22 +115,22 @@ class ConstraintCheckInserter(pat.PatternTransformer):
                 syms.append(sym)
 
             if len(syms) == 2:
-                nseq.append( pat.CheckConstraint(syms[0], syms[1]) )
+                nseq.append( pattern.CheckConstraint(syms[0], syms[1]) )
                 syms.pop()
 
         assert len(syms) < 2
-        nseq = pat.PatSequence(nseq)
+        nseq = pattern.PatSequence(nseq)
         if len(syms) == 0:
             return nseq, None
         return nseq, syms[0]
 
     def transformRepeat(self, repeat):
         pat, sym = self.transform(repeat.pat)
-        return pat.Repeat(pat), sym
+        return pattern.Repeat(pat), sym
 
     def transformBuiltInPat(self, pat):
-        assert isinstance(pat, pat.BuiltInPat)
-        if pat.kind == pat.BuiltInPatKind.InHole:
+        assert isinstance(pat, pattern.BuiltInPat)
+        if pat.kind == pattern.BuiltInPatKind.InHole:
             pat1, _ = self.transform(pat.aux[0])
             pat2, _ = self.transform(pat.aux[1])
             pat.aux = (pat1, pat2)
@@ -212,7 +146,7 @@ class ConstraintCheckInserter(pat.PatternTransformer):
         return pat, None
 
     def transformNt(self, pat):
-        assert isinstance(pat, pat.Nt)
+        assert isinstance(pat, pattern.Nt)
         if pat.sym == self.sym:
             nsym = self.symgen.get('{}#'.format(self.sym))
             # First time we see desired symbol we do not rename it - we will keep it in the end.
@@ -228,21 +162,16 @@ class ConstraintCheckInserter(pat.PatternTransformer):
     def transformCheckConstraint(self, node):
         return node, None
 
-# collect all elements that should be inside 'is-a' function - 
-# this includes all non-terminals of the language and built-in patterns.
-# Non-terminals are pulled from DefineLanguage
-def module_preprocess(node):
-    assert isinstance(node, tlform.Module)
-    node.definelanguage, context = definelanguage_preprocess(node.definelanguage)
-    for redexmatch in node.redexmatches:
-        redexmatch.pat = pattern_preprocess(redexmatch.pat, node.definelanguage.ntsyms())
-    for me in node.matchequals:
-        me.redexmatch.pat = pattern_preprocess(me.redexmatch.pat, node.definelanguage.ntsyms())
-    return node, context
-
 class DefineLanguageProcessor(tlform.TopLevelFormVisitor):
-    def __init__(self):
-        self.context = None
+    def __init__(self, module, context):
+        assert isinstance(context, CompilationContext)
+        assert isinstance(module, tlform.Module)
+        self.module = module
+        self.context = context 
+
+    def run(self):
+        self.module.definelanguage = self._visit(self.module.definelanguage)
+        return self.module, self.context
 
     def _visitDefineLanguage(self, form):
         assert isinstance(form, tlform.DefineLanguage)
@@ -257,20 +186,26 @@ class DefineLanguageProcessor(tlform.TopLevelFormVisitor):
                 pat = uniquify.transform(pat)
                 npatterns.append(pat)
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
-
-    context = LanguageContext()
-    context.add_variables_mentioned(resolver.variables)
-    self.context = context
-    return node 
+        self.context.add_variables_mentioned(resolver.variables)
+        return form
 
 class TopLevelProcessor(tlform.TopLevelFormVisitor):
-    def __init__(self, context, ntsyms):
+    def __init__(self, module, context, ntsyms):
+        assert isinstance(module, tlform.Module)
+        assert isinstance(context, CompilationContext)
+        self.module = module
         self.context = context
         self.ntsyms = ntsyms
         self.symgen = SymGen() 
 
-    def __processpattern(self, pattern):
-        resolver = NtResolver(ntsyms)
+    def run(self):
+        forms = []
+        for form in self.module.tlforms:
+            forms.append( self._visit(form) )
+        return tlform.Module(self.module.definelanguage, forms), self.context
+
+    def __processpattern(self, pat):
+        resolver = NtResolver(self.ntsyms)
         checker = EllipsisDepthChecker()
         pat = resolver.transform(pat)
         pat = checker.transform(pat)
@@ -289,7 +224,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         form.redexmatch = self._visit(form.redexmatch)
         return form
 
-    def _visitAssertTermEqual(self, form):
+    def _visitAssertTermsEqual(self, form):
         assert isinstance(form, tlform.AssertTermsEqual)
         idof = self.symgen.get('termlet')
         form.template = genterm.TermAnnotate(form.variable_assignments, idof, self.context).transform(form.template)

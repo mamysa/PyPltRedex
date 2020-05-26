@@ -110,7 +110,6 @@ class DefineLanguagePatternCodegen3(ast.PatternTransformer):
 
     def transformMatchEqual(self, me):
         assert isinstance(me, ast.MatchEqual)
-        matches, match = rpy.gen_pyid_for('matches', 'match')
 
         fb = rpy.BlockBuilder()
         symgen = SymGen()

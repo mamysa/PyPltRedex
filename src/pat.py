@@ -147,7 +147,7 @@ class PatternTransformer:
     Override required methods to do something useful.
     """
     def transform(self, element):
-        assert isinstance(element, AstNode)
+        assert isinstance(element, Pat)
         method_name = 'transform' + element.__class__.__name__
         method_ref = getattr(self, method_name)
         return method_ref(element)

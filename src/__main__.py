@@ -1,16 +1,16 @@
 from src.parser2 import parse 
-from src.preprocdefinelang import module_preprocess 
-from src.patcodegen3 import DefineLanguagePatternCodegen3, SourceWriter
+from src.preprocdefinelang import DefineLanguageProcessor, TopLevelProcessor 
+
+from src.gentlform import TopLevelFormCodegen
 
 import sys
 import os
 import shutil
-
-import src.astdefs as ast 
-#import src.genterm as genterm
+import argparse
 import src.rpython as rpy
 
-import argparse
+from src.context import CompilationContext
+
 
 BASEDIR = 'rpyout'
 
@@ -21,18 +21,6 @@ def create_output(module):
     lang.write(text)
     lang.close()
 
-def codegen(tree, context, includepy):
-    codegen = DefineLanguagePatternCodegen3(context)
-    codegen.init_module(includepy)
-    codegen.transform(tree.definelanguage)
-    for rm in tree.redexmatches:
-        codegen.transform(rm)
-    for me in tree.matchequals:
-        codegen.transform(me)
-    for me in tree.termlet:
-        codegen.transform(me)
-    module = codegen.build_module()
-    create_output(module)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('src', help='.rkt containing Redex spec')
@@ -41,20 +29,12 @@ parser.add_argument('-dump-term-attribs', action='store_true', help='Blah')
 parser.add_argument('--include-py', nargs=1)
 args = parser.parse_args()
 
-tree = parse(args.src)
-tree, context = module_preprocess(tree)
-
-"""
-if args.dump_term_attribs:
-    for tl in tree.termlet:
-        assert isinstance(tl, ast.AssertTermsEqual)
-        t = genterm.TermAnnotate(tl.variable_assignments, 'blah', context).transform(tl.template)
-        print(t)
-    sys.exit(0)
-"""
-
+tree = parse(args.src) 
+context = CompilationContext()
+tree, context = DefineLanguageProcessor(tree, context).run()
+tree, context = TopLevelProcessor(tree, context, tree.definelanguage.ntsyms()).run()
 if args.dump_ast:
     print(tree)
     sys.exit(0)
-
-codegen(tree, context, args.include_py)
+rpymodule = TopLevelFormCodegen(tree, context, args.include_py).run()
+create_output(rpymodule)

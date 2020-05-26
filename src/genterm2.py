@@ -1,8 +1,7 @@
 import src.term as term
-import src.astdefs as ast
 import src.rpython as rpy
 from src.symgen import SymGen
-from src.preprocdefinelang import LanguageContext
+from src.context import CompilationContext
 
 # Need to annotate term template to ease code generation. Given a pattern variable n
 # and associated ellipsis depth, we keep track of the path to the pattern variable in the term 
@@ -137,6 +136,7 @@ class TermKind:
 class TermCodegen(term.TermTransformer):
     def __init__(self, modulebuilder, context):
         assert isinstance(modulebuilder, rpy.BlockBuilder)
+        assert isinstance(context, CompilationContext)
         self.context = context
         self.modulebuilder = modulebuilder 
         self.symgen = SymGen()
