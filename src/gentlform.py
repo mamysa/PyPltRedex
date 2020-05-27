@@ -61,7 +61,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
     def _codegenNtDefinition(self, ntdef):
         assert isinstance(ntdef, tlform.DefineLanguage.NtDefinition)
         for pat in ntdef.patterns:
-            if self.context.get_function_for_pattern(repr(pat)) is None:
+            if self.context.get_toplevel_function_for_pattern(repr(pat)) is None:
                 genpat.PatternCodegen(self.modulebuilder, pat, self.context, self.definelanguage.name, self.symgen).run()
         
         nameof_this_func = 'lang_{}_isa_nt_{}'.format(self.definelanguage.name, ntdef.nt.prefix)
@@ -76,13 +76,12 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         for pat in ntdef.patterns:
             rbe = RetrieveBindableElements()
             rbe.transform(pat)
-            func2call = self.context.get_function_for_pattern(repr(pat))
+            func2call = self.context.get_toplevel_function_for_pattern(repr(pat))
 
             ifb = rpy.BlockBuilder()
             ifb.Return.PyBoolean(True)
 
-            fb.AssignTo(match).New('Match', rbe.get_rpylist())
-            fb.AssignTo(matches).FunctionCall(func2call, term, match, rpy.PyInt(0), rpy.PyInt(1))
+            fb.AssignTo(matches).FunctionCall(func2call, term)
             fb.If.LengthOf(matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb)
         fb.Return.PyBoolean(False)
 
@@ -102,25 +101,22 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
     def _visitRedexMatch(self, form):
         assert isinstance(form, tlform.RedexMatch)
-        if self.context.get_function_for_pattern(repr(form.pat)) is None:
+        if self.context.get_toplevel_function_for_pattern(repr(form.pat)) is None:
             genpat.PatternCodegen(self.modulebuilder, form.pat, self.context, form.languagename, self.symgen).run()
 
-        func2call = self.context.get_function_for_pattern(repr(node.pat))
+        func2call = self.context.get_toplevel_function_for_pattern(repr(form.pat))
         symgen = SymGen()
 
         matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
-        tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
+        tmp0 = rpy.gen_pyid_temporaries(1, symgen)
 
         fb = rpy.BlockBuilder()
-        fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(node.termstr)))
+        fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(form.termstr)))
         fb.AssignTo(term).MethodCall(tmp0, 'parse') 
-
-        rbe = RetrieveBindableElements()
-        rbe.transform(node.pat)
-        fb.AssignTo(match).New('Match', rbe.get_rpylist())
-        fb.AssignTo(matches).FunctionCall(func2call, term, match, rpy.PyInt(0), rpy.PyInt(1))
+        fb.AssignTo(matches).FunctionCall(func2call, term)
         fb.Print(matches)
 
+        # call redex-match itself.
         nameof_this_func = self.symgen.get('redexmatch')
         tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
         self.modulebuilder.Function(nameof_this_func).Block(fb)
@@ -128,7 +124,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
     def _visitMatchEqual(self, form):
         assert isinstance(form, tlform.MatchEqual)
-        if self.context.get_function_for_pattern(repr(form.redexmatch.pat)) is None:
+        if self.context.get_toplevel_function_for_pattern(repr(form.redexmatch.pat)) is None:
             genpat.PatternCodegen(self.modulebuilder, form.redexmatch.pat, self.context, form.redexmatch.languagename, self.symgen).run()
 
         fb = rpy.BlockBuilder()
@@ -137,16 +133,12 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         # FIXME CODE DUPLICATION - see redex-match
         matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
         tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
-        func2call = self.context.get_function_for_pattern(repr(form.redexmatch.pat))
+        func2call = self.context.get_toplevel_function_for_pattern(repr(form.redexmatch.pat))
 
         fb = rpy.BlockBuilder()
         fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(form.redexmatch.termstr)))
         fb.AssignTo(term).MethodCall(tmp0, 'parse') 
-
-        rbe = RetrieveBindableElements()
-        rbe.transform(form.redexmatch.pat)
-        fb.AssignTo(match).New('Match', rbe.get_rpylist())
-        fb.AssignTo(matches).FunctionCall(func2call, term, match, rpy.PyInt(0), rpy.PyInt(1))
+        fb.AssignTo(matches).FunctionCall(func2call, term)
         fb.Print(matches)
         # ----- End code duplication
         processedmatches = []

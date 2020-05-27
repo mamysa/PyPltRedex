@@ -10,6 +10,8 @@ class CompilationContext:
 
         self._litterms = {}
 
+        self.__toplevel_patterns = {}
+
         self.symgen = SymGen()
 
     def add_variables_mentioned(self, variables):
@@ -41,6 +43,15 @@ class CompilationContext:
     def get_function_for_pattern(self, prefix):
         if prefix in self.__pattern_code:
             return self.__pattern_code[prefix]
+        return None
+
+    def add_toplevel_function_for_pattern(self, patrepr, functionname):
+        assert patrepr not in self.__toplevel_patterns, 'function for {} is present'.format(patrepr)
+        self.__toplevel_patterns[patrepr] = functionname
+
+    def get_toplevel_function_for_pattern(self, patrepr):
+        if patrepr in self.__toplevel_patterns:
+            return self.__toplevel_patterns[patrepr]
         return None
 
     def add_function_for_term_template(self, prefix, function):

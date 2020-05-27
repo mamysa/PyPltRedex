@@ -19,7 +19,38 @@ class PatternCodegen(pattern.PatternTransformer):
         self.symgen = symgen
 
     def run(self):
-        return self.transform(self.pattern)
+        if self.context.get_function_for_pattern(repr(self.pattern)) is None:
+            self.transform(self.pattern)
+
+        if self.context.get_toplevel_function_for_pattern(repr(self.pattern)) is None:
+            nameof_this_func = 'lang_{}_{}_toplevel'.format(self.languagename, self.symgen.get('pat'))
+            self.context.add_toplevel_function_for_pattern(repr(self.pattern), nameof_this_func)
+
+            rbe = RetrieveBindableElements()
+            rbe.transform(self.pattern)
+
+            symgen = SymGen()
+
+            func2call = self.context.get_function_for_pattern(repr(self.pattern))
+
+            term, match, matches, ret = rpy.gen_pyid_for('term', 'match', 'matches', 'ret')
+            m, h, t = rpy.gen_pyid_for('m', 'h', 't')
+            tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+
+            forb = rpy.BlockBuilder()
+            forb.AssignTo(tmp0).MethodCall(ret, 'append', m)
+
+            fb = rpy.BlockBuilder()
+            fb.AssignTo(match).New('Match', rbe.get_rpylist())
+            fb.AssignTo(matches).FunctionCall(func2call, term, match, rpy.PyInt(0), rpy.PyInt(1))
+            fb.AssignTo(ret).PyList()
+            fb.For(m, h, t).In(matches).Block(forb)
+            fb.Return.PyId(ret)
+            
+            self.modulebuilder.SingleLineComment('toplevel {}'.format(repr(self.pattern)))
+            self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
+
+        return self.pattern
 
     # Most matching functions for builtins/nt are the same - call isa function on term and 
     # add binding.

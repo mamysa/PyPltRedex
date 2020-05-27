@@ -122,7 +122,7 @@ def combine_matches(match1, match2):
 def assert_compare_match_lists(m1, m2):
     if len(m1) == len(m2):
         for i, m in enumerate(m1):
-            if m[0] != m2[i]:
+            if m != m2[i]:
                 assert False, 'assertion error: {} and {} do not match'.format(m1, m2)
         return
     assert False, 'assertion error: {} and {} do not match'.format(m1, m2)
