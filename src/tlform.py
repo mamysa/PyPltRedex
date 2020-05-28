@@ -16,6 +16,13 @@ class Module:
 class TopLevelForm:
     pass
 
+class RequirePythonSource(TopLevelForm):
+    def __init__(self, filename):
+        self.filename = filename
+
+    def __repr__(self):
+        return 'RequirePythonSource({})'.format(self.filename)
+
 class DefineLanguage(TopLevelForm):
     # only used by define-language
     class NtDefinition:
@@ -50,6 +57,24 @@ class DefineLanguage(TopLevelForm):
     def __repr__(self):
         return 'DefineLanguage({}, {})'.format(self.name, self.nts)
 
+class DefineReductionRelation(TopLevelForm):
+    class ReductionCase:
+        def __init__(self, pattern, termtemplate, name):
+            self.pattern = pattern
+            self.termtemplate = termtemplate
+            self.name = name
+
+        def __repr__(self):
+            return 'ReductionCase({}, {}, {})'.format(self.pattern, self.termtemplate, self.name)
+
+    def __init__(self, name, languagename, domain, reductioncases):
+        self.name = name
+        self.languagename = languagename
+        self.domain = domain
+        self.reductioncases = reductioncases
+
+    def __repr__(self):
+        return 'DefineReductionRelation({},{},{},{})'.format(self.name, self.languagename, self.domain, repr(self.reductioncases))
 
 class RedexMatch(TopLevelForm):
     def __init__(self, languagename, pat, termstr):
@@ -99,14 +124,20 @@ class TopLevelFormVisitor:
     def run(self):
         assert False, 'override this'
 
+    def _visitRequirePythonSource(self, form):
+        return form
+
     def _visitDefineLanguage(self, form):
-        return node
+        return form 
 
     def _visitRedexMatch(self, form):
-        return node
+        return form 
 
     def _visitMatchEqual(self, form):
         return MatchEqual(self._visit(form.redexmatch), form.list_of_matches)
 
     def _visitAssertTermsEqual(self, form):
-        return node
+        return form 
+
+    def _visitDefineReductionRelation(self, form):
+        return form

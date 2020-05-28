@@ -18,7 +18,10 @@ reserved = {
     'bind'           : 'BIND',
     'assert-term-eq' : 'ASSERTTERMEQ',
     ','              : 'COMMA',
-    ',@'              : 'COMMAATSIGN',
+    ',@'             : 'COMMAATSIGN',
+    '-->'            : 'ARROW',
+    'define-reduction-relation' : 'DEFINEREDUCTIONRELATION',
+    'require-python-source' : 'REQUIREPYTHONSOURCE'
 }
 
 tokens = [
@@ -27,25 +30,39 @@ tokens = [
     'BOOLEAN',
     'LPAREN',
     'RPAREN',
+    'STRING',
+    'REDDOMAIN',
 ]
+
 
 tokens = tokens + list(reserved.values())
 
-t_ignore = ' \t'
+# FIXME double quotes " in comments raise parse error? why?
+def t_comment(t):
+    r';[^\n]*'
 
+t_ignore = ' \t'
 t_LPAREN = r'\(|\{|\['
 t_RPAREN = r'\)|\}|\]'
 t_BOOLEAN = r'\#t|\#f'
+t_REDDOMAIN = '\#:domain' 
 
 def t_NEWLINE(t):
     r'\n+'
     t.lexer.lineno += len(t.value)
+
 
 # From http://www.dabeaz.com/ply/ply.html#ply_nn6
 # All tokens defined by functions are added in the same order as they appear in the lexer file. 
 # Need to match idents first.
 # Also come up with better regex than this - [A-Z][a-z] matching does not include unicode characters.
 # TODO (match any symbol except reserved)* (match any symbol except reserved AND digit)+ 
+
+def t_STRING(t):
+    r'\"([^\"]|\\")*\"'
+    print(t)
+    return t
+
 def t_IDENT(t):
     r'([^ \(\)\[\]\{\}\"\'`;\#\n])*([^ \(\)\[\]\{\}\"\'`;\#0123456789\n])+([^ \(\)\[\]\{\}\"\'`;\#\n])*'
     t.type = reserved.get(t.value, 'IDENT')
@@ -58,10 +75,10 @@ def t_INTEGER(t):
 def t_error(t):
     raise Exception('illegal character {}'.format(t.value[0]))
 
-def t_comment(t):
-    r';[^\n]*'
-    pass
-
+def trimstringlit(lit):
+    #print(lit, lit[-1])
+    assert lit[0] == '"' and lit[-1] == '"' 
+    return lit[1:-1]#.encode('unicode-escape')
 
 # --------------------- TOP-LEVEL -----------------------
 # module ::= define-language (redex-match match-equals)...
@@ -82,15 +99,26 @@ def p_top_level_form_list(t):
     top-level-form-list : top-level-form-list redex-match 
                         | top-level-form-list match-equal 
                         | top-level-form-list assert-term-eq 
+                        | top-level-form-list require-python-source
+                        | top-level-form-list define-reduction-relation
                         | redex-match
                         | match-equal
                         | assert-term-eq
+                        | require-python-source
+                        | define-reduction-relation
     """
     if len(t) == 2:
         t[0] = [t[1]]
     else:
         t[0] = t[1]
         t[0].append(t[2])
+
+# ---------------------REQUIRE-PYTHON-SOURCE FORM-----------------------
+
+def p_require_python_source(t):
+    'require-python-source : LPAREN REQUIREPYTHONSOURCE STRING RPAREN'
+    print(t[3])
+    t[0] = tlform.RequirePythonSource( trimstringlit(t[3]) )
 
 # ---------------------DEFINE-LANGUAGE FORM -----------------------
 # define-language  ::= (define-language lang-name non-terminal-def ...+)
@@ -126,6 +154,39 @@ def p_pattern_list(t):
     else:
         t[0] = t[1] 
         t[0].append(t[2])
+
+
+# --------------------- DEFINE-REDUCTION-RELATION FORM ---------
+# define-reduction-relation ::= ( define-reduction-relation IDENT IDENT domain reduction-case ... )
+# reduction-case ::= (--> pattern term-template STRING)
+# domain ::= #:domain pattern
+def p_define_reduction_relation(t):
+    """
+    define-reduction-relation : LPAREN DEFINEREDUCTIONRELATION IDENT IDENT domain reduction-case-list RPAREN
+    """
+    t[0] = tlform.DefineReductionRelation(t[3], t[4], t[5], t[6])
+
+def p_define_reduction_relation_domain(t):
+    'domain : REDDOMAIN pattern'
+    t[0] = t[2]
+
+def p_reduction_case_list(t):
+    """
+    reduction-case-list : reduction-case-list reduction-case
+                        | reduction-case 
+    """
+    if len(t) == 2:
+        t[0] = [t[1]]
+    else:
+        t[0] = t[1] 
+        t[0].append(t[2])
+
+def p_reduction_case(t):
+    """
+    reduction-case : LPAREN ARROW pattern term-template STRING RPAREN
+    """
+    t[0] = tlform.DefineReductionRelation.ReductionCase(t[3], t[4], trimstringlit(t[5]))
+
 
 # --------------------- REDEX-MATCH FORM -----------------------
 # redex-match ::= (redex-match lang-name pattern term)

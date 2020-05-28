@@ -25,7 +25,6 @@ def create_output(module):
 parser = argparse.ArgumentParser()
 parser.add_argument('src', help='.rkt containing Redex spec')
 parser.add_argument('-dump-ast', action='store_true', help='Write spec to stdout')
-parser.add_argument('-dump-term-attribs', action='store_true', help='Blah')
 parser.add_argument('--include-py', nargs=1)
 args = parser.parse_args()
 
