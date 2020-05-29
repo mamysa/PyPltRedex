@@ -21,19 +21,22 @@ def create_output(module):
     lang.write(text)
     lang.close()
 
+def entrypoint(args):
+    tree = parse(args.src) 
+    context = CompilationContext()
+    tree, context = DefineLanguageProcessor(tree, context).run()
+    tree, context = TopLevelProcessor(tree, context, tree.definelanguage.ntsyms()).run()
+    if args.dump_ast:
+        print(tree)
+        sys.exit(0)
+    rpymodule = TopLevelFormCodegen(tree, context).run()
+    create_output(rpymodule)
 
-parser = argparse.ArgumentParser()
-parser.add_argument('src', help='.rkt containing Redex spec')
-parser.add_argument('-dump-ast', action='store_true', help='Write spec to stdout')
-#parser.add_argument('--include-py', nargs=1)
-args = parser.parse_args()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('src', help='.rkt containing Redex spec')
+    parser.add_argument('-dump-ast', action='store_true', help='Write spec to stdout')
+    parser.add_argument('--include-py', nargs=1)
+    args = parser.parse_args()
+    entrypoint(args)
 
-tree = parse(args.src) 
-context = CompilationContext()
-tree, context = DefineLanguageProcessor(tree, context).run()
-tree, context = TopLevelProcessor(tree, context, tree.definelanguage.ntsyms()).run()
-if args.dump_ast:
-    print(tree)
-    sys.exit(0)
-rpymodule = TopLevelFormCodegen(tree, context).run()
-create_output(rpymodule)
