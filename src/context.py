@@ -3,7 +3,7 @@ from src.symgen import SymGen
 
 class CompilationContext:
     def __init__(self):
-        self.__variables_mentioned = None
+        self.__variables_mentioned = {} 
         self.__isa_functions = {}
         self.__pattern_code = {}
         self.__term_template_funcs = {}
@@ -14,44 +14,54 @@ class CompilationContext:
 
         self.symgen = SymGen()
 
-    def add_variables_mentioned(self, variables):
-        self.__variables_mentioned = ('variables_mentioned', variables)
+    def add_variables_mentioned(self, languagename,  variables):
+        assert languagename not in self.__variables_mentioned
+        self.__variables_mentioned[languagename] = ('{}_variables_mentioned'.format(languagename), variables)
 
-    def get_variables_mentioned(self):
-        return self.__variables_mentioned
+    def get_variables_mentioned(self, languagename):
+        assert languagename in self.__variables_mentioned
+        return self.__variables_mentioned[languagename]
 
-    def add_isa_function_name(self, prefix, function):
-        assert prefix not in self.__isa_functions
-        self.__isa_functions[prefix] = function
-    
-    def get_isa_function_name(self, prefix):
-        if prefix in self.__isa_functions:
-            return self.__isa_functions[prefix]
-        return None
+    def get_variables_mentioned_all(self):
+        return self.__variables_mentioned.values()
 
     def add_lit_term(self, term):
         self._litterms[term] = self.symgen.get('literal_term_') 
 
+    def add_isa_function_name(self, languagename, patrepr, functionname):
+        k = (languagename, patrepr)
+        assert k not in self.__isa_functions
+        self.__isa_functions[k] = functionname
+    
+    def get_isa_function_name(self, languagename, patrepr):
+        k = (languagename, patrepr)
+        if k in self.__isa_functions:
+            return self.__isa_functions[k]
+        return None
+
     def get_sym_for_lit_term(self, term):
         return self._litterms[term]
 
-    # FIXME this should be in module-level context?
-    def add_function_for_pattern(self, prefix, function):
-        assert prefix not in self.__pattern_code, 'function for {} is present'.format(prefix)
-        self.__pattern_code[prefix] = function
+    def add_function_for_pattern(self, languagename, patrepr, functionname):
+        k = (languagename, patrepr)
+        assert k not in self.__pattern_code, 'function for {}-{}  is present'.format(languagename, patrepr)
+        self.__pattern_code[k] = functionname
     
-    def get_function_for_pattern(self, prefix):
-        if prefix in self.__pattern_code:
-            return self.__pattern_code[prefix]
+    def get_function_for_pattern(self, languagename, patrepr):
+        k = (languagename, patrepr)
+        if k in self.__pattern_code:
+            return self.__pattern_code[k]
         return None
 
-    def add_toplevel_function_for_pattern(self, patrepr, functionname):
-        assert patrepr not in self.__toplevel_patterns, 'function for {} is present'.format(patrepr)
-        self.__toplevel_patterns[patrepr] = functionname
+    def add_toplevel_function_for_pattern(self, languagename, patrepr, functionname):
+        k = (languagename, patrepr)
+        assert k not in self.__toplevel_patterns, 'function for {}-{} is present'.format(languagename, patrepr)
+        self.__toplevel_patterns[k] = functionname
 
-    def get_toplevel_function_for_pattern(self, patrepr):
-        if patrepr in self.__toplevel_patterns:
-            return self.__toplevel_patterns[patrepr]
+    def get_toplevel_function_for_pattern(self, languagename, patrepr):
+        k = (languagename, patrepr)
+        if k in self.__toplevel_patterns:
+            return self.__toplevel_patterns[k]
         return None
 
     def add_function_for_term_template(self, prefix, function):

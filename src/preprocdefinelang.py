@@ -162,19 +162,27 @@ class ConstraintCheckInserter(pattern.PatternTransformer):
     def transformCheckConstraint(self, node):
         return node, None
 
-class DefineLanguageProcessor(tlform.TopLevelFormVisitor):
+class TopLevelProcessor(tlform.TopLevelFormVisitor):
     def __init__(self, module, context):
-        assert isinstance(context, CompilationContext)
         assert isinstance(module, tlform.Module)
+        assert isinstance(context, CompilationContext)
         self.module = module
-        self.context = context 
+        self.context = context
+        self.symgen = SymGen() 
+
+        # store reference to definelanguage structure for use by redex-match form
+        self.definelanguages = {}
 
     def run(self):
-        self.module.definelanguage = self._visit(self.module.definelanguage)
-        return self.module, self.context
+        forms = []
+        for form in self.module.tlforms:
+            forms.append( self._visit(form) )
+        return tlform.Module(forms), self.context
 
     def _visitDefineLanguage(self, form):
         assert isinstance(form, tlform.DefineLanguage)
+        self.definelanguages[form.name] = form 
+
         resolver = NtResolver(form.ntsyms())
         remover = UnderscoreRemover()
         uniquify = UnderscoreIdUniquify()
@@ -186,26 +194,11 @@ class DefineLanguageProcessor(tlform.TopLevelFormVisitor):
                 pat = uniquify.transform(pat)
                 npatterns.append(pat)
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
-        self.context.add_variables_mentioned(resolver.variables)
+        self.context.add_variables_mentioned(form.name, resolver.variables)
         return form
 
-class TopLevelProcessor(tlform.TopLevelFormVisitor):
-    def __init__(self, module, context, ntsyms):
-        assert isinstance(module, tlform.Module)
-        assert isinstance(context, CompilationContext)
-        self.module = module
-        self.context = context
-        self.ntsyms = ntsyms
-        self.symgen = SymGen() 
-
-    def run(self):
-        forms = []
-        for form in self.module.tlforms:
-            forms.append( self._visit(form) )
-        return tlform.Module(self.module.definelanguage, forms), self.context
-
-    def __processpattern(self, pat):
-        resolver = NtResolver(self.ntsyms)
+    def __processpattern(self, pat, ntsyms):
+        resolver = NtResolver(ntsyms)
         checker = EllipsisDepthChecker()
         pat = resolver.transform(pat)
         pat = checker.transform(pat)
@@ -216,7 +209,8 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
     def _visitRedexMatch(self, form):
         assert isinstance(form, tlform.RedexMatch)
-        form.pat = self.__processpattern(form.pat)
+        ntsyms = self.definelanguages[form.languagename].ntsyms() #TODO nicer compiler error handling here
+        form.pat = self.__processpattern(form.pat, ntsyms)
         return form
 
     def _visitMatchEqual(self, form):

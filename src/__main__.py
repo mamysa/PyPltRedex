@@ -1,5 +1,5 @@
 from src.parser import parse 
-from src.preprocdefinelang import DefineLanguageProcessor, TopLevelProcessor 
+from src.preprocdefinelang import  TopLevelProcessor 
 
 from src.gentlform import TopLevelFormCodegen
 
@@ -24,8 +24,7 @@ def create_output(module):
 def entrypoint(args):
     tree = parse(args.src) 
     context = CompilationContext()
-    tree, context = DefineLanguageProcessor(tree, context).run()
-    tree, context = TopLevelProcessor(tree, context, tree.definelanguage.ntsyms()).run()
+    tree, context = TopLevelProcessor(tree, context).run()
     if args.dump_ast:
         print(tree)
         sys.exit(0)

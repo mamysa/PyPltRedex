@@ -2,13 +2,11 @@ import src.pat as pat
 
 # object containing other top-level forms...
 class Module:
-    def __init__(self, definelanguage, tlforms):
-        self.definelanguage = definelanguage
+    def __init__(self, tlforms):
         self.tlforms = tlforms
 
     def __repr__(self):
         out = []
-        out.append(repr(self.definelanguage))
         for form in self.tlforms:
             out.append(repr(form))
         return "\n".join(out)

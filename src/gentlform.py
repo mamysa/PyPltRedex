@@ -24,7 +24,6 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         self.context = context
         self.symgen = SymGen()
         self.modulebuilder = rpy.BlockBuilder() 
-        self.definelanguage = None
 
     def run(self):
         self.modulebuilder.IncludeFromPythonSource('runtime/term.py')
@@ -39,27 +38,26 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             self.modulebuilder.AssignTo(sym1).MethodCall(tmp0, 'parse')
 
         # variable-not-otherwise-mentioned of given define language
-        var, variables = self.context.get_variables_mentioned()
-        variables = map(lambda v: rpy.PyString(v), variables)
-        var = rpy.gen_pyid_for(var)
-        self.modulebuilder.AssignTo(var).PySet(*variables)
+        for ident, variables in self.context.get_variables_mentioned_all():
+            ident = rpy.gen_pyid_for(ident)
+            variables = map(lambda v: rpy.PyString(v), variables)
+            self.modulebuilder.AssignTo(ident).PySet(*variables)
 
         hole = rpy.gen_pyid_for('hole')
         self.modulebuilder.AssignTo(hole).New('Hole')
         
-        self._visit(self.module.definelanguage)
         for form in self.module.tlforms:
             self._visit(form)
 
         return rpy.Module(self.modulebuilder.build())
 
-    def _codegenNtDefinition(self, ntdef):
+    def _codegenNtDefinition(self, languagename, ntdef):
         assert isinstance(ntdef, tlform.DefineLanguage.NtDefinition)
         for pat in ntdef.patterns:
-            if self.context.get_toplevel_function_for_pattern(repr(pat)) is None:
-                genpat.PatternCodegen(self.modulebuilder, pat, self.context, self.definelanguage.name, self.symgen).run()
+            if self.context.get_toplevel_function_for_pattern(languagename, repr(pat)) is None:
+                genpat.PatternCodegen(self.modulebuilder, pat, self.context, languagename, self.symgen).run()
         
-        nameof_this_func = 'lang_{}_isa_nt_{}'.format(self.definelanguage.name, ntdef.nt.prefix)
+        nameof_this_func = 'lang_{}_isa_nt_{}'.format(languagename, ntdef.nt.prefix)
         term, match, matches = rpy.gen_pyid_for('term', 'match', 'matches')
         # for each pattern in ntdefinition
         # match = Match(...)
@@ -71,7 +69,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         for pat in ntdef.patterns:
             rbe = RetrieveBindableElements()
             rbe.transform(pat)
-            func2call = self.context.get_toplevel_function_for_pattern(repr(pat))
+            func2call = self.context.get_toplevel_function_for_pattern(languagename, repr(pat))
 
             ifb = rpy.BlockBuilder()
             ifb.Return.PyBoolean(True)
@@ -82,28 +80,27 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
         self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
 
+    
+    def _visitDefineLanguage(self, form):
+        assert isinstance(form, tlform.DefineLanguage)
+        # first insert isa_nt functions intocontext
+        for ntsym, ntdef in form.nts.items():
+            nameof_this_func = 'lang_{}_isa_nt_{}'.format(form.name, ntsym)
+            self.context.add_isa_function_name(form.name, ntdef.nt.prefix, nameof_this_func)
+
+        for nt in form.nts.values():
+            self._codegenNtDefinition(form.name, nt)
+
     def _visitRequirePythonSource(self, form):
         assert isinstance(form, tlform.RequirePythonSource)
         self.modulebuilder.IncludeFromPythonSource(form.filename)
 
-    def _visitDefineLanguage(self, form):
-        assert isinstance(form, tlform.DefineLanguage)
-        self.definelanguage = form
-        # first insert isa_nt functions intocontext
-        for ntsym, ntdef in form.nts.items():
-            nameof_this_func = 'lang_{}_isa_nt_{}'.format(self.definelanguage.name, ntsym)
-            self.context.add_isa_function_name(ntdef.nt.prefix, nameof_this_func)
-
-        for nt in form.nts.values():
-            self._codegenNtDefinition(nt)
-        self.definelanguage = None 
-
     def _visitRedexMatch(self, form):
         assert isinstance(form, tlform.RedexMatch)
-        if self.context.get_toplevel_function_for_pattern(repr(form.pat)) is None:
+        if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat)) is None:
             genpat.PatternCodegen(self.modulebuilder, form.pat, self.context, form.languagename, self.symgen).run()
 
-        func2call = self.context.get_toplevel_function_for_pattern(repr(form.pat))
+        func2call = self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat))
         symgen = SymGen()
 
         matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
@@ -123,7 +120,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
     def _visitMatchEqual(self, form):
         assert isinstance(form, tlform.MatchEqual)
-        if self.context.get_toplevel_function_for_pattern(repr(form.redexmatch.pat)) is None:
+        if self.context.get_toplevel_function_for_pattern(form.redexmatch.languagename, repr(form.redexmatch.pat)) is None:
             genpat.PatternCodegen(self.modulebuilder, form.redexmatch.pat, self.context, form.redexmatch.languagename, self.symgen).run()
 
         fb = rpy.BlockBuilder()
@@ -132,7 +129,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         # FIXME CODE DUPLICATION - see redex-match
         matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
         tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
-        func2call = self.context.get_toplevel_function_for_pattern(repr(form.redexmatch.pat))
+        func2call = self.context.get_toplevel_function_for_pattern(form.redexmatch.languagename, repr(form.redexmatch.pat))
 
         fb = rpy.BlockBuilder()
         fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(form.redexmatch.termstr)))

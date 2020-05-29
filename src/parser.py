@@ -85,34 +85,30 @@ def trimstringlit(lit):
 # module ::= define-language (redex-match match-equals)...
 
 def p_module(t):
-    'module : define-language top-level-form-list'
-    for form in t[2]:
-        if isinstance(form, tlform.RedexMatch):
-            if form.languagename != t[1].name:
-                raise Exception('undefined-language ' + form.languagename)
-        if isinstance(form, tlform.MatchEqual):
-            if form.redexmatch.languagename != t[1].name:
-                raise Exception('undefined-language ' + form.redexmatch.languagename)
-    t[0] = tlform.Module(t[1], t[2]) 
+    'module : top-level-form-list'
+    t[0] = tlform.Module(t[1]) 
 
 def p_top_level_form_list(t):
     """
-    top-level-form-list : top-level-form-list redex-match 
-                        | top-level-form-list match-equal 
-                        | top-level-form-list assert-term-eq 
-                        | top-level-form-list require-python-source
-                        | top-level-form-list define-reduction-relation
-                        | redex-match
-                        | match-equal
-                        | assert-term-eq
-                        | require-python-source
-                        | define-reduction-relation
+    top-level-form-list : top-level-form-list top-level-form
+                        | top-level-form
     """
     if len(t) == 2:
         t[0] = [t[1]]
     else:
         t[0] = t[1]
         t[0].append(t[2])
+
+def p_top_level_form(t):
+    """
+    top-level-form : define-language
+                   | redex-match
+                   | match-equal
+                   | assert-term-eq
+                   | require-python-source
+                   | define-reduction-relation
+    """
+    t[0] = t[1]
 
 # ---------------------REQUIRE-PYTHON-SOURCE FORM-----------------------
 
