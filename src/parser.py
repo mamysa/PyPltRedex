@@ -5,6 +5,8 @@ import src.tlform as tlform
 import src.pat as pat
 import src.term as term
 
+import os
+
 reserved = {
     'define-language': 'DEFINELANGUAGE',
     'redex-match'    : 'REDEXMATCH',
@@ -60,7 +62,6 @@ def t_NEWLINE(t):
 
 def t_STRING(t):
     r'\"([^\"]|\\")*\"'
-    print(t)
     return t
 
 def t_IDENT(t):
@@ -117,8 +118,9 @@ def p_top_level_form_list(t):
 
 def p_require_python_source(t):
     'require-python-source : LPAREN REQUIREPYTHONSOURCE STRING RPAREN'
-    print(t[3])
-    t[0] = tlform.RequirePythonSource( trimstringlit(t[3]) )
+    filename = trimstringlit(t[3]) 
+    assert os.path.isfile(filename)
+    t[0] = tlform.RequirePythonSource(filename)
 
 # ---------------------DEFINE-LANGUAGE FORM -----------------------
 # define-language  ::= (define-language lang-name non-terminal-def ...+)

@@ -2,6 +2,8 @@
   (n ::= number)
   (x ::= variable-not-otherwise-mentioned))
 
+(require-python-source "runtime/termops.py")
+
 (assert-term-eq
   ([n 0 (term 1337)]
    [x 2 (term ((x y) (a b)))])

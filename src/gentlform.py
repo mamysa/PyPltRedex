@@ -17,7 +17,7 @@ from src.gencommon import TermHelperFuncs, MatchHelperFuncs, \
 # Top-level form codegen
 #------------------------------
 class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
-    def __init__(self, module, context, optionalincludes):
+    def __init__(self, module, context):
         assert isinstance(module, tlform.Module)
         assert isinstance(context, CompilationContext)
         self.module = module
@@ -25,16 +25,11 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         self.symgen = SymGen()
         self.modulebuilder = rpy.BlockBuilder() 
         self.definelanguage = None
-        self.optionalincludes = optionalincludes
 
     def run(self):
         self.modulebuilder.IncludeFromPythonSource('runtime/term.py')
         self.modulebuilder.IncludeFromPythonSource('runtime/parser.py')
         self.modulebuilder.IncludeFromPythonSource('runtime/match.py')
-
-        if self.optionalincludes is not None:
-            for include in self.optionalincludes:
-                self.modulebuilder.IncludeFromPythonSource(include)
 
         # parse all term literals. 
         tmp0, tmp1 = rpy.gen_pyid_temporaries(2, self.symgen)
@@ -86,6 +81,10 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb.Return.PyBoolean(False)
 
         self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
+
+    def _visitRequirePythonSource(self, form):
+        assert isinstance(form, tlform.RequirePythonSource)
+        self.modulebuilder.IncludeFromPythonSource(form.filename)
 
     def _visitDefineLanguage(self, form):
         assert isinstance(form, tlform.DefineLanguage)
