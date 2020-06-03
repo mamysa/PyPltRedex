@@ -73,7 +73,7 @@ class TermAnnotate(term.TermTransformer):
             t = term.TermLiteral(term.TermLiteralKind.Variable, node.sym)
             self.context.add_lit_term(t)
             return t
-        expecteddepth, _ = self.variables[node.sym] 
+        expecteddepth = self.variables[node.sym] 
         actualdepth = 0
 
         param = self.symgen.get(node.sym)

@@ -103,13 +103,14 @@ class MatchEqual(TopLevelForm):
         return 'MatchEqual({} {})'.format(self.redexmatch, self.list_of_matches)
 
 class AssertTermsEqual(TopLevelForm):
-    def __init__(self, variable_assignments, template, literal):
-        self.variable_assignments = variable_assignments
+    def __init__(self, variabledepths, variableassignments, template, literal):
+        self.variabledepths = variabledepths # ellipsis depth
+        self.variableassignments = variableassignments
         self.template = template
         self.literal = literal
 
     def __repr__(self):
-        return 'AssertTermsEqual({}, {}, {})'.format(repr(self.variable_assignments), repr(self.template), repr(self.literal))
+        return 'AssertTermsEqual({}, {}, {}, {})'.format(repr(self.variabledepths), repr(self.variableassignments), repr(self.template), repr(self.literal))
 
 
 class TopLevelFormVisitor:

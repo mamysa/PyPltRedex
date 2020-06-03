@@ -202,7 +202,12 @@ def p_redex_match(t):
 
 def p_assert_term_eq(t):
     'assert-term-eq : LPAREN ASSERTTERMEQ LPAREN variable-assignment-list RPAREN term-template-top term-literal-top RPAREN'
-    t[0] = tlform.AssertTermsEqual(t[4], t[6], t[7])
+    variabledepths = {} 
+    variableassignments = {}
+    for sym, (depth, term) in t[4].items():
+        variabledepths[sym] = depth
+        variableassignments[sym] = term
+    t[0] = tlform.AssertTermsEqual(variabledepths, variableassignments, t[6], t[7])
 
 def p_variable_assignment_list(t):
     """

@@ -173,7 +173,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb.AssignTo(expected).MethodCall(tmp0, 'parse') 
 
         fb.AssignTo(match).New('Match')
-        for variable, (_, term) in form.variable_assignments.items():
+        for variable, term in form.variableassignments.items():
             tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
             fb.AssignTo(tmp1).New('Parser', rpy.PyString(repr(term)))
             fb.AssignTo(tmp2).MethodCall(tmp1, 'parse')

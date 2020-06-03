@@ -328,7 +328,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
     def _visitAssertTermsEqual(self, form):
         assert isinstance(form, tlform.AssertTermsEqual)
         idof = self.symgen.get('termlet')
-        form.template = genterm.TermAnnotate(form.variable_assignments, idof, self.context).transform(form.template)
+        form.template = genterm.TermAnnotate(form.variabledepths, idof, self.context).transform(form.template)
         return form
 
     def _visitDefineReductionRelation(self, form):
