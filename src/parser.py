@@ -84,6 +84,8 @@ def trimstringlit(lit):
 # --------------------- TOP-LEVEL -----------------------
 # module ::= define-language (redex-match match-equals)...
 
+start = 'module'
+
 def p_module(t):
     'module : top-level-form-list'
     t[0] = tlform.Module(t[1]) 
@@ -528,3 +530,10 @@ def parse(filename):
     lexer = lex.lex()
     parser = yacc.yacc(debug=1)
     return parser.parse(buf)
+
+def parse_string(string):
+    lexer = lex.lex()
+    parser = yacc.yacc(debug=1)
+    return parser.parse(string)
+
+

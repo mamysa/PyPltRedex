@@ -1,4 +1,5 @@
 import enum
+import copy
 from functools import reduce
 
 class LitKind(enum.Enum):
@@ -16,11 +17,25 @@ class BuiltInPatKind(enum.Enum):
     InHole = 'in-hole'
 
 class Pat:
-    """
-    Represents all pattern expressions.
-    """
-    def collect_bindable_syms(self): ## should be a visitor.
-        return set([])
+    def __init__(self):
+        self._metadata = {}
+
+    def addmetadata(self, metadata):
+        assert isinstance(metadata, PatMetadata)
+        self._metadata[type(metadata)] = metadata
+        return self
+
+    def removemetadata(self, typ):
+        assert typ in self._metadata
+        del self._metadata[typ]
+
+    def getmetadata(self, typ):
+        return self._metadata[typ]
+
+    def copymetadatafrom(self, node):
+        assert isinstance(node, Pat)
+        self._metadata = copy.copy(node._metadata)
+        return self
 
 class Lit(Pat):
     """
@@ -37,6 +52,7 @@ class Lit(Pat):
 
 class PatSequence(Pat):
     def __init__(self, seq):
+        super().__init__()
         self.seq = seq 
 
     def exchange(self):
@@ -57,9 +73,6 @@ class PatSequence(Pat):
                 num_nonoptional += 1
         return num_nonoptional
 
-    def collect_bindable_syms(self):
-        return reduce(lambda s, pat: s.union(pat.collect_bindable_syms()), self.seq, set([])) 
-
     def __len__(self):
         return len(self.seq)
 
@@ -77,11 +90,9 @@ class Nt(Pat):
     reference to non-terminal
     """
     def __init__(self, prefix, sym):
+        super().__init__()
         self.prefix = prefix
         self.sym = sym
-
-    def collect_bindable_syms(self):
-        return set([self.sym])
 
     def __repr__(self):
         return 'Nt({}, {})'.format(self.prefix, self.sym)
@@ -93,11 +104,9 @@ class UnresolvedSym(Pat):
         prefix -- non-terminal symbol. (i.e. n in n_1)
         sym    -- symbol as parsed. (i.e. n_1)
         """
+        super().__init__()
         self.prefix = prefix
         self.sym = sym
-
-    def collect_bindable_syms(self):
-        assert False, 'unreachable'
 
     def __repr__(self):
         return 'UnresolvedSym({})'.format(self.sym)
@@ -105,10 +114,8 @@ class UnresolvedSym(Pat):
 class Repeat(Pat):
     def __init__(self, pat):
         assert isinstance(pat, Pat)
+        super().__init__()
         self.pat = pat
-
-    def collect_bindable_syms(self):
-        return self.pat.collect_bindable_syms()
 
     def __repr__(self):
         return 'Repeat({})'.format(self.pat)
@@ -116,17 +123,11 @@ class Repeat(Pat):
 class BuiltInPat(Pat):
     def __init__(self, kind, prefix, sym, aux=None):
         assert isinstance(kind, BuiltInPatKind)
+        super().__init__()
         self.kind = kind
         self.prefix = prefix
         self.sym = sym
         self.aux = aux 
-
-    def collect_bindable_syms(self):
-        if self.kind == BuiltInPatKind.InHole:
-            s0 = self.aux[0].collect_bindable_syms()
-            s1 = self.aux[1].collect_bindable_syms()
-            return s0.union(s1)
-        return set([self.sym])
 
     def __repr__(self):
         if self.aux:
@@ -135,6 +136,7 @@ class BuiltInPat(Pat):
 
 class CheckConstraint(Pat):
     def __init__(self, sym1, sym2):
+        super().__init__()
         self.sym1 = sym1 
         self.sym2 = sym2 
 
@@ -155,13 +157,13 @@ class PatternTransformer:
     def transformPatSequence(self, node):
         assert isinstance(node, PatSequence)
         seq = []
-        for node in node.seq:
-            seq.append(self.transform(node))
-        return PatSequence(seq)
+        for n in node.seq:
+            seq.append(self.transform(n))
+        return PatSequence(seq).copymetadatafrom(node)
 
     def transformRepeat(self, node):
         assert isinstance(node, Repeat)
-        return Repeat(self.transform(node.pat))
+        return Repeat(self.transform(node.pat)).copymetadatafrom(node)
 
     def transformBuiltInPat(self, node):
         assert isinstance(node, BuiltInPat)
@@ -177,3 +179,30 @@ class PatternTransformer:
 
     def transformLit(self, node):
         return node
+
+# --- pattern nodes may store additional info such as line numbers, etc.
+# Some of this metadata will be added during analysis process. 
+# TODO see how this will interact with pattern optimization ...
+class PatMetadata:
+    pass
+
+# --- stores all the assignable symbols (i.e. those in Match) seen in the
+# pattern
+class PatAssignableSymbols(PatMetadata):
+    def __init__(self, syms):
+        super().__init__()
+        self.syms = syms
+
+# stores mapping of sym->ellipsis depth. To be used when generating terms.
+class PatAssignableSymbolDepths(PatMetadata):
+    def __init__(self, syms):
+        super().__init__()
+        self.syms = syms
+
+
+
+
+
+
+
+

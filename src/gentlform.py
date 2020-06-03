@@ -11,7 +11,7 @@ from src.context import CompilationContext
 
 from src.gencommon import TermHelperFuncs, MatchHelperFuncs, \
                           MatchMethodTable, TermKind, \
-                          RetrieveBindableElements, TermMethodTable
+                          TermMethodTable
 
 #------------------------------
 # Top-level form codegen
@@ -67,8 +67,6 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb = rpy.BlockBuilder()
 
         for pat in ntdef.patterns:
-            rbe = RetrieveBindableElements()
-            rbe.transform(pat)
             func2call = self.context.get_toplevel_function_for_pattern(languagename, repr(pat))
 
             ifb = rpy.BlockBuilder()

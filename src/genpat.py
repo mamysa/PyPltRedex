@@ -6,7 +6,7 @@ from src.context import CompilationContext
 
 from src.gencommon import TermHelperFuncs, MatchHelperFuncs, \
                           MatchMethodTable, TermKind, \
-                          RetrieveBindableElements, TermMethodTable
+                          TermMethodTable
 
 class PatternCodegen(pattern.PatternTransformer):
     def __init__(self, modulebuilder, pat, context, languagename, symgen):
@@ -18,6 +18,10 @@ class PatternCodegen(pattern.PatternTransformer):
         self.languagename = languagename
         self.symgen = symgen
 
+    def _assignable_symbols_to_rpylist(self, assignable_symbols):
+        assignable_syms = map(lambda s: rpy.PyString(s), assignable_symbols)
+        return rpy.PyList(*assignable_syms)
+
     def run(self):
         if self.context.get_function_for_pattern(self.languagename, repr(self.pattern)) is None:
             self.transform(self.pattern)
@@ -26,9 +30,8 @@ class PatternCodegen(pattern.PatternTransformer):
             nameof_this_func = 'lang_{}_{}_toplevel'.format(self.languagename, self.symgen.get('pat'))
             self.context.add_toplevel_function_for_pattern(self.languagename, repr(self.pattern), nameof_this_func)
 
-            rbe = RetrieveBindableElements()
-            rbe.transform(self.pattern)
-
+            assignable_symbols = self.pattern.getmetadata(pattern.PatAssignableSymbols)
+            assignable_symbols = assignable_symbols.syms
             symgen = SymGen()
 
             func2call = self.context.get_function_for_pattern(self.languagename, repr(self.pattern))
@@ -41,7 +44,7 @@ class PatternCodegen(pattern.PatternTransformer):
             forb.AssignTo(tmp0).MethodCall(ret, 'append', m)
 
             fb = rpy.BlockBuilder()
-            fb.AssignTo(match).New('Match', rbe.get_rpylist())
+            fb.AssignTo(match).New('Match', self._assignable_symbols_to_rpylist(assignable_symbols))
             fb.AssignTo(matches).FunctionCall(func2call, term, match, rpy.PyInt(0), rpy.PyInt(1))
             fb.AssignTo(ret).PyList()
             fb.For(m, h, t).In(matches).Block(forb)
@@ -91,8 +94,8 @@ class PatternCodegen(pattern.PatternTransformer):
             functionname = self.context.get_function_for_pattern(self.languagename, repr(repeat.pat))
 
             # retrieve all bindable elements
-            rbe = RetrieveBindableElements()
-            rbe.transform(repeat.pat)
+            assignable_symbols = repeat.getmetadata(pattern.PatAssignableSymbols)
+            assignable_symbols = assignable_symbols.syms
 
             symgen = SymGen()
             term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
@@ -129,12 +132,12 @@ class PatternCodegen(pattern.PatternTransformer):
             wb.AssignTo(queue).Add(queue, tmp3)
 
             forb = rpy.BlockBuilder()
-            for bindable in rbe.bindables:
-                forb.AssignTo(tmp4).MethodCall(m, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable.sym))
+            for bindable in assignable_symbols:
+                forb.AssignTo(tmp4).MethodCall(m, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
 
             fb = rpy.BlockBuilder()
-            for bindable in rbe.bindables:
-                fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.IncreaseDepth, rpy.PyString(bindable.sym))
+            for bindable in assignable_symbols:
+                fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.IncreaseDepth, rpy.PyString(bindable))
             fb.AssignTo(tmp1).PyTuple(match, head, tail)
             fb.AssignTo(matches).PyList(tmp1)
             fb.AssignTo(queue).PyList(tmp1)
@@ -367,11 +370,11 @@ class PatternCodegen(pattern.PatternTransformer):
             matchpat2 = self.context.get_function_for_pattern(self.languagename, repr(pat2))
 
 
-            rbe1 = RetrieveBindableElements()
-            rbe1.transform(pat1)
-
-            rbe2 = RetrieveBindableElements()
-            rbe2.transform(pat2)
+            assignable_syms1 = pat1.getmetadata(pattern.PatAssignableSymbols)
+            assignable_syms1 = assignable_syms1.syms
+            assignable_syms2 = pat2.getmetadata(pattern.PatAssignableSymbols)
+            assignable_syms2 = assignable_syms2.syms
+            assignable_syms_all = assignable_syms1.union(assignable_syms2)
 
             # def inhole(term, match, head, tail, path):
             # matches = []
@@ -419,12 +422,11 @@ class PatternCodegen(pattern.PatternTransformer):
             tmp10, tmp11, tmp12 = rpy.gen_pyid_temporaries(3, symgen)
 
             tmpm = rpy.gen_pyid_temporaries(1, symgen)
-            rbes = rbe1.as_set().union(rbe2.as_set())
 
             forb2 = rpy.BlockBuilder()
             forb2.AssignTo(tmp2).FunctionCall(MatchHelperFuncs.CombineMatches, m1, m2) 
             forb2.AssignTo(tmpm).MethodCall(match, MatchMethodTable.Copy)
-            for sym in rbes:
+            for sym in assignable_syms_all:
                 tmpi, tmpj = rpy.gen_pyid_temporaries(2, symgen)
                 forb2.AssignTo(tmpi).MethodCall(tmp2, MatchMethodTable.GetBinding, rpy.PyString(sym))
                 forb2.AssignTo(tmpj).MethodCall(tmpm, MatchMethodTable.AddToBinding, rpy.PyString(sym), tmpi)
@@ -438,7 +440,7 @@ class PatternCodegen(pattern.PatternTransformer):
             forb0.For(m1, h1, t1).In(pat1matches).Block(forb1)
 
             ifb1 = rpy.BlockBuilder()
-            ifb1.AssignTo(inpat1match).New('Match', rbe1.get_rpylist())
+            ifb1.AssignTo(inpat1match).New('Match', self._assignable_symbols_to_rpylist(assignable_syms1))
             ifb1.AssignTo(tmp0).Add(path, rpy.PyList(term))
             ifb1.AssignTo(tmp1).FunctionCall(TermHelperFuncs.CopyPathAndReplaceLast, tmp0, hole)
             ifb1.AssignTo(pat1matches).FunctionCall(matchpat1, tmp1, inpat1match, rpy.PyInt(0), rpy.PyInt(1)) 
@@ -461,7 +463,7 @@ class PatternCodegen(pattern.PatternTransformer):
 
             fb = rpy.BlockBuilder()
             fb.AssignTo(matches).PyList()
-            fb.AssignTo(inpat2match).New('Match', rbe2.get_rpylist())
+            fb.AssignTo(inpat2match).New('Match', self._assignable_symbols_to_rpylist(assignable_syms2))
             fb.AssignTo(pat2matches).FunctionCall(matchpat2, term, inpat2match, rpy.PyInt(0), rpy.PyInt(1))
             fb.If.LengthOf(pat2matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb1)
             fb.AssignTo(tmp4).MethodCall(term, TermMethodTable.Kind)
