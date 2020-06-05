@@ -12,6 +12,8 @@ class CompilationContext:
 
         self.__toplevel_patterns = {}
 
+        self.__reductionrelations = {}
+
         self.symgen = SymGen()
 
     def add_variables_mentioned(self, languagename,  variables):
@@ -73,4 +75,13 @@ class CompilationContext:
             return self.__term_template_funcs[prefix]
         return None
 
+    def add_reduction_relation(self, reductionrelationname, function):
+        k = reductionrelationname
+        assert k not in self.__reductionrelations, 'function for {}-{} is present'.format(languagename, patrepr)
+        self.__reductionrelations[k] = function 
 
+    def get_reduction_relation(self, reductionrelationname):
+        k = reductionrelationname
+        if k in self.__reductionrelations:
+            return self.__reductionrelations[k]
+        return None

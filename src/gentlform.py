@@ -254,7 +254,26 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             fb.AssignTo(terms).Add(terms, tmpi)
         fb.Return.PyId(terms)
 
-        self.modulebuilder.SingleLineComment('{}_{}'.format(form.languagename, form.name))
-        self.modulebuilder.Function('{}_{}'.format(form.languagename, form.name)).WithParameters(term).Block(fb)
+        nameof_function = '{}_{}'.format(form.languagename, form.name)
+        self.context.add_reduction_relation(form.name, nameof_function)
+        self.modulebuilder.Function(nameof_function).WithParameters(term).Block(fb)
         return form
 
+    def _visitApplyReductionRelation(self, form):
+        assert isinstance(form, tlform.ApplyReductionRelation)
+        nameof_reductionrelation = self.context.get_reduction_relation(form.reductionrelationname)
+        assert nameof_reductionrelation != None
+
+        symgen = SymGen()
+        term, terms = rpy.gen_pyid_for('term', 'terms')
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(form.term)))
+        fb.AssignTo(term).MethodCall(tmp0, 'parse') 
+        fb.AssignTo(terms).FunctionCall(nameof_reductionrelation, term)
+        fb.Print(terms)
+
+        nameof_function = self.symgen.get('applyreductionrelation')
+        self.modulebuilder.Function(nameof_function).Block(fb)
+        self.modulebuilder.AssignTo(tmp1).FunctionCall(nameof_function)

@@ -86,7 +86,6 @@ class RedexMatch(TopLevelForm):
 # asserts that matches produced by redex-matches are equal to predefined list
 # only used for testing.
 class MatchEqual(TopLevelForm):
-
     # Creates Match object with specified string-term bindings.
     class Match:
         def __init__(self, bindings):
@@ -112,6 +111,13 @@ class AssertTermsEqual(TopLevelForm):
     def __repr__(self):
         return 'AssertTermsEqual({}, {}, {}, {})'.format(repr(self.variabledepths), repr(self.variableassignments), repr(self.template), repr(self.literal))
 
+class ApplyReductionRelation(TopLevelForm):
+    def __init__(self, reductionrelationname, term):
+        self.reductionrelationname = reductionrelationname
+        self.term = term
+
+    def __repr__(self):
+        return 'ApplyReductionRelation({}, {})'.format(self.reductionrelationname, self.term)
 
 class TopLevelFormVisitor:
     def _visit(self, element):

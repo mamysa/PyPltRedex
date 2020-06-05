@@ -23,7 +23,8 @@ reserved = {
     ',@'             : 'COMMAATSIGN',
     '-->'            : 'ARROW',
     'define-reduction-relation' : 'DEFINEREDUCTIONRELATION',
-    'require-python-source' : 'REQUIREPYTHONSOURCE'
+    'require-python-source' : 'REQUIREPYTHONSOURCE',
+    'apply-reduction-relation' : 'APPLYREDUCTIONRELATION',
 }
 
 tokens = [
@@ -109,6 +110,7 @@ def p_top_level_form(t):
                    | assert-term-eq
                    | require-python-source
                    | define-reduction-relation
+                   | apply-reduction-relation
     """
     t[0] = t[1]
 
@@ -186,6 +188,13 @@ def p_reduction_case(t):
     reduction-case : LPAREN ARROW pattern term-template STRING RPAREN
     """
     t[0] = tlform.DefineReductionRelation.ReductionCase(t[3], t[4], trimstringlit(t[5]))
+
+
+# --------------------- APPLY-REDUCTION-RELATION FORM -----------------------
+# apply-reduction-relation : (apply-reduction-relation IDENT term-literal-top)
+def p_apply_reduction_relation(p):
+    'apply-reduction-relation : LPAREN APPLYREDUCTIONRELATION IDENT term-literal-top RPAREN'
+    p[0] = tlform.ApplyReductionRelation(p[3], p[4])
 
 
 # --------------------- REDEX-MATCH FORM -----------------------
