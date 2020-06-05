@@ -189,3 +189,72 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         nameof_this_func = self.symgen.get('asserttermequal')
         self.modulebuilder.Function(nameof_this_func).Block(fb)
         self.modulebuilder.AssignTo(tmp1).FunctionCall(nameof_this_func)
+
+    def _codegenReductionCase(self, rc, languagename, reductionrelationname):
+        assert isinstance(rc, tlform.DefineReductionRelation.ReductionCase)
+
+        if self.context.get_toplevel_function_for_pattern(languagename, repr(rc.pattern)) is None:
+            genpat.PatternCodegen(self.modulebuilder, rc.pattern, self.context, languagename, self.symgen).run()
+        genterm.TermCodegen(self.modulebuilder, self.context).transform(rc.termtemplate)
+
+        nameof_matchfn = self.context.get_toplevel_function_for_pattern(languagename, repr(rc.pattern))
+        nameof_termfn  = rc.termtemplate.getattribute(TERM.TermAttribute.FunctionName)[0]
+
+        nameof_rc = self.symgen.get('{}_{}_case'.format(languagename, reductionrelationname))
+
+        symgen = SymGen()
+        # terms = []
+        # matches = match(term)
+        # if len(matches) != 0:
+        #   for match in matches:
+        #     tmp0 = gen_term(match)
+        #     tmp1 = terms.append(tmp0)
+        # return terms
+
+        terms, term, matches, match = rpy.gen_pyid_for('terms', 'term', 'matches', 'match')
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+
+        forb = rpy.BlockBuilder()
+        forb.AssignTo(tmp0).FunctionCall(nameof_termfn, match)
+        forb.AssignTo(tmp1).MethodCall(terms, 'append', tmp0)
+
+        ifb = rpy.BlockBuilder()
+        ifb.For(match).In(matches).Block(forb)
+
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(terms).PyList()
+        fb.AssignTo(matches).FunctionCall(nameof_matchfn, term)
+        fb.If.LengthOf(matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb)
+        fb.Return.PyId(terms)
+
+        self.modulebuilder.Function(nameof_rc).WithParameters(term).Block(fb)
+        return nameof_rc
+
+    def _visitDefineReductionRelation(self, form):
+        assert isinstance(form, tlform.DefineReductionRelation)
+        # def reduction_relation_name(term):
+        #   outterms = []
+        # {for each case}
+        # tmpi = rc(term)
+        # outterms = outterms + tmp{i} 
+        # return outterms
+        rcfuncs = []
+        for rc in form.reductioncases:
+            rcfunc = self._codegenReductionCase(rc, form.languagename, form.name)
+            rcfuncs.append(rcfunc)
+
+        terms, term = rpy.gen_pyid_for('terms', 'term')
+        symgen = SymGen()
+
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(terms).PyList()
+        for rcfunc in rcfuncs:
+            tmpi = rpy.gen_pyid_temporaries(1, symgen)
+            fb.AssignTo(tmpi).FunctionCall(rcfunc, term)
+            fb.AssignTo(terms).Add(terms, tmpi)
+        fb.Return.PyId(terms)
+
+        self.modulebuilder.SingleLineComment('{}_{}'.format(form.languagename, form.name))
+        self.modulebuilder.Function('{}_{}'.format(form.languagename, form.name)).WithParameters(term).Block(fb)
+        return form
+

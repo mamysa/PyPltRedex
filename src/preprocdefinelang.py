@@ -331,10 +331,20 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         form.template = genterm.TermAnnotate(form.variabledepths, idof, self.context).transform(form.template)
         return form
 
+    def processReductionCase(self, reductioncase, ntsyms):
+        assert isinstance(reductioncase, tlform.DefineReductionRelation.ReductionCase)
+        reductioncase.pattern = self.__processpattern(reductioncase.pattern, ntsyms)
+        assignablesymsdepths = reductioncase.pattern.getmetadata(pattern.PatAssignableSymbolDepths)
+        idof = self.symgen.get('reductionrelation')
+        reductioncase.termtemplate = genterm.TermAnnotate(assignablesymsdepths.syms, idof, self.context).transform(reductioncase.termtemplate)
+
     def _visitDefineReductionRelation(self, form):
         assert isinstance(form, tlform.DefineReductionRelation)
         ntsyms = self.definelanguages[form.languagename].ntsyms() #TODO nicer compiler error handling here
-        form.pattern = self.__processpattern(form.pattern, ntsyms)
+        for rc in form.reductioncases:
+            self.processReductionCase(rc, ntsyms)
+        form.domain = self.__processpattern(form.domain, ntsyms)
+        return form
 
 #class PatternComparator:
 #    """
