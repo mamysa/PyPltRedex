@@ -10,6 +10,7 @@ class TermMethodTable:
 
 class TermHelperFuncs:
     CopyPathAndReplaceLast = 'copy_path_and_replace_last'
+    AssertTermListsEqual = 'asserttermlistsequal'
 
 class MatchHelperFuncs:
     CombineMatches = 'combine_matches'

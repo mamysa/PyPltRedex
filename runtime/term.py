@@ -163,4 +163,13 @@ def plughole(into, term):
     return into
 
 def asserttermsequal(t1, t2):
+    assert isinstance(t1, Ast)
+    assert isinstance(t2, Ast)
     assert t1 == t2, 'term {} not equal to {}'.format(t1, t2)
+
+def asserttermlistsequal(lst1, lst2):
+    if len(lst1) == len(lst2):
+        for i, t in enumerate(lst1):
+            asserttermsequal(t, lst2[i])
+        return
+    assert False, 'lengths of lists do not match'

@@ -111,6 +111,15 @@ class AssertTermsEqual(TopLevelForm):
     def __repr__(self):
         return 'AssertTermsEqual({}, {}, {}, {})'.format(repr(self.variabledepths), repr(self.variableassignments), repr(self.template), repr(self.literal))
 
+class AssertTermListsEqual(TopLevelForm):
+    def __init__(self, applyreductionrelation, terms):
+        assert isinstance(applyreductionrelation, ApplyReductionRelation)
+        self.applyreductionrelation = applyreductionrelation
+        self.terms = terms
+
+    def __repr__(self):
+        return 'AssertTermListsEqual({}, {})'.format(repr(self.applyreductionrelation), repr(self.terms))
+
 class ApplyReductionRelation(TopLevelForm):
     def __init__(self, reductionrelationname, term):
         self.reductionrelationname = reductionrelationname
@@ -146,3 +155,7 @@ class TopLevelFormVisitor:
 
     def _visitDefineReductionRelation(self, form):
         return form
+
+    def _visitAssertTermListsEqual(self, form):
+        assert isinstance(form, AssertTermListsEqual)
+        return AssertTermListsEqual(self._visit(form.applyreductionrelation), form.terms)

@@ -238,11 +238,14 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         # tmpi = rc(term)
         # outterms = outterms + tmp{i} 
         # return outterms
+        if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.domain)) is None:
+            genpat.PatternCodegen(self.modulebuilder, form.domain, self.context, form.languagename, self.symgen).run()
+
         rcfuncs = []
         for rc in form.reductioncases:
             rcfunc = self._codegenReductionCase(rc, form.languagename, form.name)
             rcfuncs.append(rcfunc)
-
+           
         terms, term = rpy.gen_pyid_for('terms', 'term')
         symgen = SymGen()
 
@@ -259,21 +262,49 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         self.modulebuilder.Function(nameof_function).WithParameters(term).Block(fb)
         return form
 
+    def _genreductionrelation(self, fb, symgen, nameof_reductionrelation, reprof):
+        term, terms = rpy.gen_pyid_for('term', 'terms')
+        tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+        fb.AssignTo(tmp0).New('Parser', rpy.PyString(reprof))
+        fb.AssignTo(term).MethodCall(tmp0, 'parse') 
+        fb.AssignTo(terms).FunctionCall(nameof_reductionrelation, term)
+        fb.Print(terms)
+        return terms
+
     def _visitApplyReductionRelation(self, form):
         assert isinstance(form, tlform.ApplyReductionRelation)
         nameof_reductionrelation = self.context.get_reduction_relation(form.reductionrelationname)
         assert nameof_reductionrelation != None
 
+        fb = rpy.BlockBuilder()
         symgen = SymGen()
-        term, terms = rpy.gen_pyid_for('term', 'terms')
-        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+        self._genreductionrelation(fb, symgen, nameof_reductionrelation, repr(form.term))
+        tmp1 = rpy.gen_pyid_temporaries(1, symgen)
+        nameof_function = self.symgen.get('applyreductionrelation')
+        self.modulebuilder.Function(nameof_function).Block(fb)
+        self.modulebuilder.AssignTo(tmp1).FunctionCall(nameof_function)
+
+    def _visitAssertTermListsEqual(self, form):
+        assert isinstance(form, tlform.AssertTermListsEqual)
+        symgen = SymGen()
+        expectedterms = rpy.gen_pyid_for('expectedterms')
 
         fb = rpy.BlockBuilder()
-        fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(form.term)))
-        fb.AssignTo(term).MethodCall(tmp0, 'parse') 
-        fb.AssignTo(terms).FunctionCall(nameof_reductionrelation, term)
-        fb.Print(terms)
+        fb.AssignTo(expectedterms).PyList()
+        for term in form.terms:
+            tmpi, tmpj, tmpk = rpy.gen_pyid_temporaries(3, symgen)
+            fb.AssignTo(tmpi).New('Parser', rpy.PyString(repr(term)))
+            fb.AssignTo(tmpj).MethodCall(tmpi, 'parse') 
+            fb.AssignTo(tmpk).MethodCall(expectedterms, 'append', tmpj)
 
-        nameof_function = self.symgen.get('applyreductionrelation')
+        nameof_reductionrelation = self.context.get_reduction_relation(form.applyreductionrelation.reductionrelationname)
+        assert nameof_reductionrelation != None
+        
+        terms = self._genreductionrelation(fb, symgen, nameof_reductionrelation, repr(form.applyreductionrelation.term))
+
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+        fb.AssignTo(tmp0).FunctionCall(TermHelperFuncs.AssertTermListsEqual, terms, expectedterms)
+
+        nameof_function = self.symgen.get('asserttermlistsequal_')
         self.modulebuilder.Function(nameof_function).Block(fb)
         self.modulebuilder.AssignTo(tmp1).FunctionCall(nameof_function)

@@ -8,6 +8,7 @@ testcases = [
     'tests/patmatchtest.rkt',
     'tests/inholetest.rkt',
     'tests/plugtest.rkt',
+    'tests/applyreductionrelationtest.rkt',
 ]
 
 def runpython(filename):

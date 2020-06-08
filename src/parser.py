@@ -25,6 +25,7 @@ reserved = {
     'define-reduction-relation' : 'DEFINEREDUCTIONRELATION',
     'require-python-source' : 'REQUIREPYTHONSOURCE',
     'apply-reduction-relation' : 'APPLYREDUCTIONRELATION',
+    'assert-term-lists-equal' : 'ASSERTTERMLISTSEQUAL'
 }
 
 tokens = [
@@ -111,6 +112,7 @@ def p_top_level_form(t):
                    | require-python-source
                    | define-reduction-relation
                    | apply-reduction-relation
+                   | assert-term-lists-equal
     """
     t[0] = t[1]
 
@@ -281,6 +283,34 @@ def p_match_list(t):
     """
     match-list : match-list match
                | match
+    """
+    if len(t) == 3:
+        t[0] = t[1]
+        t[0].append(t[2])
+    else:
+        t[0] = [t[1]]
+
+# --------------------- ASSERT-TERM-LISTS-EQUAL FORM -----------------------
+# assert-term-lists-equal ::= ( apply-reduction-relation literal-term-list )
+# literal'
+def p_assert_term_lists_equal(p):
+    'assert-term-lists-equal : LPAREN ASSERTTERMLISTSEQUAL apply-reduction-relation listof-literal-terms RPAREN'
+    p[0] = tlform.AssertTermListsEqual(p[3], p[4])
+
+def p_listof_literal_terms(t):
+    """
+    listof-literal-terms : LPAREN literal-term-list RPAREN
+                          | LPAREN RPAREN
+    """
+    if len(t) == 4:
+        t[0] = t[2]
+    else:
+        t[0] = []
+
+def p_literalterm_list(t):
+    """
+    literal-term-list : literal-term-list term-literal-top 
+                      | term-literal-top
     """
     if len(t) == 3:
         t[0] = t[1]
