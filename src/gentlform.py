@@ -190,7 +190,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         self.modulebuilder.Function(nameof_this_func).Block(fb)
         self.modulebuilder.AssignTo(tmp1).FunctionCall(nameof_this_func)
 
-    def _codegenReductionCase(self, rc, languagename, reductionrelationname):
+    def _codegenReductionCase(self, rc, languagename, reductionrelationname, nameof_domaincheck=None):
         assert isinstance(rc, tlform.DefineReductionRelation.ReductionCase)
 
         if self.context.get_toplevel_function_for_pattern(languagename, repr(rc.pattern)) is None:
@@ -208,14 +208,24 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         # if len(matches) != 0:
         #   for match in matches:
         #     tmp0 = gen_term(match)
+        #     tmp2 = match_domain(tmp0)
+        #     if len(tmp2) == 0:
+        #       raise Exception('reduction-relation {}: term reduced from {} to {} via rule {} and is outside domain')
         #     tmp1 = terms.append(tmp0)
         # return terms
 
         terms, term, matches, match = rpy.gen_pyid_for('terms', 'term', 'matches', 'match')
-        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+        tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
 
         forb = rpy.BlockBuilder()
         forb.AssignTo(tmp0).FunctionCall(nameof_termfn, match)
+        if nameof_domaincheck is not None:
+            ifb = rpy.BlockBuilder()
+            ifb.RaiseException('reduction-relation \\"{}\\": term reduced from %s to %s via rule \\"{}\\" is outside domain' \
+                    .format(reductionrelationname, rc.name), 
+                    term, tmp0)
+            forb.AssignTo(tmp2).FunctionCall(nameof_domaincheck, tmp0)
+            forb.If.LengthOf(tmp2).Equal(rpy.PyInt(0)).ThenBlock(ifb)
         forb.AssignTo(tmp1).MethodCall(terms, 'append', tmp0)
 
         ifb = rpy.BlockBuilder()
@@ -238,18 +248,32 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         # tmpi = rc(term)
         # outterms = outterms + tmp{i} 
         # return outterms
-        if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.domain)) is None:
-            genpat.PatternCodegen(self.modulebuilder, form.domain, self.context, form.languagename, self.symgen).run()
+        if form.domain != None:
+            if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.domain)) is None:
+                genpat.PatternCodegen(self.modulebuilder, form.domain, self.context, form.languagename, self.symgen).run()
+
+        nameof_domaincheck = None
+        if form.domain != None:
+            nameof_domaincheck = self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.domain))
 
         rcfuncs = []
         for rc in form.reductioncases:
-            rcfunc = self._codegenReductionCase(rc, form.languagename, form.name)
+            rcfunc = self._codegenReductionCase(rc, form.languagename, form.name, nameof_domaincheck)
             rcfuncs.append(rcfunc)
            
         terms, term = rpy.gen_pyid_for('terms', 'term')
         symgen = SymGen()
 
         fb = rpy.BlockBuilder()
+
+        if nameof_domaincheck != None:
+            tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+            ifb = rpy.BlockBuilder()
+            ifb.RaiseException('reduction-relation not defined for %s', term)
+
+            fb.AssignTo(tmp0).FunctionCall(nameof_domaincheck, term)
+            fb.If.LengthOf(tmp0).Equal(rpy.PyInt(0)).ThenBlock(ifb)
+
         fb.AssignTo(terms).PyList()
         for rcfunc in rcfuncs:
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
@@ -262,6 +286,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         self.modulebuilder.Function(nameof_function).WithParameters(term).Block(fb)
         return form
 
+    # This generates call to reduction relation. Used by multiple other tlforms.
     def _genreductionrelation(self, fb, symgen, nameof_reductionrelation, reprof):
         term, terms = rpy.gen_pyid_for('term', 'terms')
         tmp0 = rpy.gen_pyid_temporaries(1, symgen)

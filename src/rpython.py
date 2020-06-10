@@ -134,9 +134,10 @@ class PrintStmt(Stmt):
         self.value = value 
 
 class RaiseExceptionStmt(Stmt):
-    def __init__(self, message):
+    def __init__(self, message, formatelems):
         assert isinstance(message, str)
         self.message = message
+        self.formatelems = formatelems
 
 class Expr(PyAst):
     pass
@@ -229,8 +230,8 @@ class BlockBuilder:
     def SingleLineComment(self, comment):
         self.statements.append(SingleLineComment(comment))
 
-    def RaiseException(self, message):
-        self.statements.append(RaiseExceptionStmt(message))
+    def RaiseException(self, message, *args):
+        self.statements.append(RaiseExceptionStmt(message, list(args)))
 
     @property
     @ensure_not_previously_built
@@ -667,6 +668,14 @@ class RPythonWriter:
         self.emit('"')
         self.emit(stmt.message)
         self.emit('"')
+        if len(stmt.formatelems) != 0:
+            self.emit_space()
+            self.emit('%')
+            self.emit_space()
+            self.emit('(')
+            self.emit_comma_separated_list(stmt.formatelems)
+            self.emit(',')
+            self.emit(')')
         self.emit(')')
         self.emit_newline()
 

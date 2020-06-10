@@ -30,11 +30,11 @@
   (x ::= variable-not-otherwise-mentioned)
   (E ::= (n hole)))
 
-(define-reduction-relation red3 Lc4 #:domain n
- (--> ((in-hole E x) ...)
-      ((in-hole E 1337) ...) 
-      "blah"))
+;(define-reduction-relation red3 Lc4 #:domain n
+; (--> ((in-hole E x) ...)
+;      ((in-hole E 1337) ...) 
+;      "blah"))
 
-(assert-term-lists-equal
-  (apply-reduction-relation red3 (term ((1 a) (2 b))))
-  ((term ((1 1337) (2 1337)))))
+;(assert-term-lists-equal
+;  (apply-reduction-relation red3 (term ((1 a) (2 b))))
+;  ((term ((1 1337) (2 1337)))))
