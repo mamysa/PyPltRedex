@@ -68,8 +68,8 @@ class DefineReductionRelation(TopLevelForm):
     def __init__(self, name, languagename, domain, reductioncases):
         self.name = name
         self.languagename = languagename
-        self.domain = domain
         self.reductioncases = reductioncases
+        self.domain = domain
 
     def __repr__(self):
         return 'DefineReductionRelation({},{},{},{})'.format(self.name, self.languagename, self.domain, repr(self.reductioncases))

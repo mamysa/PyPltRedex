@@ -345,7 +345,8 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         ntsyms = self.definelanguages[form.languagename].ntsyms() #TODO nicer compiler error handling here
         for rc in form.reductioncases:
             self.processReductionCase(rc, ntsyms)
-        form.domain = self.__processpattern(form.domain, ntsyms)
+        if form.domain != None:
+            form.domain = self.__processpattern(form.domain, ntsyms)
         return form
 
     def _visitApplyReductionRelation(self, form):

@@ -672,6 +672,7 @@ class RPythonWriter:
             self.emit_space()
             self.emit('%')
             self.emit_space()
+            # tuple
             self.emit('(')
             self.emit_comma_separated_list(stmt.formatelems)
             self.emit(',')
