@@ -15,3 +15,13 @@
   ((term (1 1337 3 (+ (+ 1 2) 4) 5))
    (term (1 (+ 4 5) 3 (+ 1337 4) 5))))
 
+
+
+(define-reduction-relation badred Lc3 #:domain es
+(--> (in-hole P 1337)
+     x
+     "this-doesn't-make-sense!"))
+
+(assert-term-lists-equal
+  (apply-reduction-relation badred (term (1 2 1337 (+ 1 2) 3)))
+  ((term x)))

@@ -36,6 +36,8 @@ class TermAnnotate(term.TermTransformer):
     def transformTermLiteral(self, literal):
         assert isinstance(literal, term.TermLiteral)
         self.context.add_lit_term(literal)
+        sym = self.symgen.get('{}_lit'.format(self.idof))
+        literal.addattribute(term.TermAttribute.FunctionName, sym)
         return literal
 
     def transformPyCall(self, pycall):
@@ -71,7 +73,9 @@ class TermAnnotate(term.TermTransformer):
         assert isinstance(node, term.UnresolvedSym)
         print(self.variables)
         if node.sym not in self.variables:
+            sym = self.symgen.get('{}_lit'.format(self.idof))
             t = term.TermLiteral(term.TermLiteralKind.Variable, node.sym)
+            t.addattribute(term.TermAttribute.FunctionName, sym)
             self.context.add_lit_term(t)
             return t
         expecteddepth = self.variables[node.sym] 
@@ -194,16 +198,11 @@ class TermCodegen(term.TermTransformer):
         fb = rpy.BlockBuilder()
         for t in pycall.termargs:
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
-            if isinstance(t, term.TermLiteral):
-                litterm = rpy.gen_pyid_for( self.context.get_sym_for_lit_term(t) )
-                pycallarguments.append(litterm)
-            else:
-                funcname = t.getattribute(term.TermAttribute.FunctionName)[0]
-                tmatch, tparameters, _ = self._gen_inputs(t)
-                tmpi = rpy.gen_pyid_temporaries(1, symgen)
-                pycallarguments.append(tmpi)
-                fb.AssignTo(tmpi).FunctionCall(funcname, tmatch, *tparameters)
-
+            funcname = t.getattribute(term.TermAttribute.FunctionName)[0]
+            tmatch, tparameters, _ = self._gen_inputs(t)
+            tmpi = rpy.gen_pyid_temporaries(1, symgen)
+            pycallarguments.append(tmpi)
+            fb.AssignTo(tmpi).FunctionCall(funcname, tmatch, *tparameters)
 
         funcname = pycall.getattribute(term.TermAttribute.FunctionName)[0]
         tmpi = rpy.gen_pyid_temporaries(1, symgen)
@@ -232,25 +231,17 @@ class TermCodegen(term.TermTransformer):
         fb = rpy.BlockBuilder()
 
         plugholeargs = []
-        if isinstance(inhole.term1, term.TermLiteral):
-            sym = self.context.get_sym_for_lit_term(inhole.term1)
-            plugholeargs.append( rpy.gen_pyid_for(sym) )
-        else:
-            t1 = rpy.gen_pyid_for('t1')
-            t1func = inhole.term1.getattribute(term.TermAttribute.FunctionName)[0]
-            t1match, t1parameters, _ = self._gen_inputs(inhole.term1)
-            fb.AssignTo(t1).FunctionCall(t1func, t1match, *t1parameters)
-            plugholeargs.append(t1)
+        t1 = rpy.gen_pyid_for('t1')
+        t1func = inhole.term1.getattribute(term.TermAttribute.FunctionName)[0]
+        t1match, t1parameters, _ = self._gen_inputs(inhole.term1)
+        fb.AssignTo(t1).FunctionCall(t1func, t1match, *t1parameters)
+        plugholeargs.append(t1)
 
-        if isinstance(inhole.term2, term.TermLiteral):
-            sym = self.context.get_sym_for_lit_term(inhole.term2)
-            plugholeargs.append( rpy.gen_pyid_for(sym) )
-        else:
-            t2 = rpy.gen_pyid_for('t2')
-            t2func = inhole.term2.getattribute(term.TermAttribute.FunctionName)[0]
-            t2match, t2parameters, _ = self._gen_inputs(inhole.term2)
-            fb.AssignTo(t2).FunctionCall(t2func, t2match, *t2parameters)
-            plugholeargs.append(t2)
+        t2 = rpy.gen_pyid_for('t2')
+        t2func = inhole.term2.getattribute(term.TermAttribute.FunctionName)[0]
+        t2match, t2parameters, _ = self._gen_inputs(inhole.term2)
+        fb.AssignTo(t2).FunctionCall(t2func, t2match, *t2parameters)
+        plugholeargs.append(t2)
 
         ret = rpy.gen_pyid_for('ret')
         fb.AssignTo(ret).FunctionCall('plughole', *plugholeargs)
@@ -307,6 +298,7 @@ class TermCodegen(term.TermTransformer):
 
             if isinstance(t, term.PatternVariable) or \
                isinstance(t, term.TermSequence)    or \
+               isinstance(t, term.TermLiteral)     or \
                isinstance(t, term.InHole):
                 terms2codegen.append(t)
                 tmatch, tparameters, _ = self._gen_inputs(t)
@@ -350,11 +342,6 @@ class TermCodegen(term.TermTransformer):
                     fb.AssignTo(tmp4).MethodCall(tmp0, TermMethodTable.Length)
                     fb.For(tmp5).InRange(tmp4).Block(forb)
 
-            if isinstance(t, term.TermLiteral):
-                tmp0 = rpy.gen_pyid_temporaries(1, symgen)
-                lit = rpy.gen_pyid_for(self.context.get_sym_for_lit_term(t))
-                fb.AssignTo(tmp0).MethodCall(lst, 'append', lit)
-        
         tmpi = rpy.gen_pyid_temporaries(1, symgen)
         fb.AssignTo(tmpi).New('Sequence', lst)
         fb.Return.PyId(tmpi)
@@ -385,3 +372,12 @@ class TermCodegen(term.TermTransformer):
         self.modulebuilder.SingleLineComment(repr(node))
         self.modulebuilder.Function(funcname).WithParameters(match, *parameters).Block(bb)
         return node
+
+    def transformTermLiteral(self, node):
+        assert isinstance(node, term.TermLiteral)
+        funcname = node.getattribute(term.TermAttribute.FunctionName)[0]
+        var = self.context.get_sym_for_lit_term(node)
+        fb = rpy.BlockBuilder()
+        fb.Return.PyId( rpy.PyId(var) )
+        match, parameters, matchreads = self._gen_inputs(node)
+        self.modulebuilder.Function(funcname).WithParameters(match).Block(fb)
