@@ -55,8 +55,11 @@ class TermAnnotate(term.TermTransformer):
     def transformRepeat(self, repeat):
         assert isinstance(repeat, term.Repeat)
         nrepeat = term.Repeat(self.transform(repeat.term)).copyattributesfrom(repeat)
-        if len(nrepeat.getattribute(term.TermAttribute.ForEach)) == 0:
-            raise Exception('too many ellipses in template {}'.format(repr(repeat)))
+        try:
+            if len(nrepeat.getattribute(term.TermAttribute.ForEach)) == 0:
+                raise Exception('too many ellipses in template {}'.format(repr(nrepeat)))
+        except:
+            raise Exception('too many ellipses in template {}'.format(repr(nrepeat)))
         return nrepeat
 
     def transformTermSequence(self, termsequence):
