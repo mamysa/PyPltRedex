@@ -12,12 +12,12 @@ python3 -m src your-plt-redex-spec.rkt
 
 and then 
 
-`python3 rpyout/lang.py`
+`python3 rpyout/out.py`
 
 
 ## Testing
+`make test`
 
-`patmatchtest.rkt` and `inholetest.rkt` provide an overview of what works; it is run the same way mentioned above. Patterns are compared against output produced by Racket Redex.
 
 ## What works 
 * Built-in patterns: `number` (that act like integers for now), `variable-not-othewise-mentioned`, literal variables.
@@ -27,62 +27,24 @@ and then
 * `match-equals?` form (not part of Redex) used for comparing results produced by `redex-match` against expected matches.
 * Matching `hole` pattern.
 * Matching `in-hole` pattern.
-* Plugging terms into terms, including `(in-hole term term)` and python function calls (',' and ',@'). See `plugtest.rkt` for testcases.
+* Plugging terms into terms, including `(in-hole term term)` and python function calls (`','` and `',@'`). See `plugtest.rkt` for testcases.
+* `define-reduction-relation` and `apply-reduction-relation` forms
 
 ## TODOs
 From most to least important.
-* Refactor pattern code generation - atm `redex-match` forms create `Match` objects by themselves to be fed into pattern matching function. Instead of doing that, create top-level function for the pattern that creates `Match` objects and calls pattern matching function. I.e. something like this:
-
-```
-def match_pat(term):
-	match = Match(...)
-	return match_pat_impl(term, match, 0, 1)
-```
-Need to figure out how to handle this inside `define-language` patterns too.
-* Code cleanup - decide in which order to create pattern matching functions - maybe store them in ordered dict?
-* Add `assert-term-throws` to test term plugging that is supposed to fail due to wrong ellipsis match counts.
-* Codegen cleanup: Generate class with static methods for `define-language` form. Generate a stand-alone procedure for `redex-let` and such instead of having its functionality in global namespace.
-* `reduction-relation` and `apply-reduction-relation`
 * Perform input validation:
 	* Ellipsis depth checking and constraint checking on `in-hole pat1 pat2` - same bindable symbols in `pat1` and `pat2` must have same ellipsis depth.
 	* Ensure `pat1` has exactly one `hole` in `in-hole pat1 pat2`.
 	* Non-terminal cycles (?) in `define-language` form - `x ::= y y ::= x` should be invalid.
+	* Ensure `pat1` in `(in-hole pat1 pat2)` has exactly one hole. I am not sure how to handle strange grammars like `((E ::= P) (P :: (E)))` which have circular dependencies. Perhaps turn this problem into graph traversal problem?
+* Start outlining the written thesis.
+* Start testing if generated code complies with RPython requirements.
 * `define-metafunction` form.
-	* Figure out how to perform plugging bindings back into term "templates". 
-* Optimize patterns to reduce number of non-deterministic repetition matches.
+* Make specification handling more Racket-like - i.e. instead of hardcoding certain form to expect a certain form as an argument (for example, `assert-term-lists-equal` expects its first argument to be `apply-reduction-relation`), we reason in terms of a return type of the form.
 * Term level non-terminal / built-in pattern membership caching. For example, when asking if a given term is `e`, store `e` symbol in the set. Thus, next time we try to determine if the term is `e`, we just look it up in the set.
-* Replace handwritten parser with Ply? See other considerations below.
-* `reduction-relation` form.
+* Add `assert-term-throws` to test term plugging that is supposed to fail due to wrong ellipsis match counts.
+* Optimize patterns to reduce number of non-deterministic repetition matches.
 * `define-judgment-form` and `judgment-holds` forms.
-
-## Other Considerations
-* Seeing that current implementation is quite different from PLT Redex (e.g. `match-equal?` form - looking at PLT Redex test cases creation of matches is not as straight-forward https://github.com/racket/redex/blob/master/redex-test/redex/tests/matcher-test.rkt), may as well introduce more Python-like syntax to specifications while ensuring that behaviour is identical? 
-* Force user to replace all unquotes with arbitrary Racket code with Python? E.g. in metafunction
-
-```
-; snip
-[(do-arith * (n ...)) ,(apply * (term (n ...)))]
-; snip
-```
-
-spec would contain
-
-```
-[(do-arith * (n ...)) (python3 multiply n ... )]
-```
-
-and user-provided python file would contain something like
-
-```
-def multiply(sequence_of_n):
-	if len(sequence_of_n) == 0:
-	return 0
-	n = sequence_of_n[0]
-	for i in sequence_of_n[1:]:
-		n *= i
-	return n
-```
-
 
 ## References
 * Glynn Winskell The Formal Semantics of Programming Languages, Operational semantics and principles of induction chapters.
