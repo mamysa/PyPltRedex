@@ -73,6 +73,16 @@ class PatSequence(Pat):
                 num_nonoptional += 1
         return num_nonoptional
 
+    def get_number_of_optional_matches(self):
+        return len(self.seq) - self.get_number_of_nonoptional_matches_between(0, len(self.seq))
+
+    def get_nonoptional_matches(self):
+        nonoptional = []
+        for pat in self.seq:
+            if not isinstance(self.seq[i], Repeat) and not isinstance(self.seq[i], CheckConstraint):
+                nonoptional.append(pat)
+        return pat
+
     def __len__(self):
         return len(self.seq)
 
@@ -111,14 +121,19 @@ class UnresolvedSym(Pat):
     def __repr__(self):
         return 'UnresolvedSym({})'.format(self.sym)
 
+class RepeatMatchMode(enum.IntEnum):
+    NonDetermininstic = 0
+    Deterministic = 1
+
 class Repeat(Pat):
-    def __init__(self, pat):
+    def __init__(self, pat, mode=RepeatMatchMode.NonDetermininstic):
         assert isinstance(pat, Pat)
         super().__init__()
         self.pat = pat
+        self.matchmode = mode
 
     def __repr__(self):
-        return 'Repeat({})'.format(self.pat)
+        return 'Repeat({}, {})'.format(self.pat, self.matchmode)
 
 class BuiltInPat(Pat):
     def __init__(self, kind, prefix, sym, aux=None):
@@ -198,11 +213,3 @@ class PatAssignableSymbolDepths(PatMetadata):
     def __init__(self, syms):
         super().__init__()
         self.syms = syms
-
-
-
-
-
-
-
-
