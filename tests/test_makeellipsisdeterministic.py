@@ -224,3 +224,78 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
 
         actual = MakeEllipsisDeterministic(lang, pat).run()
         self.assertEqual(actual, expected)
+
+    # ((n h ... n) ... (m e) ...)
+        pat = PatSequence([
+                Repeat(PatSequence([
+                        Nt('n', 'n'),
+                        Repeat(Nt('h', 'h')),
+                        Nt('n', 'n'),
+                    ])),
+                Repeat(PatSequence([
+                        Nt('m', 'm'),
+                        Nt('e', 'e'),
+                    ])),
+            ])
+
+        expected = PatSequence([
+                Repeat(PatSequence([
+                        Nt('n', 'n'),
+                        Repeat(Nt('h', 'h'), RepeatMatchMode.Deterministic),
+                        Nt('n', 'n'),
+                    ])),
+                Repeat(PatSequence([
+                        Nt('m', 'm'),
+                        Nt('e', 'e'),
+                    ]), RepeatMatchMode.Deterministic),
+            ])
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, expected)
+
+    # ((n "string" n) ... (m "string" e) ...)
+        pat = PatSequence([
+                Repeat(PatSequence([
+                        Nt('n', 'n'),
+                        Lit("string", LitKind.String),
+                        Nt('n', 'n'),
+                    ])),
+                Repeat(PatSequence([
+                        Nt('m', 'm'),
+                        Lit("string", LitKind.String),
+                        Nt('e', 'e'),
+                    ]), RepeatMatchMode.Deterministic),
+            ])
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, pat)
+
+    # ((n "string" n) ... (m "another_string" e) ...)
+        pat = PatSequence([
+                Repeat(PatSequence([
+                        Nt('n', 'n'),
+                        Lit("string", LitKind.String),
+                        Nt('n', 'n'),
+                    ])),
+                Repeat(PatSequence([
+                        Nt('m', 'm'),
+                        Lit("another_string", LitKind.String),
+                        Nt('e', 'e'),
+                    ])),
+            ])
+
+        expected = PatSequence([
+                Repeat(PatSequence([
+                        Nt('n', 'n'),
+                        Lit("string", LitKind.String),
+                        Nt('n', 'n'),
+                    ]), RepeatMatchMode.Deterministic),
+                Repeat(PatSequence([
+                        Nt('m', 'm'),
+                        Lit("another_string", LitKind.String),
+                        Nt('e', 'e'),
+                    ]), RepeatMatchMode.Deterministic),
+            ])
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, expected)

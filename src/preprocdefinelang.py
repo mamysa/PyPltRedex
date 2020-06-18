@@ -495,16 +495,19 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
                 pat = resolver.transform(pat)
                 pat = remover.transform(pat)
                 pat = uniquify.transform(pat)
+                pat = MakeEllipsisDeterministic(form, pat).run()
                 pat = AssignableSymbolExtractor(pat).run()
                 npatterns.append(pat)
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
         self.context.add_variables_mentioned(form.name, resolver.variables)
         return form
 
-    def __processpattern(self, pat, ntsyms):
+    def __processpattern(self, pat, languagename):
+        ntsyms = self.definelanguages[languagename].ntsyms() #TODO nicer compiler error handling here
         resolver = NtResolver(ntsyms)
         pat = resolver.transform(pat)
         pat = EllipsisDepthChecker(pat).run()
+        pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat).run()
         symbols = pat.getmetadata(pattern.PatAssignableSymbolDepths)
         for sym in symbols.syms:
             pat = ConstraintCheckInserter(pat, sym).run()
@@ -513,8 +516,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
     def _visitRedexMatch(self, form):
         assert isinstance(form, tlform.RedexMatch)
-        ntsyms = self.definelanguages[form.languagename].ntsyms() #TODO nicer compiler error handling here
-        form.pat = self.__processpattern(form.pat, ntsyms)
+        form.pat = self.__processpattern(form.pat, form.languagename)
         return form
 
     def _visitMatchEqual(self, form):
@@ -528,9 +530,9 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         form.template = genterm.TermAnnotate(form.variabledepths, idof, self.context).transform(form.template)
         return form
 
-    def processReductionCase(self, reductioncase, ntsyms):
+    def processReductionCase(self, reductioncase, languagename):
         assert isinstance(reductioncase, tlform.DefineReductionRelation.ReductionCase)
-        reductioncase.pattern = self.__processpattern(reductioncase.pattern, ntsyms)
+        reductioncase.pattern = self.__processpattern(reductioncase.pattern, languagename)
         assignablesymsdepths = reductioncase.pattern.getmetadata(pattern.PatAssignableSymbolDepths)
         idof = self.symgen.get('reductionrelation')
         reductioncase.termtemplate = genterm.TermAnnotate(assignablesymsdepths.syms, idof, self.context).transform(reductioncase.termtemplate)
@@ -538,11 +540,10 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
     def _visitDefineReductionRelation(self, form):
         assert isinstance(form, tlform.DefineReductionRelation)
         self.reductionrelations[form.name] = form
-        ntsyms = self.definelanguages[form.languagename].ntsyms() #TODO nicer compiler error handling here
         for rc in form.reductioncases:
-            self.processReductionCase(rc, ntsyms)
+            self.processReductionCase(rc, form.languagename)
         if form.domain != None:
-            form.domain = self.__processpattern(form.domain, ntsyms)
+            form.domain = self.__processpattern(form.domain, form.languagename)
         return form
 
     def _visitApplyReductionRelation(self, form):
