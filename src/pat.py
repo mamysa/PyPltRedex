@@ -1,6 +1,7 @@
 import enum
 import copy
 from functools import reduce
+import operator
 
 class LitKind(enum.Enum):
     Integer = 0
@@ -50,6 +51,13 @@ class Lit(Pat):
     def __repr__(self):
         return 'Lit({}, {})'.format(self.lit, self.kind)
 
+
+    def __eq__(self, other):
+        if isinstance(other, Lit):
+            return self.kind == other.kind and \
+                    self.lit == other.lit
+        return False
+
 class PatSequence(Pat):
     def __init__(self, seq):
         super().__init__()
@@ -95,6 +103,13 @@ class PatSequence(Pat):
     def __getitem__(self, key):
         return self.seq[key]
 
+    def __eq__(self, other):
+        if isinstance(other, PatSequence):
+            if len(self.seq) == len(other.seq):
+                return reduce(operator.and_, [a == b for a, b in zip(self.seq, other.seq)], True)
+        return False
+
+
 class Nt(Pat):
     """
     reference to non-terminal
@@ -106,6 +121,11 @@ class Nt(Pat):
 
     def __repr__(self):
         return 'Nt({}, {})'.format(self.prefix, self.sym)
+
+    def __eq__(self, other):
+        if isinstance(other, Nt):
+            return self.prefix == other.prefix and self.sym == other.sym
+        return False
 
 class UnresolvedSym(Pat):
     def __init__(self, prefix, sym):
@@ -121,6 +141,11 @@ class UnresolvedSym(Pat):
     def __repr__(self):
         return 'UnresolvedSym({})'.format(self.sym)
 
+    def __eq__(self, other):
+        if isinstance(other, UnresolvedSym):
+            return self.prefix == other.prefix and self.sym == other.sym
+        return False
+
 class RepeatMatchMode(enum.IntEnum):
     NonDetermininstic = 0
     Deterministic = 1
@@ -134,6 +159,12 @@ class Repeat(Pat):
 
     def __repr__(self):
         return 'Repeat({}, {})'.format(self.pat, self.matchmode)
+
+    def __eq__(self, other):
+        if isinstance(other, Repeat):
+            return self.pat == other.pat and  \
+                   self.matchmode == other.matchmode
+        return False
 
 class BuiltInPat(Pat):
     def __init__(self, kind, prefix, sym, aux=None):
@@ -149,6 +180,14 @@ class BuiltInPat(Pat):
             return 'BuiltInPat({}, {}, {})'.format(self.kind, self.sym, repr(self.aux))
         return 'BuiltInPat({}, {})'.format(self.kind, self.sym)
 
+    def __eq__(self, other):
+        if isinstance(other, BuiltInPat):
+            return self.kind == other.kind     and \
+                   self.prefix == other.prefix and \
+                   self.sym == other.sym       and \
+                   self.aux == other.aux
+        return False
+
 class CheckConstraint(Pat):
     def __init__(self, sym1, sym2):
         super().__init__()
@@ -157,6 +196,12 @@ class CheckConstraint(Pat):
 
     def __repr__(self):
         return 'CheckConstraint({} == {})'.format(self.sym1, self.sym2)
+
+    def __eq__(self):
+        if isinstance(other, CheckConstraint):
+            return self.sym1 == other.sym1 and \
+                   self.sym2 == other.sym2
+        return False
 
 class PatternTransformer:
     """

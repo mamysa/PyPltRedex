@@ -1,6 +1,6 @@
 import unittest
 from src.preprocdefinelang import MakeEllipsisDeterministic
-from src.pat import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind
+from src.pat import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode
 from src.tlform import DefineLanguage
 from src.digraph import DiGraph
 
@@ -46,19 +46,19 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
         contains_ellipsis, partition = partitions[0]
         self.assertEqual(len(partition), 1)
         self.assertEqual(contains_ellipsis, False)
-        self.assertEqual(repr(partition[0]), 'Nt(y, y)')
+        self.assertEqual(partition[0], Nt('y', 'y'))
 
         contains_ellipsis, partition = partitions[1]
         self.assertEqual(len(partition), 3)
         self.assertEqual(contains_ellipsis, True)
-        self.assertEqual(repr(partition[0]), 'Repeat(Nt(e, e), 0)')
-        self.assertEqual(repr(partition[1]), 'Repeat(Nt(x, x), 0)')
-        self.assertEqual(repr(partition[2]), 'Nt(y, y)')
+        self.assertEqual(partition[0], Repeat(Nt('e', 'e')))
+        self.assertEqual(partition[1], Repeat(Nt('x', 'x')))
+        self.assertEqual(partition[2], Nt('y', 'y'))
 
         contains_ellipsis, partition = partitions[2]
         self.assertEqual(len(partition), 1)
         self.assertEqual(contains_ellipsis, False)
-        self.assertEqual(repr(partition[0]), 'Nt(z, z)')
+        self.assertEqual(partition[0], Nt('z', 'z'))
 
 
     def test_det_1(self):
@@ -74,13 +74,15 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
             DefineLanguage.NtDefinition(Nt('n', 'n'), [
                 BuiltInPat(BuiltInPatKind.Number, 'number', 'number'),
             ]),
+
+            DefineLanguage.NtDefinition(Nt('z', 'z'), [
+                BuiltInPat(BuiltInPatKind.Number, 'number', 'number'),
+            ]),
             DefineLanguage.NtDefinition(Nt('h', 'h'), [
                 BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole'),
             ]),
         ])
 
-        pat = PatSequence([Nt('e', 'e'), Repeat(Nt('e', 'e')), Repeat(Nt('m', 'm')), Repeat(Nt('h', 'h')) ])
+        pat = PatSequence([Nt('e', 'e'), Repeat(Nt('e', 'e')), Repeat(Nt('m', 'm')), Repeat(Nt('z', 'z')) ])
         med = MakeEllipsisDeterministic(lang, pat)
         print(med.run())
-
-
