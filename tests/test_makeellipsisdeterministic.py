@@ -83,6 +83,144 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
             ]),
         ])
 
-        pat = PatSequence([Nt('e', 'e'), Repeat(Nt('e', 'e')), Repeat(Nt('m', 'm')), Repeat(Nt('z', 'z')) ])
-        med = MakeEllipsisDeterministic(lang, pat)
-        print(med.run())
+        # (e e ... m ... n)  no deterministm possible
+        pat = PatSequence([
+                Nt('e', 'e'), 
+                Repeat(Nt('e', 'e')), 
+                Repeat(Nt('m', 'm')), 
+                Nt('n', 'n') 
+            ])
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, pat)
+        # (e ... number ... m ...) # s can be matched deterministically
+        pat = PatSequence([
+                Repeat(Nt('e', 'e')), 
+                Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number')), 
+                Repeat(Nt('m', 'm')), 
+            ])
+
+        expected = PatSequence([
+                Repeat(Nt('e', 'e')), 
+                Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number')), 
+                Repeat(Nt('m', 'm'), RepeatMatchMode.Deterministic), 
+            ])
+
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, expected)
+
+        # (e e ... m ... h)  m should be deterministic
+        pat = PatSequence([
+                Nt('e', 'e'), 
+                Repeat(Nt('e', 'e')), 
+                Repeat(Nt('m', 'm')), 
+                Nt('h', 'h') 
+            ])
+
+        expected = PatSequence([
+                Nt('e', 'e'), 
+                Repeat(Nt('e', 'e')), 
+                Repeat(Nt('m', 'm'), RepeatMatchMode.Deterministic), 
+                Nt('h', 'h') 
+            ])
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, expected)
+
+        # (e e ... m ... h ...)  m and h should be deterministic.
+        pat = PatSequence([
+                Nt('e', 'e'), 
+                Repeat(Nt('e', 'e')), 
+                Repeat(Nt('m', 'm')), 
+                Repeat(Nt('h', 'h')) 
+            ])
+
+        expected = PatSequence([
+                Nt('e', 'e'), 
+                Repeat(Nt('e', 'e')), 
+                Repeat(Nt('m', 'm'), RepeatMatchMode.Deterministic), 
+                Repeat(Nt('h', 'h'), RepeatMatchMode.Deterministic)
+            ])
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, expected)
+
+
+        # ((e) ... (m) ... (h) ...) m and h should be deterministic.
+        pat = PatSequence([
+                Repeat(PatSequence([Nt('e', 'e')])),
+                Repeat(PatSequence([Nt('m', 'm')])),
+                Repeat(PatSequence([Nt('h', 'h')])),
+            ])
+
+        expected = PatSequence([
+                Repeat(PatSequence([Nt('e', 'e')])),
+                Repeat(PatSequence([Nt('m', 'm')]), RepeatMatchMode.Deterministic),
+                Repeat(PatSequence([Nt('h', 'h')]), RepeatMatchMode.Deterministic),
+            ])
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, expected)
+
+
+        #((e ...) ... (m ...) ... (m ... h ...) ...) -> (m ... h ...) term can be matched deterministically
+        pat = PatSequence([
+                Repeat(PatSequence([
+                        Repeat(Nt('e', 'e')),
+                    ])),
+                Repeat(PatSequence([
+                        Repeat(Nt('m', 'm')),
+                    ])),
+                Repeat(PatSequence([
+                        Repeat(Nt('m', 'm')),
+                        Repeat(Nt('h', 'h')),
+                    ])),
+            ])
+
+        expected = PatSequence([
+                Repeat(PatSequence([
+                        Repeat(Nt('e', 'e'), RepeatMatchMode.Deterministic),
+                    ])),
+                Repeat(PatSequence([
+                        Repeat(Nt('m', 'm'), RepeatMatchMode.Deterministic),
+                    ])),
+                Repeat(PatSequence([
+                        Repeat(Nt('m', 'm'), RepeatMatchMode.Deterministic),
+                        Repeat(Nt('h', 'h'), RepeatMatchMode.Deterministic),
+                    ]), RepeatMatchMode.Deterministic),
+            ])
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, expected)
+
+        #((e ...) ... (m ... h ...) ... (m ... h ...)) ->  nondeterministc
+        pat = PatSequence([
+                Repeat(PatSequence([
+                        Repeat(Nt('e', 'e')),
+                    ])),
+                Repeat(PatSequence([
+                        Repeat(Nt('m', 'm')),
+                        Repeat(Nt('h', 'h')),
+                    ])),
+                PatSequence([
+                        Repeat(Nt('m', 'm')),
+                        Repeat(Nt('h', 'h')),
+                    ]),
+            ])
+
+        expected = PatSequence([
+                Repeat(PatSequence([
+                        Repeat(Nt('e', 'e'), RepeatMatchMode.Deterministic),
+                    ])),
+                Repeat(PatSequence([
+                        Repeat(Nt('m', 'm'), RepeatMatchMode.Deterministic),
+                        Repeat(Nt('h', 'h'), RepeatMatchMode.Deterministic),
+                    ])),
+                PatSequence([
+                        Repeat(Nt('m', 'm'), RepeatMatchMode.Deterministic),
+                        Repeat(Nt('h', 'h'), RepeatMatchMode.Deterministic),
+                    ]),
+            ])
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, expected)

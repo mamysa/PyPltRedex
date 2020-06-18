@@ -87,9 +87,9 @@ class PatSequence(Pat):
     def get_nonoptional_matches(self):
         nonoptional = []
         for pat in self.seq:
-            if not isinstance(self.seq[i], Repeat) and not isinstance(self.seq[i], CheckConstraint):
+            if not isinstance(pat, Repeat) and not isinstance(pat, CheckConstraint):
                 nonoptional.append(pat)
-        return pat
+        return nonoptional 
 
     def __len__(self):
         return len(self.seq)
@@ -223,7 +223,7 @@ class PatternTransformer:
 
     def transformRepeat(self, node):
         assert isinstance(node, Repeat)
-        return Repeat(self.transform(node.pat)).copymetadatafrom(node)
+        return Repeat(self.transform(node.pat), node.matchmode).copymetadatafrom(node)
 
     def transformBuiltInPat(self, node):
         assert isinstance(node, BuiltInPat)

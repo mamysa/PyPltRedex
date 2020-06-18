@@ -337,6 +337,9 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                 pat1cl = self.closures[pat1.prefix]
                 pat2cl = self.closures[pat2.prefix]
                 return len(pat1cl.intersection(pat2cl)) == 0
+            if isinstance(pat2, pattern.BuiltInPat):
+                pat1cl = self.closures[pat1.prefix]
+                return not pat2.prefix in pat1cl
             return True
 
         def checkBuiltInPat(self, pat1, pat2):
@@ -345,6 +348,9 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                 return False
             if isinstance(pat2, pattern.BuiltInPat):
                 return pat1.kind != pat2.kind
+            if isinstance(pat2, pattern.Nt):
+                pat2cl = self.closures[pat2.prefix]
+                return not pat1.prefix in pat2cl
             return True
 
         def checkLit(self, pat1, pat2):
@@ -426,41 +432,37 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
     def transformPatSequence(self, sequence):
         assert isinstance(sequence, pattern.PatSequence)
         closures = self._compute_closure()
+
+        # recursively transform patterns first.
+        tseq = []
+        for pat in sequence.seq:
+            tseq.append( self.transform(pat) )
+            
         nseq = []
-        partitions = self._partitionseq(sequence.seq)
+        partitions = self._partitionseq(tseq)
         for contains_ellipsis, partition in partitions:
             if contains_ellipsis:
                 for i in range(len(partition) - 1):
                     pat1, pat2 = partition[i], partition[i+1]
                     if isinstance(pat1, pattern.Repeat):
+                        psc = self.PatternStructuralChecker(closures)
                         if isinstance(pat2, pattern.Repeat):
-                            psc = self.PatternStructuralChecker(closures)
-                            if psc.check(pat1.pat, pat2.pat):
-                                nrep = pattern.Repeat(pat1.pat, pattern.RepeatMatchMode.Deterministic).copymetadatafrom(pat1)
-                                nseq.append(nrep)
-                            else:
-                                nseq.append(pat1)
+                            p1, p2 = pat1.pat, pat2.pat
                         else:
-                            psc = self.PatternStructuralChecker(closures)
-                            if psc.check(pat1.pat, pat2):
-                                nrep = pattern.Repeat(pat1.pat, pattern.RepeatMatchMode.Deterministic).copymetadatafrom(pat1)
-                                nseq.append(nrep)
-                            else:
-                                nseq.append(pat1)
+                            p1, p2 = pat1.pat, pat2
+                        if psc.check(p1, p2):
+                            nrep = pattern.Repeat(p1, pattern.RepeatMatchMode.Deterministic).copymetadatafrom(pat1)
+                            nseq.append(nrep)
+                        else:
+                            nseq.append(pat1)
+                # append the last unprocessed element
+                last = partition[-1]
+                if isinstance(last, pattern.Repeat):
+                    last = pattern.Repeat(last.pat, pattern.RepeatMatchMode.Deterministic).copymetadatafrom(last)
+                nseq.append(last)
             else: 
                 nseq += partition
-            last = partition[-1]
-
-            if contains_ellipsis:
-                if isinstance(last, pattern.Repeat):
-                    nrep = pattern.Repeat(last.pat, pattern.RepeatMatchMode.Deterministic).copymetadatafrom(last)
-                    nseq.append(nrep)
-                else:
-                    nseq.append(last)
-
         return pattern.PatSequence(nseq).copymetadatafrom(sequence)
-
-
 
 class TopLevelProcessor(tlform.TopLevelFormVisitor):
     def __init__(self, module, context):
