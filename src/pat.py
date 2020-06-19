@@ -15,7 +15,6 @@ class BuiltInPatKind(enum.Enum):
     VariableNotOtherwiseDefined = 'variable-not-otherwise-mentioned'
     VariableExcept = 'variable-except'
     Hole = 'hole'
-    InHole = 'in-hole'
 
 class Pat:
     def __init__(self):
@@ -188,6 +187,23 @@ class BuiltInPat(Pat):
                    self.aux == other.aux
         return False
 
+class InHole(Pat):
+    def __init__(self, pat1, pat2):
+        assert isinstance(pat1, Pat)
+        assert isinstance(pat2, Pat)
+        super().__init__()
+        self.pat1 = pat1
+        self.pat2 = pat2
+    
+    def __repr__(self):
+        return 'InHole({}, {})'.format(self.pat1, self.pat2)
+
+    def __eq__(self, other):
+        if isinstance(other, InHole):
+            return self.pat1 == other.pat1 and \
+                   self.pat2 == other.pat2
+        return False
+
 class CheckConstraint(Pat):
     def __init__(self, sym1, sym2):
         super().__init__()
@@ -225,10 +241,14 @@ class PatternTransformer:
         assert isinstance(node, Repeat)
         return Repeat(self.transform(node.pat), node.matchmode).copymetadatafrom(node)
 
+    def transformInHole(self, node):
+        assert isinstance(node, InHole)
+        pat1 = self.transform(node.pat1)
+        pat2 = self.transform(node.pat2)
+        return InHole(pat1, pat2).copymetadatafrom(node) 
+
     def transformBuiltInPat(self, node):
         assert isinstance(node, BuiltInPat)
-        if node.kind == BuiltInPatKind.InHole:
-            node.aux = (self.transform(node.aux[0]), self.transform(node.aux[1]))
         return node
 
     def transformUnresolvedSym(self, node):
@@ -239,6 +259,7 @@ class PatternTransformer:
 
     def transformLit(self, node):
         return node
+
 
 # --- pattern nodes may store additional info such as line numbers, etc.
 # Some of this metadata will be added during analysis process. 

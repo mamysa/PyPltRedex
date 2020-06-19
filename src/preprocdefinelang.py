@@ -108,17 +108,16 @@ class EllipsisDepthChecker(pattern.PatternTransformer):
         assert isinstance(node, pattern.Nt)
         return node, {node.sym: self.depth}
 
+    def transformInHole(self, node):
+        assert isinstance(node, pattern.InHole)
+        pat1, pat1variables = self.transform(node.pat1)
+        pat2, pat2variables = self.transform(node.pat2)
+        variables = self._merge_variable_maps(pat1variables, pat2variables)
+        return pattern.InHole(pat1, pat2).copymetadatafrom(node), variables
+
     def transformBuiltInPat(self, node):
         assert isinstance(node, pattern.BuiltInPat)
-        # FIXME need to introduce explicit Pat node for in-hole patterns
-        if node.kind == pattern.BuiltInPatKind.InHole:
-            pat1, pat2 = node.aux
-            pat1, pat1variables = self.transform(pat1)
-            pat2, pat2variables = self.transform(pat2)
-            variables = self._merge_variable_maps(pat1variables, pat2variables)
-            return pattern.BuiltInPat(node.kind, node.prefix, node.sym, (pat1, pat2)) \
-                          .copymetadatafrom(node), variables
-        # and for holes!
+        # FIXME introduce separate pat node and for holes?
         if node.kind == pattern.BuiltInPatKind.Hole:
             return node, {}
         return node, {node.sym: self.depth}
@@ -185,15 +184,13 @@ class ConstraintCheckInserter(pattern.PatternTransformer):
         nrepeat = pattern.Repeat(pat).copymetadatafrom(repeat)
         return nrepeat, sym
 
-    def transformBuiltInPat(self, pat):
-        assert isinstance(pat, pattern.BuiltInPat)
-        # FIXME is this correct?
-        if pat.kind == pattern.BuiltInPatKind.InHole:
-            pat1, _ = self.transform(pat.aux[0])
-            pat2, _ = self.transform(pat.aux[1])
-            pat.aux = (pat1, pat2)
-        return pat, None 
+    def transformInHole(self, inhole):
+        assert isinstance(inhole, pattern.InHole)
+        pat1, _ = self.transform(inhole.pat1)
+        pat2, _ = self.transform(inhole.pat2)
+        return pattern.InHole(pat1, pat2).copymetadatafrom(inhole), None
 
+    def transformBuiltInPat(self, pat):
         if pat.sym == self.sym:
             nsym = self.symgen.get('{}#'.format(self.sym))
             # First time we see desired symbol we do not rename it - we will keep it in the end.
@@ -251,18 +248,17 @@ class AssignableSymbolExtractor(pattern.PatternTransformer):
         assert isinstance(node, pattern.Nt)
         return node, set([node.sym])
 
+    def transformInHole(self, node):
+        assert isinstance(node, pattern.InHole)
+        _, pat1variables = self.transform(node.pat1)
+        _, pat2variables = self.transform(node.pat2)
+        node.pat1.addmetadata(pattern.PatAssignableSymbols(pat1variables))
+        node.pat2.addmetadata(pattern.PatAssignableSymbols(pat2variables))
+        variables = pat1variables.union(pat2variables)
+        return node, variables
+
     def transformBuiltInPat(self, node):
         assert isinstance(node, pattern.BuiltInPat)
-        # FIXME need to introduce explicit Pat node for in-hole patterns
-        if node.kind == pattern.BuiltInPatKind.InHole:
-            pat1, pat2 = node.aux
-            _, pat1variables = self.transform(pat1)
-            _, pat2variables = self.transform(pat2)
-            pat1.addmetadata(pattern.PatAssignableSymbols(pat1variables))
-            pat2.addmetadata(pattern.PatAssignableSymbols(pat2variables))
-            variables = pat1variables.union(pat2variables)
-            return node, variables
-        # and for holes!
         if node.kind == pattern.BuiltInPatKind.Hole:
             return node, set([]) 
         return node, set([node.sym])
@@ -342,10 +338,13 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                 return not pat2.prefix in pat1cl
             return True
 
+        # TODO figure out how to handle adjacent in-hole patterns properly.
+        def checkInHole(self, pat1, pat2):
+            assert isinstance(pat1, pattern.InHole)
+            return False
+
         def checkBuiltInPat(self, pat1, pat2):
             assert isinstance(pat1, pattern.BuiltInPat)
-            if pat1.kind == pattern.BuiltInPatKind.InHole: # TODO
-                return False
             if isinstance(pat2, pattern.BuiltInPat):
                 return pat1.kind != pat2.kind
             if isinstance(pat2, pattern.Nt):
@@ -377,8 +376,7 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                 if isinstance(pat, pattern.Nt):
                     syms.append(pat.prefix)
                 if isinstance(pat, pattern.BuiltInPat):
-                    if pat.kind != pattern.BuiltInPatKind.InHole:
-                        syms.append(pat.prefix)
+                    syms.append(pat.prefix)
             closureof[ntdef.get_nt_sym()] = set(syms)
 
         # iteratively compute closure.
@@ -495,7 +493,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
                 pat = resolver.transform(pat)
                 pat = remover.transform(pat)
                 pat = uniquify.transform(pat)
-                pat = MakeEllipsisDeterministic(form, pat).run()
+                #pat = MakeEllipsisDeterministic(form, pat).run()
                 pat = AssignableSymbolExtractor(pat).run()
                 npatterns.append(pat)
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
@@ -507,7 +505,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         resolver = NtResolver(ntsyms)
         pat = resolver.transform(pat)
         pat = EllipsisDepthChecker(pat).run()
-        pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat).run()
+        #pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat).run()
         symbols = pat.getmetadata(pattern.PatAssignableSymbolDepths)
         for sym in symbols.syms:
             pat = ConstraintCheckInserter(pat, sym).run()

@@ -351,7 +351,8 @@ class PatternCodegen(pattern.PatternTransformer):
             self._gen_match_function_for_primitive(match_fn, isafunction, repr(nt), sym=nt.sym)
 
     # FIXME will introduce explicit inhole pattern later.
-    def _visitInHole(self, pat):
+    def transformInHole(self, pat):
+        assert isinstance(pat, pattern.InHole)
         if not self.context.get_function_for_pattern(self.languagename, repr(pat)):
             functionname = 'lang_{}_builtin_inhole_{}'.format(self.languagename, self.symgen.get())
             self.context.add_function_for_pattern(self.languagename, repr(pat), functionname)
@@ -362,7 +363,7 @@ class PatternCodegen(pattern.PatternTransformer):
             #       and add appropriate binding into matches associated with the term.
             #    3. Replace hole with term to restore the whole term to it's original state.
 
-            pat1, pat2 = pat.aux
+            pat1, pat2 = pat.pat1, pat.pat2
             self.transform(pat1)
             self.transform(pat2)
 
@@ -470,7 +471,7 @@ class PatternCodegen(pattern.PatternTransformer):
             fb.If.Equal(tmp4, rpy.PyInt(TermKind.Sequence)).ThenBlock(ifb3)
             fb.Return.PyId(matches)
 
-            self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
+            self.modulebuilder.SingleLineComment('{}'.format(repr(pat)))
             self.modulebuilder.Function(lookupfuncname).WithParameters(term, match, head, tail, path).Block(fb)
 
             fb = rpy.BlockBuilder()
@@ -556,10 +557,6 @@ class PatternCodegen(pattern.PatternTransformer):
                 self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
                 isafunc = self.context.get_isa_function_name(self.languagename, pat.prefix)
                 self._gen_match_function_for_primitive(nameof_this_func, isafunc, repr(pat), sym=pat.sym)
-            return pat
-
-        if pat.kind == pattern.BuiltInPatKind.InHole:
-            self._visitInHole(pat)
             return pat
 
         if pat.kind == pattern.BuiltInPatKind.Hole:

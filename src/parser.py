@@ -394,7 +394,7 @@ def p_pattern_hole(t):
       
 def p_pattern_inhole(t):
     'pattern : LPAREN INHOLE pattern pattern RPAREN'
-    t[0] = pat.BuiltInPat(pat.BuiltInPatKind.InHole, 'in-hole', 'in-hole', (t[3], t[4]))
+    t[0] = pat.InHole(t[3], t[4])
 
 def p_pattern_literal_int(t):
     'pattern : INTEGER'
