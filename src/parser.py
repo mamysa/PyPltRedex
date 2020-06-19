@@ -172,7 +172,6 @@ def p_define_reduction_relation(t):
     if len(t) == 8:
         t[0] = tlform.DefineReductionRelation(t[3], t[4], t[5], t[6])
     else:
-        print(t[5])
         t[0] = tlform.DefineReductionRelation(t[3], t[4], None, t[5])
 
 def p_define_reduction_relation_domain(t):

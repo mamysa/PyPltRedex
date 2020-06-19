@@ -97,56 +97,109 @@ class PatternCodegen(pattern.PatternTransformer):
             assignable_symbols = repeat.getmetadata(pattern.PatAssignableSymbols)
             assignable_symbols = assignable_symbols.syms
 
+
             symgen = SymGen()
             term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
-            matches, queue = rpy.gen_pyid_for('matches', 'queue')
-            m, h, t = rpy.gen_pyid_for('m', 'h', 't')
-            tmp0, tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(5, symgen)
+            if repeat.matchmode == pattern.RepeatMatchMode.Deterministic:
+                
+                tmp0, tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(5, symgen)
 
-            # tmp0 = match.increasedepth(...)
-            # tmp1 = (match, head, tail)
-            # matches = [ tmp1 ]
-            # queue   = [ tmp1 ]
-            # while len(queue) != 0:
-            #   m, h, t = queue.pop(0)
-            #   if h == t:
-            #      continue
-            #   m = m.copy()
-            #   tmp2 = term.get[h]
-            #   tmp3 = match_term(tmp2, m, h, t)
-            #   matches = matches + tmp3
-            #   queue   = queue + tmp3
-            # for m, h, t in matches:
-            #   tmp4 = m.decreasedepth(...)
-            # return matches
-            ifb = rpy.BlockBuilder()
-            ifb.Continue
+                # tmp0 = match.increasedepth(...)
+                # while True:
+                #   if head == tail:
+                #     break
+                #   tmp1 = term.get[head]
+                #   tmp2 = match_term(tmp1, match, head, tail)
+                #   if len(tmp2) == 0:
+                #     break
+                #   if len(tmp2) != 1:
+                #     raise Exception
+                #   tmp3 = tmp2[0]
+                #   match = tmp3[0]
+                #   head  = tmp3[1]
+                # tmp4 = match.decreasedepth(...)
+                # return (match, head, tail)
 
-            wb = rpy.BlockBuilder()
-            wb.AssignTo(m, h, t).MethodCall(queue, 'pop', rpy.PyInt(0))
-            wb.If.Equal(h, t).ThenBlock(ifb)
-            wb.AssignTo(m).MethodCall(m, MatchMethodTable.Copy)
-            wb.AssignTo(tmp2).MethodCall(term, TermMethodTable.Get, h)
-            wb.AssignTo(tmp3).FunctionCall(functionname, tmp2, m, h, t)
-            wb.AssignTo(matches).Add(matches, tmp3)
-            wb.AssignTo(queue).Add(queue, tmp3)
 
-            forb = rpy.BlockBuilder()
-            for bindable in assignable_symbols:
-                forb.AssignTo(tmp4).MethodCall(m, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
+                ifb0 = rpy.BlockBuilder()
+                ifb0.Break
 
-            fb = rpy.BlockBuilder()
-            for bindable in assignable_symbols:
-                fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.IncreaseDepth, rpy.PyString(bindable))
-            fb.AssignTo(tmp1).PyTuple(match, head, tail)
-            fb.AssignTo(matches).PyList(tmp1)
-            fb.AssignTo(queue).PyList(tmp1)
-            fb.While.LengthOf(queue).NotEqual(rpy.PyInt(0)).Block(wb)
-            fb.For(m, h, t).In(matches).Block(forb)
-            fb.Return.PyId(matches)
+                ifb1 = rpy.BlockBuilder()
+                ifb1.Break
 
-            self.modulebuilder.SingleLineComment('{} non-deterministic'.format(repr(repeat)))
-            self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
+                ifb2 = rpy.BlockBuilder()
+                ifb2.RaiseException('Expected to return single match')
+
+                wb = rpy.BlockBuilder()
+                wb.If.Equal(head, tail).ThenBlock(ifb0)
+                wb.AssignTo(tmp1).MethodCall(term, TermMethodTable.Get, head)
+                wb.AssignTo(tmp2).FunctionCall(functionname, tmp1, match, head, tail)
+                wb.If.LengthOf(tmp2).Equal(rpy.PyInt(0)).ThenBlock(ifb1)
+                wb.If.LengthOf(tmp2).NotEqual(rpy.PyInt(1)).ThenBlock(ifb2)
+                wb.AssignTo(tmp3).ArrayGet(tmp2, rpy.PyInt(0))
+                wb.AssignTo(match, head, tail).PyId(tmp3)
+
+
+                fb = rpy.BlockBuilder()
+                for bindable in assignable_symbols:
+                    fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.IncreaseDepth, rpy.PyString(bindable))
+                fb.While.Equal(rpy.PyBoolean(True), rpy.PyBoolean(True)).Block(wb)
+                for bindable in assignable_symbols:
+                    fb.AssignTo(tmp4).MethodCall(match, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
+                fb.Return.PyList(rpy.PyTuple(match, head, tail))
+
+                self.modulebuilder.SingleLineComment('{} deterministic'.format(repr(repeat)))
+                self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
+
+            if repeat.matchmode == pattern.RepeatMatchMode.NonDetermininstic:
+                matches, queue = rpy.gen_pyid_for('matches', 'queue')
+                m, h, t = rpy.gen_pyid_for('m', 'h', 't')
+                tmp0, tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(5, symgen)
+
+                # tmp0 = match.increasedepth(...)
+                # tmp1 = (match, head, tail)
+                # matches = [ tmp1 ]
+                # queue   = [ tmp1 ]
+                # while len(queue) != 0:
+                #   m, h, t = queue.pop(0)
+                #   if h == t:
+                #      continue
+                #   m = m.copy()
+                #   tmp2 = term.get[h]
+                #   tmp3 = match_term(tmp2, m, h, t)
+                #   matches = matches + tmp3
+                #   queue   = queue + tmp3
+                # for m, h, t in matches:
+                #   tmp4 = m.decreasedepth(...)
+                # return matches
+                ifb = rpy.BlockBuilder()
+                ifb.Continue
+
+                wb = rpy.BlockBuilder()
+                wb.AssignTo(m, h, t).MethodCall(queue, 'pop', rpy.PyInt(0))
+                wb.If.Equal(h, t).ThenBlock(ifb)
+                wb.AssignTo(m).MethodCall(m, MatchMethodTable.Copy)
+                wb.AssignTo(tmp2).MethodCall(term, TermMethodTable.Get, h)
+                wb.AssignTo(tmp3).FunctionCall(functionname, tmp2, m, h, t)
+                wb.AssignTo(matches).Add(matches, tmp3)
+                wb.AssignTo(queue).Add(queue, tmp3)
+
+                forb = rpy.BlockBuilder()
+                for bindable in assignable_symbols:
+                    forb.AssignTo(tmp4).MethodCall(m, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
+
+                fb = rpy.BlockBuilder()
+                for bindable in assignable_symbols:
+                    fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.IncreaseDepth, rpy.PyString(bindable))
+                fb.AssignTo(tmp1).PyTuple(match, head, tail)
+                fb.AssignTo(matches).PyList(tmp1)
+                fb.AssignTo(queue).PyList(tmp1)
+                fb.While.LengthOf(queue).NotEqual(rpy.PyInt(0)).Block(wb)
+                fb.For(m, h, t).In(matches).Block(forb)
+                fb.Return.PyId(matches)
+
+                self.modulebuilder.SingleLineComment('{} non-deterministic'.format(repr(repeat)))
+                self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
 
     def transformPatSequence(self, seq):
         assert isinstance(seq, pattern.PatSequence)

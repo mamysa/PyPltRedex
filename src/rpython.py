@@ -129,6 +129,9 @@ class IfStmt(Stmt):
 class ContinueStmt(Stmt):
     pass
 
+class BreakStmt(Stmt):
+    pass
+
 class PrintStmt(Stmt):
     def __init__(self, value):
         self.value = value 
@@ -164,6 +167,12 @@ class CallMethodExpr(Expr):
         self.name = name
         self.args = args 
 
+class ArrayGetExpr(Expr):
+    def __init__(self, array, index):
+        assert isinstance(array, PyId)
+        assert isinstance(array, (PyId, PyInt))
+        self.array = array
+        self.index = index
 
 class NewExpr(Expr):
     def __init__(self, typename, args):
@@ -306,9 +315,20 @@ class BlockBuilder:
                 stmt = AssignStmt(self.args, PyTuple(*initializer))
                 self.parent.statements.append(stmt) 
 
+            def PyId(self, ident):
+                stmt = AssignStmt(self.args, ident)
+                self.parent.statements.append(stmt) 
+
+
+
             def New(self, typename, *args):
                 stmt = AssignStmt(self.args, NewExpr(typename, list(args)))
                 self.parent.statements.append(stmt) 
+
+            def ArrayGet(self, array, index):
+                stmt = AssignStmt(self.args, ArrayGetExpr(array, index))
+                self.parent.statements.append(stmt) 
+
 
         return AssignToPhase1(list(args), parent=self)
 
@@ -330,6 +350,12 @@ class BlockBuilder:
     @ensure_not_previously_built
     def Continue(self):
         self.statements.append( ContinueStmt() )
+
+
+    @property
+    @ensure_not_previously_built
+    def Break(self):
+        self.statements.append( BreakStmt() )
 
     @ensure_not_previously_built
     def Print(self, value):
@@ -434,7 +460,6 @@ class IfOrWhileBuilderPreStage1:
 
     def GreaterEqual(self, lhs, rhs):
         return self.lastprestage(BinaryExpr(BinaryOp.GrEq, lhs, rhs), self.statements)
-
 
     def NotContains(self, value):
         class IfOrWhileBuilderPreStage3:
@@ -650,6 +675,11 @@ class RPythonWriter:
         self.emit('continue')
         self.emit_newline()
 
+    def visitBreakStmt(self, stmt):
+        self.emit_indentstring()
+        self.emit('break')
+        self.emit_newline()
+
     def visitPrintStmt(self, stmt):
         assert isinstance(stmt, PrintStmt)
         self.emit_indentstring()
@@ -716,7 +746,6 @@ class RPythonWriter:
             self.emit_space()
         self.emit('in')
         self.emit_space()
-        print(expr.rhs)
         self.visit(expr.rhs)
 
     def visitLenExpr(self, expr):
@@ -725,6 +754,13 @@ class RPythonWriter:
         self.emit('(')
         self.visit(expr.value)
         self.emit(')')
+
+    def visitArrayGetExpr(self, expr):
+        assert isinstance(expr, ArrayGetExpr)
+        self.visit(expr.array)
+        self.emit('[')
+        self.visit(expr.index)
+        self.emit(']')
 
     def visitPyId(self, ident):
         assert isinstance(ident, PyId)

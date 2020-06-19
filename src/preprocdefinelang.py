@@ -180,8 +180,9 @@ class ConstraintCheckInserter(pattern.PatternTransformer):
         return nseq, syms[0] 
 
     def transformRepeat(self, repeat):
+        assert isinstance(repeat, pattern.Repeat)
         pat, sym = self.transform(repeat.pat)
-        nrepeat = pattern.Repeat(pat).copymetadatafrom(repeat)
+        nrepeat = pattern.Repeat(pat, repeat.matchmode).copymetadatafrom(repeat)
         return nrepeat, sym
 
     def transformInHole(self, inhole):
@@ -456,7 +457,8 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                 # append the last unprocessed element
                 last = partition[-1]
                 if isinstance(last, pattern.Repeat):
-                    last = pattern.Repeat(last.pat, pattern.RepeatMatchMode.Deterministic).copymetadatafrom(last)
+                    if not isinstance(last.pat, pattern.InHole):
+                        last = pattern.Repeat(last.pat, pattern.RepeatMatchMode.Deterministic).copymetadatafrom(last)
                 nseq.append(last)
             else: 
                 nseq += partition
@@ -493,7 +495,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
                 pat = resolver.transform(pat)
                 pat = remover.transform(pat)
                 pat = uniquify.transform(pat)
-                #pat = MakeEllipsisDeterministic(form, pat).run()
+                pat = MakeEllipsisDeterministic(form, pat).run()
                 pat = AssignableSymbolExtractor(pat).run()
                 npatterns.append(pat)
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
@@ -505,7 +507,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         resolver = NtResolver(ntsyms)
         pat = resolver.transform(pat)
         pat = EllipsisDepthChecker(pat).run()
-        #pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat).run()
+        pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat).run()
         symbols = pat.getmetadata(pattern.PatAssignableSymbolDepths)
         for sym in symbols.syms:
             pat = ConstraintCheckInserter(pat, sym).run()

@@ -74,7 +74,6 @@ class TermAnnotate(term.TermTransformer):
 
     def transformUnresolvedSym(self, node):
         assert isinstance(node, term.UnresolvedSym)
-        print(self.variables)
         if node.sym not in self.variables:
             sym = self.symgen.get('{}_lit'.format(self.idof))
             t = term.TermLiteral(term.TermLiteralKind.Variable, node.sym)

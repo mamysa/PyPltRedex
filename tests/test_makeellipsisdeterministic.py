@@ -83,6 +83,20 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
             ]),
         ])
 
+        #( number ... number ...) 
+        pat = PatSequence([
+                Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number')), 
+                Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number')), 
+            ])
+
+        expected = PatSequence([
+                Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number')), 
+                Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number'), RepeatMatchMode.Deterministic), 
+            ])
+
+        actual = MakeEllipsisDeterministic(lang, pat).run()
+        self.assertEqual(actual, expected)
+
         # (e e ... m ... n)  no deterministm possible
         pat = PatSequence([
                 Nt('e', 'e'), 
@@ -104,7 +118,6 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                 Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number')), 
                 Repeat(Nt('m', 'm'), RepeatMatchMode.Deterministic), 
             ])
-
 
         actual = MakeEllipsisDeterministic(lang, pat).run()
         self.assertEqual(actual, expected)
