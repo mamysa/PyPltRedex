@@ -175,7 +175,6 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
         actual = MakeEllipsisDeterministic(lang, pat).run()
         self.assertEqual(actual, expected)
 
-
         #((e ...) ... (m ...) ... (m ... h ...) ...) -> (m ... h ...) term can be matched deterministically
         pat = PatSequence([
                 Repeat(PatSequence([

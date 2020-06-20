@@ -22,6 +22,7 @@ def make_arg_obj(src):
 
 def gentestcase(filename):
     def testcase(self):
+        print('\n')
         print('------------------------------- Run {} ---------------'.format(filename))
         entrypoint(make_arg_obj(filename))
         exitcode = runpython('{}/out.py'.format(BASEDIR))

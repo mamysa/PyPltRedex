@@ -308,14 +308,14 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
         def __init__(self, closures):
             self.closures = closures
 
-        def check(self, pat1, pat2):
+        def aredifferent(self, pat1, pat2):
             assert isinstance(pat1, pattern.Pat)
             assert isinstance(pat2, pattern.Pat)
-            method_name = 'check' + pat1.__class__.__name__
+            method_name = 'aredifferent' + pat1.__class__.__name__
             method_ref = getattr(self, method_name)
             return method_ref(pat1, pat2)
 
-        def checkPatSequence(self, pat1, pat2):
+        def aredifferentPatSequence(self, pat1, pat2):
             assert isinstance(pat1, pattern.PatSequence)
             if isinstance(pat2, pattern.PatSequence):
                 p1 = pat1.get_nonoptional_matches()
@@ -323,12 +323,12 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                 if len(p1) != len(p2):
                     return True
                 for i in range(len(p1)):
-                    if self.check(p1[i], p2[i]):
+                    if self.aredifferent(p1[i], p2[i]):
                         return True
-                return False
+                return False 
             return True
 
-        def checkNt(self, pat1, pat2):
+        def aredifferentNt(self, pat1, pat2):
             assert isinstance(pat1, pattern.Nt)
             if isinstance(pat2, pattern.Nt):
                 pat1cl = self.closures[pat1.prefix]
@@ -340,11 +340,11 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
             return True
 
         # TODO figure out how to handle adjacent in-hole patterns properly.
-        def checkInHole(self, pat1, pat2):
+        def aredifferentInHole(self, pat1, pat2):
             assert isinstance(pat1, pattern.InHole)
             return False
 
-        def checkBuiltInPat(self, pat1, pat2):
+        def aredifferentBuiltInPat(self, pat1, pat2):
             assert isinstance(pat1, pattern.BuiltInPat)
             if isinstance(pat2, pattern.BuiltInPat):
                 return pat1.kind != pat2.kind
@@ -353,7 +353,7 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                 return not pat1.prefix in pat2cl
             return True
 
-        def checkLit(self, pat1, pat2):
+        def aredifferentLit(self, pat1, pat2):
             assert isinstance(pat1, pattern.Lit)
             if isinstance(pat2, pattern.Lit):
                 if pat1.kind == pat2.kind:
@@ -449,7 +449,7 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                             p1, p2 = pat1.pat, pat2.pat
                         else:
                             p1, p2 = pat1.pat, pat2
-                        if psc.check(p1, p2):
+                        if psc.aredifferent(p1, p2):
                             nrep = pattern.Repeat(p1, pattern.RepeatMatchMode.Deterministic).copymetadatafrom(pat1)
                             nseq.append(nrep)
                         else:
@@ -580,7 +580,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 #    def compareNt(self, this, other):
 #        if isinstance(other, ast.Nt):
 #            return this.prefix == other.prefix
-#        return False
+#        return Falseut99.org/
 #
 #    def compareRepeat(self, this, other):
 #        if isinstance(other, ast.Repeat):
