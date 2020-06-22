@@ -1,8 +1,9 @@
 import unittest
-from src.preprocdefinelang import MakeEllipsisDeterministic
+from src.preprocdefinelang import MakeEllipsisDeterministic, TopLevelProcessor
 from src.pat import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode
-from src.tlform import DefineLanguage
+from src.tlform import DefineLanguage, Module
 from src.digraph import DiGraph
+from src.context import CompilationContext
 
 class TestMakeEllipsisDeterministic(unittest.TestCase):
     def test_computeclosure(self):
@@ -26,7 +27,12 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
             ]),
         ])
 
-        closure = lang.closure()
+        module = Module([lang])
+        context = CompilationContext()
+        module, context = TopLevelProcessor(module, context).run()
+        lang = module.tlforms[0]
+        assert isinstance(lang, DefineLanguage)
+        closure = lang.closure
 
         self.assertSetEqual(closure['m'], {'e', 'n', 'number'})
         self.assertSetEqual(closure['e'], {     'n', 'number'})
@@ -82,6 +88,12 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
             ]),
         ])
 
+        module = Module([lang])
+        context = CompilationContext()
+        module, context = TopLevelProcessor(module, context).run()
+        lang = module.tlforms[0]
+        assert isinstance(lang, DefineLanguage)
+
         #( number ... number ...) 
         pat = PatSequence([
                 Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number')), 
@@ -92,6 +104,9 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                 Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number')), 
                 Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number'), RepeatMatchMode.Deterministic), 
             ])
+
+        
+
 
         actual = MakeEllipsisDeterministic(lang, pat).run()
         self.assertEqual(actual, expected)

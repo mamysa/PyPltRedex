@@ -403,7 +403,8 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
 
     def transformPatSequence(self, sequence):
         assert isinstance(sequence, pattern.PatSequence)
-        closures = self.definelanguage.closure()
+        closures = self.definelanguage.closure
+        assert self.definelanguage.closure != None
 
         # recursively transform patterns first.
         tseq = []
@@ -455,6 +456,50 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             forms.append( self._visit(form) )
         return tlform.Module(forms), self.context
 
+
+    def __definelanguage_checkntcycles(self, form, graph):
+        assert isinstance(form, tlform.DefineLanguage)
+
+        class DfsVisitor:
+            def __init__(self, nts, graph):
+                self.nts = nts
+                self.time = 0
+                self.graph = graph
+                self.d = dict((g, -1) for g in graph.keys())
+                self.f = dict((g, -1) for g in graph.keys())
+
+            def gettime(self):
+                t = self.time 
+                self.time += 1
+                return t
+
+            def reportcycle(self, path, v):
+                idx = path.index(v)
+                assert v in self.nts 
+                for p in path[idx:]:
+                    assert p in self.nts
+                cyclepath = path[idx:] + [v]
+                raise Exception('nt cycle {}'.format(cyclepath))
+
+            def visit(self, v):
+                self.__visitimpl(v, [])
+
+            def __visitimpl(self, v, path):
+                if self.d[v] == -1: 
+                    path.append(v)
+                    self.d[v] = self.gettime()
+                    for adjv in self.graph.get(v, set([])):
+                        self.__visitimpl(adjv, path)
+                        if self.f[adjv] == -1:
+                            self.reportcycle(path, adjv)
+                    self.f[v] = self.gettime()
+                    path.pop()
+
+        nts = form.ntsyms()
+        for nt in nts:
+            v = DfsVisitor(nts, graph)
+            v.visit(nt)
+
     def _visitDefineLanguage(self, form):
         assert isinstance(form, tlform.DefineLanguage)
         self.definelanguages[form.name] = form 
@@ -468,11 +513,22 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
                 pat = resolver.transform(pat)
                 pat = remover.transform(pat)
                 pat = uniquify.transform(pat)
+                npatterns.append(pat)
+            ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
+
+        graph = form.computeclosure()
+        self.__definelanguage_checkntcycles(form, graph)
+
+        for nt, ntdef in form.nts.items():
+            npatterns = []
+            for pat in ntdef.patterns:
+                assert form.closure != None
                 pat = MakeEllipsisDeterministic(form, pat).run()
                 pat = AssignableSymbolExtractor(pat).run()
                 npatterns.append(pat)
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
         self.context.add_variables_mentioned(form.name, resolver.variables)
+
         return form
 
     def __processpattern(self, pat, languagename):
@@ -480,6 +536,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         resolver = NtResolver(ntsyms)
         pat = resolver.transform(pat)
         pat = EllipsisDepthChecker(pat).run()
+        assert self.definelanguages[languagename].closure != None
         pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat).run()
         symbols = pat.getmetadata(pattern.PatAssignableSymbolDepths)
         for sym in symbols.syms:

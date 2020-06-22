@@ -48,13 +48,15 @@ class DefineLanguage(TopLevelForm):
             if ntsym in self.nts.keys():
                 raise ValueError('define-language: same non-terminal defined twice: {}'.format(ntsym))
             self.nts[ntsym] = ntdef
-
-        self.__closure = self._compute_closure()
+            self.closure = None
 
     ## Should move this out of here 
-    def _compute_closure(self):
+    def computeclosure(self):
         # compute initial sets.
         closureof = {}
+        closureof['number'] = set([])
+        closureof['hole'] = set([])
+        closureof['variable-not-otherwise-mentioned'] = set([])
         for ntdef in self.nts.values():
             syms = []
             assert isinstance(ntdef, DefineLanguage.NtDefinition)
@@ -64,6 +66,9 @@ class DefineLanguage(TopLevelForm):
                 if isinstance(pat, pattern.BuiltInPat):
                     syms.append(pat.prefix)
             closureof[ntdef.get_nt_sym()] = set(syms)
+        
+        import copy
+        x = copy.deepcopy(closureof)
 
         # iteratively compute closure.
         changed = True
@@ -77,11 +82,9 @@ class DefineLanguage(TopLevelForm):
                         changed = True
                     closure = closureof_sym 
                 closureof[sym] = closure
-        return closureof
+        self.closure = closureof
+        return x
     
-    def closure(self):
-        return self.__closure
-
     def ntsyms(self):
         return set(self.nts.keys())
 
