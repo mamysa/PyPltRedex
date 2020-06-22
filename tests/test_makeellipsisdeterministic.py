@@ -26,8 +26,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
             ]),
         ])
 
-        med = MakeEllipsisDeterministic(lang, Nt('e', 'e'))
-        closure = med._compute_closure()
+        closure = lang.closure()
 
         self.assertSetEqual(closure['m'], {'e', 'n', 'number'})
         self.assertSetEqual(closure['e'], {     'n', 'number'})

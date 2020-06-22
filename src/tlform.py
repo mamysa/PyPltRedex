@@ -1,4 +1,4 @@
-import src.pat as pat
+import src.pat as pattern
 
 # object containing other top-level forms...
 class Module:
@@ -25,7 +25,7 @@ class DefineLanguage(TopLevelForm):
     # only used by define-language
     class NtDefinition:
         def __init__(self, nt, patterns):
-            assert isinstance(nt, pat.Nt)
+            assert isinstance(nt, pattern.Nt)
             self.nt = nt
             self.patterns = patterns
 
@@ -48,6 +48,39 @@ class DefineLanguage(TopLevelForm):
             if ntsym in self.nts.keys():
                 raise ValueError('define-language: same non-terminal defined twice: {}'.format(ntsym))
             self.nts[ntsym] = ntdef
+
+        self.__closure = self._compute_closure()
+
+    ## Should move this out of here 
+    def _compute_closure(self):
+        # compute initial sets.
+        closureof = {}
+        for ntdef in self.nts.values():
+            syms = []
+            assert isinstance(ntdef, DefineLanguage.NtDefinition)
+            for pat in ntdef.patterns:
+                if isinstance(pat, pattern.Nt):
+                    syms.append(pat.prefix)
+                if isinstance(pat, pattern.BuiltInPat):
+                    syms.append(pat.prefix)
+            closureof[ntdef.get_nt_sym()] = set(syms)
+
+        # iteratively compute closure.
+        changed = True
+        while changed:
+            changed = False
+            for sym, closure in closureof.items():
+                for elem in closure:
+                    closureof_elem = closureof.get(elem, set([])) # might be built-in pattern.
+                    closureof_sym = closure.union(closureof_elem)
+                    if closureof_sym != closure:
+                        changed = True
+                    closure = closureof_sym 
+                closureof[sym] = closure
+        return closureof
+    
+    def closure(self):
+        return self.__closure
 
     def ntsyms(self):
         return set(self.nts.keys())

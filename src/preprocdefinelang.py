@@ -366,33 +366,6 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
         self.definelanguage = definelanguage 
         self.pat = pat
 
-    ## Should move this out of here 
-    def _compute_closure(self):
-        # compute initial sets.
-        closureof = {}
-        for ntdef in self.definelanguage.nts.values():
-            syms = []
-            assert isinstance(ntdef, tlform.DefineLanguage.NtDefinition)
-            for pat in ntdef.patterns:
-                if isinstance(pat, pattern.Nt):
-                    syms.append(pat.prefix)
-                if isinstance(pat, pattern.BuiltInPat):
-                    syms.append(pat.prefix)
-            closureof[ntdef.get_nt_sym()] = set(syms)
-
-        # iteratively compute closure.
-        changed = True
-        while changed:
-            changed = False
-            for sym, closure in closureof.items():
-                for elem in closure:
-                    closureof_elem = closureof.get(elem, set([])) # might be built-in pattern.
-                    closureof_sym = closure.union(closureof_elem)
-                    if closureof_sym != closure:
-                        changed = True
-                    closure = closureof_sym 
-                closureof[sym] = closure
-        return closureof
 
     # Partitions sequence of terms 
     def _partitionseq(self, seq):
@@ -430,7 +403,7 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
 
     def transformPatSequence(self, sequence):
         assert isinstance(sequence, pattern.PatSequence)
-        closures = self._compute_closure()
+        closures = self.definelanguage.closure()
 
         # recursively transform patterns first.
         tseq = []
