@@ -326,7 +326,7 @@ class InHoleChecker(pattern.PatternTransformer):
                         return InHoleChecker.NumberOfHoles.One
                     return InHoleChecker.NumberOfHoles.Zero
                 return self.transform(p)
-            ntdef = self.definelanguage.nts[node.sym]
+            ntdef = self.definelanguage.nts[node.prefix]
 
             # All patterns making up Nt definition should match exactly one hole.
             for pat in ntdef.patterns:
