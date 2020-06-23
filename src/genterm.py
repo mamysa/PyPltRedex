@@ -1,6 +1,6 @@
 import src.term as term
 import src.rpython as rpy
-from src.symgen import SymGen
+from src.util import SymGen
 from src.context import CompilationContext
 
 # Need to annotate term template to ease code generation. Given a pattern variable n

@@ -1,7 +1,7 @@
 import src.pat as pattern
 import src.rpython as rpy
 
-from src.symgen import SymGen
+from src.util import SymGen
 from src.context import CompilationContext
 
 from src.gencommon import TermHelperFuncs, MatchHelperFuncs, \

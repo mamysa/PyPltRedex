@@ -6,7 +6,7 @@ import src.pat as pattern
 import src.genterm as genterm
 import src.genpat  as genpat
 
-from src.symgen  import SymGen
+from src.util import SymGen
 from src.context import CompilationContext
 
 from src.gencommon import TermHelperFuncs, MatchHelperFuncs, \

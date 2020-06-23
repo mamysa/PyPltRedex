@@ -1,5 +1,5 @@
 import src.rpython as rpy
-from src.symgen import SymGen
+from src.util import SymGen
 
 class CompilationContext:
     def __init__(self):

@@ -8,3 +8,6 @@ class SymGen:
         val = self.syms[var]
         self.syms[var] += 1
         return '{}{}'.format(var, val)
+
+class CompilationError(Exception):
+    pass

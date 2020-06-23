@@ -2,7 +2,6 @@ import unittest
 from src.preprocdefinelang import MakeEllipsisDeterministic, TopLevelProcessor
 from src.pat import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode
 from src.tlform import DefineLanguage, Module
-from src.digraph import DiGraph
 from src.context import CompilationContext
 
 class TestMakeEllipsisDeterministic(unittest.TestCase):

@@ -1,10 +1,9 @@
 import src.tlform as tlform
 import src.pat as pattern
 import src.genterm as genterm
-from src.symgen import SymGen
+from src.util import SymGen, CompilationError
 import sys
 from src.context import CompilationContext
-from src.digraph import DiGraph
 import enum
 
 #FIXME Ellipsis depth checker should not annotate terms - need to annotate terms 
@@ -479,7 +478,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
                 for p in path[idx:]:
                     assert p in self.nts
                 cyclepath = path[idx:] + [v]
-                raise Exception('nt cycle {}'.format(cyclepath))
+                raise CompilationError('nt cycle {}'.format(cyclepath))
 
             def visit(self, v):
                 self.__visitimpl(v, [])
