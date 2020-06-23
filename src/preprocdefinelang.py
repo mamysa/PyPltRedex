@@ -267,6 +267,105 @@ class AssignableSymbolExtractor(pattern.PatternTransformer):
         return node, set([]) 
 
 
+# This pass ensures pat1 in each (in-hole pat1 pat2) binds exactly one hole.
+# Pattern is not modified.
+class InHoleChecker(pattern.PatternTransformer):
+
+    class NumberOfHoles(enum.IntEnum):
+        Zero = 0
+        One  = 1
+        Many = 2
+
+
+    class InHolePatChecker(pattern.PatternTransformer):
+        def __init__(self, definelanguage, pattern, closure):
+            self.definelanguage = definelanguage
+            self.pattern = pattern
+            self.closure = closure
+
+        def add(self, n1, n2):
+            assert isinstance(n1, InHoleChecker.NumberOfHoles)
+            assert isinstance(n2, InHoleChecker.NumberOfHoles)
+            num = min(n1.value + n2.value, InHoleChecker.NumberOfHoles.Many.value)
+            return InHoleChecker.NumberOfHoles(num)
+
+        def run(self):
+            return self.transform(self.pattern)
+
+        def transformPatSequence(self, node):
+            assert isinstance(node, pattern.PatSequence)
+            numholes = InHoleChecker.NumberOfHoles.Zero
+            for pat in node.seq:
+                numholes = self.add(numholes, self.transform(pat))
+            return numholes
+
+        def transformRepeat(self, node):
+            assert isinstance(node, pattern.Repeat)
+            numholes = self.transform(node.pat)
+            if numholes == InHoleChecker.NumberOfHoles.One:
+                return InHoleChecker.NumberOfHoles.Many 
+            return numholes
+
+        def transformInHole(self, node):
+            assert isinstance(node, pattern.InHole)
+            return InHoleChecker.NumberOfHoles.Zero
+
+        def transformBuiltInPat(self, node):
+            assert isinstance(node, pattern.BuiltInPat)
+            if node.kind == pattern.BuiltInPatKind.Hole:
+                return InHoleChecker.NumberOfHoles.One
+            return InHoleChecker.NumberOfHoles.Zero
+
+        def transformNt(self, node):
+            print('here')
+            assert isinstance(node, pattern.Nt)
+            # Intercept all transform calls to Non-terminals and do closure lookup instead.
+            def visitsubpat(p):
+                if isinstance(p, pattern.Nt):
+                    if 'hole' in self.closure[p.prefix]:
+                        return InHoleChecker.NumberOfHoles.One
+                    return InHoleChecker.NumberOfHoles.Zero
+                return self.transform(p)
+            ntdef = self.definelanguage.nts[node.sym]
+
+            # All patterns making up Nt definition should match exactly one hole.
+            for pat in ntdef.patterns:
+                numholes = InHoleChecker.NumberOfHoles.Zero
+                if isinstance(pat, pattern.PatSequence):
+                    for p in pat.seq:
+                        numholes = self.add(numholes, visitsubpat(p))
+                else:
+                    numholes = visitsubpat(pat)
+                if numholes != InHoleChecker.NumberOfHoles.One:
+                    return numholes
+            return InHoleChecker.NumberOfHoles.One 
+
+        def transformLit(self, node):
+            return InHoleChecker.NumberOfHoles.Zero
+
+        def transformCheckConstraint(self, node):
+            return InHoleChecker.NumberOfHoles.Zero
+
+
+    def __init__(self, definelanguage, pattern, closure):
+        self.definelanguage = definelanguage
+        self.pattern = pattern
+        self.closure = closure
+
+    def run(self):
+        self.transform(self.pattern)
+
+    def transformInHole(self, node):
+        assert isinstance(node, pattern.InHole)
+        pat1 = self.transform(node.pat1)
+        numholes = self.InHolePatChecker(self.definelanguage, node.pat1, self.closure).run()
+        print(numholes)
+        if numholes != self.NumberOfHoles.One:
+            raise CompilationError('Pattern {} in {} does not match exactly one hole'.format(repr(node.pat1), repr(node)))
+        return node
+
+
+
 # This pass attempts to make consecutive ellipses match deterministically.
 # Here's the example:
 # Given language (m ::= (* m m) e) (e ::= (+ e e) n) (n ::= number), ellipses in pattern 
@@ -522,6 +621,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             npatterns = []
             for pat in ntdef.patterns:
                 assert form.closure != None
+                InHoleChecker(form, pat, form.closure).run()
                 pat = MakeEllipsisDeterministic(form, pat).run()
                 pat = AssignableSymbolExtractor(pat).run()
                 npatterns.append(pat)
@@ -536,6 +636,10 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         pat = resolver.transform(pat)
         pat = EllipsisDepthChecker(pat).run()
         assert self.definelanguages[languagename].closure != None
+        lang = self.definelanguages[languagename]
+        InHoleChecker(lang, pat, lang.closure).run()
+
+
         pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat).run()
         symbols = pat.getmetadata(pattern.PatAssignableSymbolDepths)
         for sym in symbols.syms:
