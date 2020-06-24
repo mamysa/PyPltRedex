@@ -266,95 +266,120 @@ class AssignableSymbolExtractor(pattern.PatternTransformer):
     def transformLit(self, node):
         return node, set([]) 
 
+# --------------------------------------------------------------------
+class NumberOfHoles(enum.IntEnum):
+    Zero = 0
+    One  = 1
+    Many = 2
+
+    @staticmethod
+    def add(n1, n2):
+        assert isinstance(n1, NumberOfHoles)
+        assert isinstance(n2, NumberOfHoles)
+        num = min(n1.value + n2.value, NumberOfHoles.Many.value)
+        return NumberOfHoles(num)
+
+    @staticmethod
+    def min(n1, n2):
+        return NumberOfHoles(min(n1.value, n2.value))
+
+    @staticmethod
+    def max(n1, n2):
+        return NumberOfHoles(max(n1.value, n2.value))
+
+# Annotate each pattern with number of holes it matches.
+class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
+    def __init__(self, definelanguage, closure):
+        assert isinstance(definelanguage, tlform.DefineLanguage)
+        self.definelanguage = definelanguage
+        self.closure = closure
+
+    def compute_initial_values(self):
+        self.nts = {}
+
+        def transformNtOverride(pat2):
+            if 'hole' in self.closure[pat2.prefix]:
+                return NumberOfHoles.One, NumberOfHoles.One
+            return NumberOfHoles.Zero, NumberOfHoles.Zero
+
+        originaltransformNt = self.transformNt
+        self.transformNt = transformNtOverride
+        for nt, ntdef in self.definelanguage.nts.items():
+            ntmin, ntmax = NumberOfHoles.Many, NumberOfHoles.Zero
+            for pat in ntdef.patterns:
+                pmin, pmax = self.transform(pat)
+                ntmin = NumberOfHoles.min(ntmin, pmin)
+                ntmax = NumberOfHoles.max(ntmax, pmax)
+            self.nts[nt] = (ntmin, ntmax)
+        self.transformNt = originaltransformNt 
+
+
+    def run(self):
+        self.compute_initial_values()
+        changed = True
+        while changed:
+            changed = False
+            newnts = {}
+            for nt, ntdef in self.definelanguage.nts.items():
+                ntmin, ntmax = self.nts[nt]
+                for pat in ntdef.patterns:
+                    pmin, pmax = self.transform(pat)
+                    ntmin = NumberOfHoles.min(ntmin, pmin)
+                    ntmax = NumberOfHoles.max(ntmax, pmax)
+                pnums = (ntmin, ntmax)
+                newnts[nt] = pnums 
+                if pnums != self.nts[nt]:
+                    changed = True
+            self.nts = newnts
+        print(self.nts)
+
+    def transformPatSequence(self, node):
+        assert isinstance(node, pattern.PatSequence)
+        psmin, psmax = NumberOfHoles.Zero, NumberOfHoles.Zero
+        for pat in node.seq:
+            pmin, pmax = self.transform(pat)
+            psmin = NumberOfHoles.add(psmin, pmin)
+            psmax = NumberOfHoles.add(psmax, pmax)
+        return psmin, psmax
+
+    def transformRepeat(self, node):
+        assert isinstance(node, pattern.Repeat)
+        pmin, pmax = self.transform(node.pat)
+        pmin = NumberOfHoles.Many if pmin == NumberOfHoles.One else pmin
+        pmax = NumberOfHoles.Many if pmax == NumberOfHoles.One else pmax 
+        print(pmin)
+        return pmin, pmax
+
+    def transformInHole(self, node):
+        assert isinstance(node, pattern.InHole)
+        return NumberOfHoles.Zero, NumberOfHoles.Zero
+
+    def transformBuiltInPat(self, node):
+        assert isinstance(node, pattern.BuiltInPat)
+        if node.kind == pattern.BuiltInPatKind.Hole:
+            return NumberOfHoles.One, NumberOfHoles.One
+        return NumberOfHoles.Zero, NumberOfHoles.Zero
+
+    def transformNt(self, node):
+        return self.nts[node.prefix]
+
+    def transformLit(self, node):
+        return NumberOfHoles.Zero, NumberOfHoles.Zero
+
 
 # This pass ensures pat1 in each (in-hole pat1 pat2) binds exactly one hole.
 # Pattern is not modified.
 class InHoleChecker(pattern.PatternTransformer):
-
-    class NumberOfHoles(enum.IntEnum):
-        Zero = 0
-        One  = 1
-        Many = 2
-
-
-    class InHolePatChecker(pattern.PatternTransformer):
-        def __init__(self, definelanguage, pattern, closure):
-            self.definelanguage = definelanguage
-            self.pattern = pattern
-            self.closure = closure
-
-        def add(self, n1, n2):
-            assert isinstance(n1, InHoleChecker.NumberOfHoles)
-            assert isinstance(n2, InHoleChecker.NumberOfHoles)
-            num = min(n1.value + n2.value, InHoleChecker.NumberOfHoles.Many.value)
-            return InHoleChecker.NumberOfHoles(num)
-
-        def run(self):
-            return self.transform(self.pattern)
-
-        def transformPatSequence(self, node):
-            assert isinstance(node, pattern.PatSequence)
-            numholes = InHoleChecker.NumberOfHoles.Zero
-            for pat in node.seq:
-                numholes = self.add(numholes, self.transform(pat))
-            return numholes
-
-        def transformRepeat(self, node):
-            assert isinstance(node, pattern.Repeat)
-            numholes = self.transform(node.pat)
-            if numholes == InHoleChecker.NumberOfHoles.One:
-                return InHoleChecker.NumberOfHoles.Many 
-            return numholes
-
-        def transformInHole(self, node):
-            assert isinstance(node, pattern.InHole)
-            return InHoleChecker.NumberOfHoles.Zero
-
-        def transformBuiltInPat(self, node):
-            assert isinstance(node, pattern.BuiltInPat)
-            if node.kind == pattern.BuiltInPatKind.Hole:
-                return InHoleChecker.NumberOfHoles.One
-            return InHoleChecker.NumberOfHoles.Zero
-
-        def transformNt(self, node):
-            print('here')
-            assert isinstance(node, pattern.Nt)
-            # Intercept all transform calls to Non-terminals and do closure lookup instead.
-            def visitsubpat(p):
-                if isinstance(p, pattern.Nt):
-                    if 'hole' in self.closure[p.prefix]:
-                        return InHoleChecker.NumberOfHoles.One
-                    return InHoleChecker.NumberOfHoles.Zero
-                return self.transform(p)
-            ntdef = self.definelanguage.nts[node.prefix]
-
-            # All patterns making up Nt definition should match exactly one hole.
-            for pat in ntdef.patterns:
-                numholes = InHoleChecker.NumberOfHoles.Zero
-                if isinstance(pat, pattern.PatSequence):
-                    for p in pat.seq:
-                        numholes = self.add(numholes, visitsubpat(p))
-                else:
-                    numholes = visitsubpat(pat)
-                if numholes != InHoleChecker.NumberOfHoles.One:
-                    return numholes
-            return InHoleChecker.NumberOfHoles.One 
-
-        def transformLit(self, node):
-            return InHoleChecker.NumberOfHoles.Zero
-
-        def transformCheckConstraint(self, node):
-            return InHoleChecker.NumberOfHoles.Zero
-
-
     def __init__(self, definelanguage, pattern, closure):
         self.definelanguage = definelanguage
         self.pattern = pattern
         self.closure = closure
 
     def run(self):
+        return 
         self.transform(self.pattern)
 
+    """
     def transformInHole(self, node):
         assert isinstance(node, pattern.InHole)
         pat1 = self.transform(node.pat1)
@@ -363,6 +388,7 @@ class InHoleChecker(pattern.PatternTransformer):
         if numholes != self.NumberOfHoles.One:
             raise CompilationError('Pattern {} in {} does not match exactly one hole'.format(repr(node.pat1), repr(node)))
         return node
+    """
 
 
 
@@ -616,12 +642,14 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
         graph = form.computeclosure()
         self.__definelanguage_checkntcycles(form, graph)
+        DefineLanguageCalculateNumberOfHoles(form, form.closure).run()
+        sys.exit(0)
+
 
         for nt, ntdef in form.nts.items():
             npatterns = []
             for pat in ntdef.patterns:
                 assert form.closure != None
-                InHoleChecker(form, pat, form.closure).run()
                 pat = MakeEllipsisDeterministic(form, pat).run()
                 pat = AssignableSymbolExtractor(pat).run()
                 npatterns.append(pat)

@@ -279,3 +279,9 @@ class PatAssignableSymbolDepths(PatMetadata):
     def __init__(self, syms):
         super().__init__()
         self.syms = syms
+
+class PatNumHoles(PatMetadata):
+    def __init__(self, numholes):
+        super().__init__()
+        self.numholes = numholes 
+
