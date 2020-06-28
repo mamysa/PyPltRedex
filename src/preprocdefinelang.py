@@ -271,6 +271,7 @@ class NumberOfHoles(enum.IntEnum):
     Zero = 0
     One  = 1
     Many = 2
+    Uninitialized = 999
 
     @staticmethod
     def add(n1, n2):
@@ -288,14 +289,14 @@ class NumberOfHoles(enum.IntEnum):
         return NumberOfHoles(max(n1.value, n2.value))
 
 class NtGraphNode:
-    Sequence = 0
-    Repeat = 1
-    LeafHole = 2
-    LeafNotHole = 3
+    LeafNotHole = 0
+    LeafHole = 1
+    Repeat = 2
+    Sequence = 3
 
     def __init__(self, kind):
         self.kind = kind
-        self.numholes = (0, 0)
+        self.numholes = (NumberOfHoles.Uninitialized, NumberOfHoles.Uninitialized)
         self.successors = []
 
     def addsuccessor(self, node):
@@ -351,6 +352,9 @@ def constructgraph(definelanguage):
                         if p.kind == pattern.BuiltInPatKind.Hole:
                             gnode.addsuccessor([NtGraphNode(NtGraphNode.LeafHole)])
 
+    #dumpgraph(graph)
+    return graph
+
     """
     if isinstance(p, pattern.Repeat):
         gn = NtGraphNode(NtGraphNode.Repeat)
@@ -362,7 +366,6 @@ def constructgraph(definelanguage):
             assert False
         graph[nt][i].addsuccessor(gn)
     """
-    dumpgraph(graph)
 """
 digraph {
   compound=true;
@@ -418,14 +421,81 @@ def dumpgraph(graph):
     print('\n'.join(sb))
 
 
+class DefineLanguageCalculateNumberOfHoles2:
+    def __init__(self, definelanguage, graph):
+        assert isinstance(definelanguage, tlform.DefineLanguage)
+        self.definelanguage = definelanguage
+        self.graph = graph
+        self.visited = None
+        self.changed = True
 
+    def run(self):
+        while self.changed:
+            self.changed = False
+            self.visited = set([])
+            for nt, nodes in self.graph.items():
+                for patrepr, node in nodes.items():
+                    if node not in self.visited:
+                        self.dfsvisit(node)
 
+        for nt, ntdef in self.definelanguage.nts.items():
+            ntgraphnodes = self.graph[nt]
+            ntmin, ntmax = NumberOfHoles.Many, NumberOfHoles.Zero
+            for pat in ntdef.patterns:
+                try:
+                    pmin, pmax = ntgraphnodes[repr(pat)].numholes
+                    print(repr(pat), pmin, pmax)
+                    ntmin = NumberOfHoles.min(ntmin, pmin)
+                    ntmax = NumberOfHoles.max(ntmax, pmax)
+                except KeyError:
+                    # don't care about non-terminals and such
+                    pass
+            print(nt, ntmin, ntmax)
+            ntdef.nt.addmetadata(pattern.PatNumHoles(ntmin, ntmax))
 
+    def dfsvisit(self, node):
+        assert isinstance(node, NtGraphNode)
+        if node in self.visited:
+            return node.numholes
+        self.visited.add(node)
+        if node.kind == NtGraphNode.LeafNotHole:
+            self.changed = self.changed or node.update(NumberOfHoles.Zero, NumberOfHoles.Zero)
+            return node.numholes
+        if node.kind == NtGraphNode.LeafHole:
+            self.changed = self.changed or node.update(NumberOfHoles.One, NumberOfHoles.One)
+            return node.numholes
 
+        if node.kind == NtGraphNode.Repeat:
+            assert len(node.successors) == 1
+            sgmin, sgmax = NumberOfHoles.Many, NumberOfHoles.Zero
+            for succ in node.successors[0]:
+                pmin, pmax = self.dfsvisit(succ) 
+                if (pmin, pmax) != (NumberOfHoles.Uninitialized, NumberOfHoles.Uninitialized):
+                    sgmin = NumberOfHoles.min(sgmin, pmin)
+                    sgmax = NumberOfHoles.max(sgmax, pmax)
+            sgmin = NumberOfHoles.Many if sgmin == NumberOfHoles.One else sgmin 
+            sgmax = NumberOfHoles.Many if sgmax == NumberOfHoles.One else sgmax 
+            if (sgmin, sgmax) == (NumberOfHoles.Many, NumberOfHoles.Zero):
+                self.changed = self.changed or node.update(NumberOfHoles.Uninitialized, NumberOfHoles.Uninitialized)
+                return NumberOfHoles.Uninitialized, NumberOfHoles.Uninitialized
+            self.changed = self.changed or node.update(sgmin, sgmax)
+            return sgmin, sgmax
 
-
-
-
+        # sequence
+        for succgroup in node.successors:
+            nmin, nmax = NumberOfHoles.Zero, NumberOfHoles.Zero
+            for succgroup in node.successors:
+                sgmin, sgmax = NumberOfHoles.Many, NumberOfHoles.Zero
+                for succ in succgroup:
+                    pmin, pmax = self.dfsvisit(succ) 
+                    if (pmin, pmax) != (NumberOfHoles.Uninitialized, NumberOfHoles.Uninitialized):
+                        sgmin = NumberOfHoles.min(sgmin, pmin)
+                        sgmax = NumberOfHoles.max(sgmax, pmax)
+                if (sgmin, sgmax) != (NumberOfHoles.Many, NumberOfHoles.Zero):
+                    nmin = NumberOfHoles.add(nmin, sgmin)
+                    nmax = NumberOfHoles.add(nmax, sgmax)
+            self.changed = self.changed or node.update(nmin, nmax)
+        return nmin, nmax
 
 
 # Annotate each pattern with number of holes it matches.
@@ -799,9 +869,9 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
         graph = form.computeclosure()
         self.__definelanguage_checkntcycles(form, graph)
-        #DefineLanguageCalculateNumberOfHoles(form, form.closure).run()
-        constructgraph(form)
-        sys.exit(1)
+        graph = constructgraph(form)
+        DefineLanguageCalculateNumberOfHoles2(form, graph).run()
+        sys.exit(0)
 
         for nt, ntdef in form.nts.items():
             npatterns = []
