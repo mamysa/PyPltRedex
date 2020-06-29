@@ -289,3 +289,8 @@ class PatNumHoles(PatMetadata):
     def __repr__(self):
         return '({}, {})'.format(self.numholesmin, self.numholesmax)
 
+    def __eq__(self, other):
+        if isinstance(other, PatNumHoles):
+            return self.numholesmin == other.numholesmin \
+               and self.numholesmax == other.numholesmax
+

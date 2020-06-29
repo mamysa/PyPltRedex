@@ -313,60 +313,6 @@ class NtGraphNode:
             return True
         return False
 
-def constructgraph(definelanguage):
-    assert isinstance(definelanguage, tlform.DefineLanguage)
-    graph = {}
-    equivalentnts = {}
-    # first construct graph nodes.
-    for nt, ntdef in definelanguage.nts.items():
-        graph[nt] = {} 
-        equivalentnts[nt] = []
-        for pat in ntdef.patterns:
-            if isinstance(pat, pattern.Nt):
-                equivalentnts[nt].append(pat.prefix)
-            if isinstance(pat, pattern.PatSequence):
-                n = NtGraphNode(NtGraphNode.Sequence)
-                graph[nt][repr(pat)] = n
-            if isinstance(pat, pattern.BuiltInPat):
-                if pat.kind == pattern.BuiltInPatKind.Hole:
-                    n = NtGraphNode(NtGraphNode.LeafHole)
-                else:
-                    n = NtGraphNode(NtGraphNode.LeafNotHole)
-                graph[nt][repr(pat)] = n
-
-
-    # add successors
-    for nt, ntdef in definelanguage.nts.items():
-        for pat in ntdef.patterns:
-            if isinstance(pat, pattern.PatSequence):
-                gnode = graph[nt][repr(pat)]
-                for p in pat.seq: ## FIXME need to handle this recursively.
-                    if isinstance(p, pattern.PatSequence):
-                        assert False
-                    if isinstance(p, pattern.Nt):
-                        successors = list(graph[p.prefix].values())
-                        for nt2 in equivalentnts[p.prefix]:
-                            successors += graph[nt2].values()
-                        gnode.addsuccessor(successors)
-                    if isinstance(p, pattern.Repeat):
-                        gn = NtGraphNode(NtGraphNode.Repeat)
-                        if isinstance(p.pat, pattern.Nt):
-                            gn.addsuccessors(graph[p.prefix])
-                        elif isinstance(p.pat, pattern.BuiltInPat):
-                            if p.pat.kind == pattern.BuiltInPatKind.Hole:
-                                gn.addsuccessor([NtGraphNode(NtGraphNode.LeafHole)])
-                        else:
-                            assert False, 'needs to be recursive'
-                        gnode.addsuccessor([gn])
-
-                    if isinstance(p, pattern.BuiltInPat):
-                        if p.kind == pattern.BuiltInPatKind.Hole:
-                            gnode.addsuccessor([NtGraphNode(NtGraphNode.LeafHole)])
-
-    #dumpgraph(graph)
-    #print(graph)
-    #sys.exit(1)
-    return graph
 
     """
     if isinstance(p, pattern.Repeat):
@@ -445,14 +391,68 @@ def dumpgraph(graph):
 
 
 class DefineLanguageCalculateNumberOfHoles2:
-    def __init__(self, definelanguage, graph):
+    def __init__(self, definelanguage):
         assert isinstance(definelanguage, tlform.DefineLanguage)
         self.definelanguage = definelanguage
-        self.graph = graph
+        self.graph = None
         self.visited = None
         self.changed = True
 
+
+    def constructgraph(self, definelanguage):
+        assert isinstance(definelanguage, tlform.DefineLanguage)
+        graph = {}
+        equivalentnts = {}
+        # first construct graph nodes.
+        for nt, ntdef in definelanguage.nts.items():
+            graph[nt] = {} 
+            equivalentnts[nt] = []
+            for pat in ntdef.patterns:
+                if isinstance(pat, pattern.Nt):
+                    equivalentnts[nt].append(pat.prefix)
+                if isinstance(pat, pattern.PatSequence):
+                    n = NtGraphNode(NtGraphNode.Sequence)
+                    graph[nt][repr(pat)] = n
+                if isinstance(pat, pattern.BuiltInPat):
+                    if pat.kind == pattern.BuiltInPatKind.Hole:
+                        n = NtGraphNode(NtGraphNode.LeafHole)
+                    else:
+                        n = NtGraphNode(NtGraphNode.LeafNotHole)
+                    graph[nt][repr(pat)] = n
+
+
+        # add successors
+        for nt, ntdef in definelanguage.nts.items():
+            for pat in ntdef.patterns:
+                if isinstance(pat, pattern.PatSequence):
+                    gnode = graph[nt][repr(pat)]
+                    for p in pat.seq: ## FIXME need to handle this recursively.
+                        if isinstance(p, pattern.PatSequence):
+                            assert False
+                        if isinstance(p, pattern.Nt):
+                            successors = list(graph[p.prefix].values())
+                            for nt2 in equivalentnts[p.prefix]:
+                                successors += graph[nt2].values()
+                            gnode.addsuccessor(successors)
+                        if isinstance(p, pattern.Repeat):
+                            gn = NtGraphNode(NtGraphNode.Repeat)
+                            if isinstance(p.pat, pattern.Nt):
+                                gn.addsuccessors(graph[p.prefix])
+                            elif isinstance(p.pat, pattern.BuiltInPat):
+                                if p.pat.kind == pattern.BuiltInPatKind.Hole:
+                                    gn.addsuccessor([NtGraphNode(NtGraphNode.LeafHole)])
+                            else:
+                                assert False, 'needs to be recursive'
+                            gnode.addsuccessor([gn])
+
+                        if isinstance(p, pattern.BuiltInPat):
+                            if p.kind == pattern.BuiltInPatKind.Hole:
+                                gnode.addsuccessor([NtGraphNode(NtGraphNode.LeafHole)])
+
+        return graph
+
     def run(self):
+        self.graph = self.constructgraph(self.definelanguage)
         while self.changed:
             self.changed = False
             self.visited = set([])
@@ -904,8 +904,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
         graph = form.computeclosure()
         self.__definelanguage_checkntcycles(form, graph)
-        graph = constructgraph(form)
-        DefineLanguageCalculateNumberOfHoles2(form, graph).run()
+        DefineLanguageCalculateNumberOfHoles2(form).run()
         sys.exit(0)
 
         for nt, ntdef in form.nts.items():
