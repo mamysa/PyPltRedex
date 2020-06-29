@@ -390,69 +390,182 @@ def dumpgraph(graph):
     print('\n'.join(sb))
 
 
-class DefineLanguageCalculateNumberOfHoles2:
+def dumpgraph(languagename, graph):
+    sb = []
+    sb.append('digraph {')
+    sb.append('compound = true;')
+    sb.append('node [style=filled; shape=record;];')
+    sb.append('nodesep=1.0;')
+    sb.append('ranksep=1.0;')
+    sb.append('graph[style=solid;];')
+
+    definednodes = set([])
+    definededges = set([]) 
+
+    def gennode(node):
+        if node.kind == NtGraphNode.LeafHole:    label = 'Hole'
+        if node.kind == NtGraphNode.LeafNotHole: label = 'NotHole'
+        if node.kind == NtGraphNode.Sequence:    label = 'Sequence'
+        if node.kind == NtGraphNode.Repeat:      label = 'Repeat'
+        sb.append('subgraph cluster_{} {{'.format(id(node)))
+        sb.append('label=\"{}\";'.format(label))
+        sb.append('v{} [label=\"\"; shape=point;]'.format(id(node)))
+        sb.append('{{ v{} rank=min; }}'.format(id(node)))
+        definednodes.add(id(node))
+        for succgroup in node.successors:
+            sb.append('v{} [label=\"\"]'.format(id(succgroup)))
+        sb.append('}')
+
+    def genedges(node):
+        for succgroup in node.successors:
+            for succ in succgroup:
+                if id(succ) not in definednodes:
+                    gennode(succ)
+                edge = (id(succgroup), id(succ))
+                if edge not in definededges:
+                    definededges.add(edge)
+                    sb.append('v{} -> v{}' .format(id(succgroup),  id(succ)))
+                    genedges(succ)
+
+    for nt, nodes in graph.items():
+        for patrepr, node in nodes.items():
+            if id(node) not in definednodes:
+                gennode(node)
+                genedges(node)
+
+    sb.append('}')
+    s = '\n'.join(sb)
+
+    with open('dump_{}.dot'.format(languagename), 'w') as f:
+        f.write(s)
+
+class NtGraphBuilder(pattern.PatternTransformer):
     def __init__(self, definelanguage):
+        self.definelanguage = definelanguage
+        self.gnodestack = []
+        self.graph = {}
+        self.equivalentnts = {}  
+
+    def run(self):
+        # first construct graph nodes and collect all standalone non-terminals that are not inside pattern sequence. 
+        for nt, ntdef in self.definelanguage.nts.items():
+            self.graph[nt] = {}
+            self.equivalentnts[nt] = []
+            for pat in ntdef.patterns:
+                if isinstance(pat, pattern.Nt):
+                    self.equivalentnts[nt].append(pat.prefix)
+                if isinstance(pat, pattern.PatSequence):
+                    n = NtGraphNode(NtGraphNode.Sequence)
+                    self.graph[nt][repr(pat)] = n
+                if isinstance(pat, pattern.BuiltInPat):
+                    kind = NtGraphNode.LeafHole if pat.kind == pattern.BuiltInPatKind.Hole else NtGraphNode.LeafNotHole
+                    n = NtGraphNode(kind)
+                    self.graph[nt][repr(pat)] = n
+
+        for nt, ntdef in self.definelanguage.nts.items():
+            for pat in ntdef.patterns:
+                if isinstance(pat, pattern.PatSequence):
+                    for p in pat:
+                        gnode = self.graph[nt][repr(pat)]
+                        self.gnodestack.append(gnode)
+                        self.transform(p)
+                        self.gnodestack.pop()
+        return self.graph
+
+    def transformNt(self, node):
+        assert isinstance(node, pattern.Nt)
+        successors = list(self.graph[node.prefix].values())
+        for nt in self.equivalentnts[node.prefix]:
+            successors += self.graph[nt].values()
+        self.gnodestack[-1].addsuccessor(successors)
+        return node
+
+    def transformPatSequence(self, node):
+        assert isinstance(node, pattern.PatSequence)
+        gn = NtGraphNode(NtGraphNode.Sequence)
+        self.gnodestack.append(gn)
+        for pat in node.seq:
+            self.transform(pat)
+        self.gnodestack.pop() 
+        self.gnodestack[-1].addsuccessor([gn])
+
+    def transformRepeat(self, node):
+        assert isinstance(node, pattern.Repeat)
+        gn = NtGraphNode(NtGraphNode.Repeat)
+        self.gnodestack.append(gn)
+        self.transform(node.pat)
+        self.gnodestack.pop() 
+        self.gnodestack[-1].addsuccessor([gn])
+        return node
+
+    def transformBuiltInPat(self, node):
+        assert isinstance(node, pattern.BuiltInPat)
+        # don't really care about elements that are not holes here.
+        if node.kind == pattern.BuiltInPatKind.Hole:
+            self.gnodestack[-1].addsuccessor([NtGraphNode(NtGraphNode.LeafHole)])
+        return node
+
+
+# This pass annotates non-terminal definitions of a language with minimal-maximal number of holes 
+# encountered in patterns making up said non-terminal. This is to be used for raising compilation 
+# error while processing (in-hole) patterns.
+# Previous implementation of relied on transitive closure computed during cycle-checking pass and 
+# iterative computation but it solely using the closure results in incorrect min-max value initialization.
+# For example, in language (n ::= number) (P ::= (E)) (E ::= P (E n) hole) and its transitive closure 
+# n -> {number} P -> {} E -> { P } we have
+#         min  max 
+# (E)     one  one
+# (E n)   one  one
+# P       one  one 
+# E       zero one <--- zero is because of non-terminal P in definition of E has empty transitive closure and hence
+# n       zero zero     while computing min-max for E we have min(P, (E n), hole) = min(zero, one, one) = zero.
+# For second iteration, 
+#         min  max 
+# (E)     zero one
+# (E n)   zero one <--- becase E is zero one
+# P       zero one  
+# E       zero one 
+# n       zero zero     
+# and this is also incorrect.
+# We need to take the shape of patterns into account and handle contents of pattern sequences. Instead of assigning some
+# initial values to non-terminal symbols we construct a graph where each non-terminal is connected to a set of pattern it matches.
+# Thus, the language defined above becomes 
+# (E)
+# +---+
+# |(.)+-----+---+      (E n)
+# +-+-+     |   |     +-----+
+#   ^ ^     |   +--+->+(. .)|
+#   | +-----+      ^  +-+-+-+
+#   |       |      |    | |
+#   +-------+------+----+ +---------v
+#           |           |       +-------+
+#           |           |       |number |
+#           |           v       +-------+
+#           |         +----+
+#           +-------> |hole|
+#                     +----+
+# Since each node in the graph corresponds to some pattern in NtDefinition, number of holes each expression
+# matches can be found by iteratively applying DFS procedure that searches for nodes labelled 'hole' and returns 
+# said min-max values. During iteration nodes that have already been visited are not revisited. 
+# In the first iteration (Unitialized, Unitialized) number of holes may be returned (happens when there are cycles 
+# in the graph - we simply disregard these values.)
+# For example, language (P ::= (E E)) (E ::= P (E n)  hole) requires two iterations to converge -
+# in the first iteration E = (1 1) and the second iteration E = (2 2) since E is P and P = (2 2)
+class DefineLanguageCalculateNumberOfHoles2:
+    def __init__(self, definelanguage, debug_dump_ntgraph=False):
         assert isinstance(definelanguage, tlform.DefineLanguage)
         self.definelanguage = definelanguage
         self.graph = None
         self.visited = None
         self.changed = True
 
-
-    def constructgraph(self, definelanguage):
-        assert isinstance(definelanguage, tlform.DefineLanguage)
-        graph = {}
-        equivalentnts = {}
-        # first construct graph nodes.
-        for nt, ntdef in definelanguage.nts.items():
-            graph[nt] = {} 
-            equivalentnts[nt] = []
-            for pat in ntdef.patterns:
-                if isinstance(pat, pattern.Nt):
-                    equivalentnts[nt].append(pat.prefix)
-                if isinstance(pat, pattern.PatSequence):
-                    n = NtGraphNode(NtGraphNode.Sequence)
-                    graph[nt][repr(pat)] = n
-                if isinstance(pat, pattern.BuiltInPat):
-                    if pat.kind == pattern.BuiltInPatKind.Hole:
-                        n = NtGraphNode(NtGraphNode.LeafHole)
-                    else:
-                        n = NtGraphNode(NtGraphNode.LeafNotHole)
-                    graph[nt][repr(pat)] = n
-
-
-        # add successors
-        for nt, ntdef in definelanguage.nts.items():
-            for pat in ntdef.patterns:
-                if isinstance(pat, pattern.PatSequence):
-                    gnode = graph[nt][repr(pat)]
-                    for p in pat.seq: ## FIXME need to handle this recursively.
-                        if isinstance(p, pattern.PatSequence):
-                            assert False
-                        if isinstance(p, pattern.Nt):
-                            successors = list(graph[p.prefix].values())
-                            for nt2 in equivalentnts[p.prefix]:
-                                successors += graph[nt2].values()
-                            gnode.addsuccessor(successors)
-                        if isinstance(p, pattern.Repeat):
-                            gn = NtGraphNode(NtGraphNode.Repeat)
-                            if isinstance(p.pat, pattern.Nt):
-                                gn.addsuccessors(graph[p.prefix])
-                            elif isinstance(p.pat, pattern.BuiltInPat):
-                                if p.pat.kind == pattern.BuiltInPatKind.Hole:
-                                    gn.addsuccessor([NtGraphNode(NtGraphNode.LeafHole)])
-                            else:
-                                assert False, 'needs to be recursive'
-                            gnode.addsuccessor([gn])
-
-                        if isinstance(p, pattern.BuiltInPat):
-                            if p.kind == pattern.BuiltInPatKind.Hole:
-                                gnode.addsuccessor([NtGraphNode(NtGraphNode.LeafHole)])
-
-        return graph
+        self.debug_dump_ntgraph = debug_dump_ntgraph
 
     def run(self):
-        self.graph = self.constructgraph(self.definelanguage)
+        self.graph = NtGraphBuilder(self.definelanguage).run()
+        if self.debug_dump_ntgraph:
+            dumpgraph(self.definelanguage.name, self.graph)
+
         while self.changed:
             self.changed = False
             self.visited = set([])
@@ -494,10 +607,10 @@ class DefineLanguageCalculateNumberOfHoles2:
             return node.numholes
         self.visited.add(node)
         if node.kind == NtGraphNode.LeafNotHole:
-            self.changed = self.changed or node.update(NumberOfHoles.Zero, NumberOfHoles.Zero)
+            self.changed = node.update(NumberOfHoles.Zero, NumberOfHoles.Zero) or self.changed
             return node.numholes
         if node.kind == NtGraphNode.LeafHole:
-            self.changed = self.changed or node.update(NumberOfHoles.One, NumberOfHoles.One)
+            self.changed = node.update(NumberOfHoles.One, NumberOfHoles.One) or self.changed
             return node.numholes
 
         if node.kind == NtGraphNode.Repeat:
@@ -511,9 +624,9 @@ class DefineLanguageCalculateNumberOfHoles2:
             sgmin = NumberOfHoles.Zero if sgmin in [NumberOfHoles.One, NumberOfHoles.Many] else sgmin 
             sgmax = NumberOfHoles.Many if sgmax in [NumberOfHoles.One, NumberOfHoles.Many] else sgmax 
             if (sgmin, sgmax) == (NumberOfHoles.Many, NumberOfHoles.Zero):
-                self.changed = self.changed or node.update(NumberOfHoles.Uninitialized, NumberOfHoles.Uninitialized)
+                self.changed = node.update(NumberOfHoles.Uninitialized, NumberOfHoles.Uninitialized) or self.changed
                 return NumberOfHoles.Uninitialized, NumberOfHoles.Uninitialized
-            self.changed = self.changed or node.update(sgmin, sgmax)
+            self.changed = node.update(sgmin, sgmax) or self.changed
             return sgmin, sgmax
 
         # sequence
@@ -529,7 +642,7 @@ class DefineLanguageCalculateNumberOfHoles2:
                 if (sgmin, sgmax) != (NumberOfHoles.Many, NumberOfHoles.Zero):
                     nmin = NumberOfHoles.add(nmin, sgmin)
                     nmax = NumberOfHoles.add(nmax, sgmax)
-            self.changed = self.changed or node.update(nmin, nmax)
+            self.changed = node.update(nmin, nmax) or self.changed
         return nmin, nmax
 
 
@@ -557,8 +670,9 @@ class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
                 ntmax = NumberOfHoles.max(ntmax, pmax)
             self.nts[nt] = (ntmin, ntmax)
 
-        self.use_closure_for_nts = False
         print(self.nts)
+
+        self.use_closure_for_nts = False
 
         changed = True
         while changed:
@@ -581,7 +695,7 @@ class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
         for ntdef in self.definelanguage.nts.values():
             assert isinstance(ntdef, tlform.DefineLanguage.NtDefinition)
             ntmin, ntmax = self.nts[ntdef.nt.prefix]
-            ntdef.nt.addmetadata( pattern.PatNumHoles(ntmin, ntmax) )
+            #ntdef.nt.addmetadata( pattern.PatNumHoles(ntmin, ntmax) )
         return self.definelanguage
 
     def transformPatSequence(self, node):
@@ -589,8 +703,11 @@ class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
         psmin, psmax = NumberOfHoles.Zero, NumberOfHoles.Zero
         for pat in node.seq:
             pmin, pmax = self.transform(pat)
+            print(pat, pmin, pmax)
             psmin = NumberOfHoles.add(psmin, pmin)
             psmax = NumberOfHoles.add(psmax, pmax)
+        print(node, psmin, psmax)
+        print('---')
         return psmin, psmax
 
     def transformRepeat(self, node):
@@ -611,10 +728,25 @@ class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
         return NumberOfHoles.Zero, NumberOfHoles.Zero
 
     def transformNt(self, node):
-        if self.use_closure_for_nts:
-            if 'hole' in self.closure[node.prefix]:
+        visited = set([])
+        def checkclosure(nt):
+            print('visited', visited)
+            if 'hole' in self.closure[nt]:
                 return NumberOfHoles.One, NumberOfHoles.One
+            for sym in self.closure[nt]:
+                if sym in self.definelanguage.nts:
+                    if sym in visited:
+                        continue
+                    print('visiting', sym)
+                    visited.add(sym)
+                    r = checkclosure(sym) 
+                    if r != (NumberOfHoles.Zero, NumberOfHoles.Zero):
+                        return r
             return NumberOfHoles.Zero, NumberOfHoles.Zero
+        if self.use_closure_for_nts:
+            n = checkclosure(node.prefix)
+            print(node, n, 'nt')
+            return n
         return self.nts[node.prefix]
 
     def transformLit(self, node):
@@ -825,12 +957,14 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
         return pattern.PatSequence(nseq).copymetadatafrom(sequence)
 
 class TopLevelProcessor(tlform.TopLevelFormVisitor):
-    def __init__(self, module, context):
+    def __init__(self, module, context, debug_dump_ntgraph=False):
         assert isinstance(module, tlform.Module)
         assert isinstance(context, CompilationContext)
         self.module = module
         self.context = context
         self.symgen = SymGen() 
+
+        self.debug_dump_ntgraph = debug_dump_ntgraph
 
         # store reference to definelanguage structure for use by redex-match form
         self.definelanguages = {}
@@ -903,9 +1037,9 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
 
         graph = form.computeclosure()
+        print(graph)
         self.__definelanguage_checkntcycles(form, graph)
-        DefineLanguageCalculateNumberOfHoles2(form).run()
-        sys.exit(0)
+        DefineLanguageCalculateNumberOfHoles2(form, debug_dump_ntgraph=self.debug_dump_ntgraph).run()
 
         for nt, ntdef in form.nts.items():
             npatterns = []

@@ -1,5 +1,5 @@
 import unittest
-from src.preprocdefinelang import DefineLanguageCalculateNumberOfHoles2, NumberOfHoles 
+from src.preprocdefinelang import DefineLanguageCalculateNumberOfHoles2, NumberOfHoles, DefineLanguageCalculateNumberOfHoles 
 from src.pat import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode, PatNumHoles 
 from src.tlform import DefineLanguage, Module
 from src.context import CompilationContext
@@ -29,6 +29,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
+
         DefineLanguageCalculateNumberOfHoles2(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
@@ -46,6 +47,8 @@ class TestInHoleCheck(unittest.TestCase):
                 Nt('P', 'P_1'),
             ]),
         ])
+
+
 
         DefineLanguageCalculateNumberOfHoles2(lang).run()
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
@@ -68,6 +71,9 @@ class TestInHoleCheck(unittest.TestCase):
                 BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole'),
             ]),
         ])
+
+        graph = lang.computeclosure()
+        DefineLanguageCalculateNumberOfHoles(lang, graph).run()
 
         DefineLanguageCalculateNumberOfHoles2(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
