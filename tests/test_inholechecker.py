@@ -1,5 +1,5 @@
 import unittest
-from src.preprocdefinelang import DefineLanguageCalculateNumberOfHoles2, NumberOfHoles, DefineLanguageCalculateNumberOfHoles 
+from src.preprocdefinelang import NumberOfHoles, DefineLanguageCalculateNumberOfHoles 
 from src.pat import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode, PatNumHoles , InHole
 from src.tlform import DefineLanguage, Module
 from src.context import CompilationContext
@@ -29,7 +29,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
@@ -49,7 +49,7 @@ class TestInHoleCheck(unittest.TestCase):
 
 
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
 
@@ -71,10 +71,8 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        graph = lang.computeclosure()
-        DefineLanguageCalculateNumberOfHoles(lang, graph).run()
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
@@ -98,7 +96,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
@@ -123,7 +121,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -146,7 +144,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -168,7 +166,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
@@ -191,7 +189,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -215,7 +213,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
@@ -238,7 +236,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
@@ -268,7 +266,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -295,7 +293,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -318,7 +316,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
@@ -341,7 +339,7 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles2(lang).run()
+        DefineLanguageCalculateNumberOfHoles(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
