@@ -72,6 +72,8 @@ class PatSequence(Pat):
         head - element to start counting from.
         tail - element to count until, excluding. 
         """
+        if len(self.seq) == 0:
+            return 0
         assert head <  len(self.seq), 'out of bounds'
         assert tail <= len(self.seq), 'out of bounds'
         num_nonoptional = 0

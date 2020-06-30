@@ -457,6 +457,8 @@ class NtGraphBuilder(pattern.PatternTransformer):
                 if isinstance(pat, pattern.PatSequence):
                     n = NtGraphNode(NtGraphNode.Sequence)
                     self.graph[nt][repr(pat)] = n
+                if isinstance(pat, pattern.InHole):
+                    self.graph[nt][repr(pat)] = NtGraphNode(NtGraphNode.LeafNotHole)
                 if isinstance(pat, pattern.BuiltInPat):
                     kind = NtGraphNode.LeafHole if pat.kind == pattern.BuiltInPatKind.Hole else NtGraphNode.LeafNotHole
                     n = NtGraphNode(kind)
@@ -498,13 +500,16 @@ class NtGraphBuilder(pattern.PatternTransformer):
         self.gnodestack[-1].addsuccessor([gn])
         return node
 
+    def transformInHole(self, node):
+        self.gnodestack[-1].addsuccessor([NtGraphNode(NtGraphNode.LeafNotHole)])
+        return node
+
     def transformBuiltInPat(self, node):
         assert isinstance(node, pattern.BuiltInPat)
         # don't really care about elements that are not holes here.
         if node.kind == pattern.BuiltInPatKind.Hole:
             self.gnodestack[-1].addsuccessor([NtGraphNode(NtGraphNode.LeafHole)])
         return node
-
 
 # This pass annotates non-terminal definitions of a language with minimal-maximal number of holes 
 # encountered in patterns making up said non-terminal. This is to be used for raising compilation 
@@ -598,9 +603,6 @@ class DefineLanguageCalculateNumberOfHoles2:
         for nt, ntdef in self.definelanguage.nts.items():
             calcnt(nt, ntdef)
 
-        for nt, ntdef in self.definelanguage.nts.items():
-            print(ntdef.nt, ntdef.nt.getmetadata(pattern.PatNumHoles))
-
     def dfsvisit(self, node):
         assert isinstance(node, NtGraphNode)
         if node in self.visited:
@@ -630,7 +632,18 @@ class DefineLanguageCalculateNumberOfHoles2:
             return sgmin, sgmax
 
         # sequence
-        for succgroup in node.successors:
+        if len(node.successors) == 0:
+            return NumberOfHoles.Zero, NumberOfHoles.Zero
+
+        # So here we need to iterate twice over node.successors. For example, consider language,
+        # (P ::= (E)) (E :: P (E hole)). Consider first iteration of DFS visit 
+        # (.) --> (.(E) hole) -> (.(E) hole). Since last node has already been visited, uninitialized values 
+        # are returned, and (one, one) is returned for the whole expression. This is incorrect as it doesn't 
+        # resolve local reference to expressions defined by E. Thus, doing the second iteration we now know that
+        # (.(E) hole) matches one hole and it also contains a hole by itself - hence (many many) holes are matched.
+        # TLDR: we want local convergence first. 
+        # btw this was totally not a bug. Totally. I promise ;)
+        for _ in  range(len(node.successors)):
             nmin, nmax = NumberOfHoles.Zero, NumberOfHoles.Zero
             for succgroup in node.successors:
                 sgmin, sgmax = NumberOfHoles.Many, NumberOfHoles.Zero
@@ -644,7 +657,6 @@ class DefineLanguageCalculateNumberOfHoles2:
                     nmax = NumberOfHoles.add(nmax, sgmax)
             self.changed = node.update(nmin, nmax) or self.changed
         return nmin, nmax
-
 
 # Annotate each pattern with number of holes it matches.
 # First: for each pattern in the language compute min-number of holes and max-number of holes
@@ -665,12 +677,10 @@ class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
             ntmin, ntmax = NumberOfHoles.Many, NumberOfHoles.Zero
             for pat in ntdef.patterns:
                 pmin, pmax = self.transform(pat)
-                print(pat, pmin, pmax)
                 ntmin = NumberOfHoles.min(ntmin, pmin)
                 ntmax = NumberOfHoles.max(ntmax, pmax)
             self.nts[nt] = (ntmin, ntmax)
 
-        print(self.nts)
 
         self.use_closure_for_nts = False
 
@@ -690,8 +700,6 @@ class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
                     changed = True
             self.nts = newnts
 
-        print(self.nts)
-
         for ntdef in self.definelanguage.nts.values():
             assert isinstance(ntdef, tlform.DefineLanguage.NtDefinition)
             ntmin, ntmax = self.nts[ntdef.nt.prefix]
@@ -703,11 +711,8 @@ class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
         psmin, psmax = NumberOfHoles.Zero, NumberOfHoles.Zero
         for pat in node.seq:
             pmin, pmax = self.transform(pat)
-            print(pat, pmin, pmax)
             psmin = NumberOfHoles.add(psmin, pmin)
             psmax = NumberOfHoles.add(psmax, pmax)
-        print(node, psmin, psmax)
-        print('---')
         return psmin, psmax
 
     def transformRepeat(self, node):
@@ -730,14 +735,12 @@ class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
     def transformNt(self, node):
         visited = set([])
         def checkclosure(nt):
-            print('visited', visited)
             if 'hole' in self.closure[nt]:
                 return NumberOfHoles.One, NumberOfHoles.One
             for sym in self.closure[nt]:
                 if sym in self.definelanguage.nts:
                     if sym in visited:
                         continue
-                    print('visiting', sym)
                     visited.add(sym)
                     r = checkclosure(sym) 
                     if r != (NumberOfHoles.Zero, NumberOfHoles.Zero):
@@ -745,7 +748,6 @@ class DefineLanguageCalculateNumberOfHoles(pattern.PatternTransformer):
             return NumberOfHoles.Zero, NumberOfHoles.Zero
         if self.use_closure_for_nts:
             n = checkclosure(node.prefix)
-            print(node, n, 'nt')
             return n
         return self.nts[node.prefix]
 
@@ -781,7 +783,6 @@ class InHoleChecker(pattern.PatternTransformer):
         assert isinstance(node, pattern.InHole)
         pat1 = self.transform(node.pat1)
         minholes, maxholes = InHoleChecker.PatternChecker(self.definelanguage, node.pat1).run()
-        print(minholes, maxholes)
         if not (minholes == NumberOfHoles.One and maxholes == NumberOfHoles.One):
             raise CompilationError('Pattern {} in {} does not match exactly one hole'.format(repr(node.pat1), repr(node)))
         return node
@@ -1037,7 +1038,6 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
 
         graph = form.computeclosure()
-        print(graph)
         self.__definelanguage_checkntcycles(form, graph)
         DefineLanguageCalculateNumberOfHoles2(form, debug_dump_ntgraph=self.debug_dump_ntgraph).run()
 

@@ -18,7 +18,7 @@ def runpython(filename):
 
 def make_arg_obj(src):
     return type('Args', (object,),
-            {'src': src, 'dump_ast': False})
+            {'src': src, 'dump_ast': False, 'debug_dump_ntgraph': False})
 
 def gentestcase(filename):
     def testcase(self):
