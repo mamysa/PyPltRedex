@@ -6,6 +6,8 @@ import sys
 from src.context import CompilationContext
 import enum
 
+from src.util import SymGen
+
 #FIXME Ellipsis depth checker should not annotate terms - need to annotate terms 
 # AFTER performing contraint checks.
 
@@ -43,20 +45,6 @@ class NtResolver(pattern.PatternTransformer):
 
         self.variables.add(node.sym) # for variable-not-defined patterns.
         return pattern.Lit(node.sym, pattern.LitKind.Variable).copymetadatafrom(node)
-
-class UnderscoreRemover(pattern.PatternTransformer):
-    """
-    Transformer that removes underscores from all non-terminals / built-in patterns in the pattern.
-    (since underscores in define-language patterns don't matter)
-    This needs to be done AFTER resolving non-terminals and detecting literals containing underscores.
-    """
-    def transformBuiltInPat(self, node):
-        node.sym = node.prefix
-        return node
-
-    def transformNt(self, node):
-        node.sym = node.prefix
-        return node
 
 class EllipsisDepthChecker(pattern.PatternTransformer):
     """
@@ -127,19 +115,36 @@ class EllipsisDepthChecker(pattern.PatternTransformer):
     def transformLit(self, node):
         return node, {}
 
-class UnderscoreIdUniquify(pattern.PatternTransformer):
-    def __init__(self):
-        self.id = 0
+class DefineLanguageUniquifyUnderscoreId(pattern.PatternTransformer):
+    def __init__(self, definelanguage):
+        assert isinstance(definelanguage, tlform.DefineLanguage)
+        super().__init__()
+        self.definelanguage = definelanguage
+        self.symgen = SymGen()
+
+    def run(self):
+        ntdefs = []
+        for nt, ntdef in self.definelanguage.nts.items():
+            npats = []
+            for pat in ntdef.patterns:
+                npat = self.transform(pat)
+                npat.copymetadatafrom(pat)
+                npats.append(npat)
+            ntdefs.append(tlform.DefineLanguage.NtDefinition(ntdef.nt, npats))
+        return tlform.DefineLanguage(self.definelanguage.name, ntdefs)
 
     def transformBuiltInPat(self, node):
-        node.sym = '{}_{}'.format(node.prefix, self.id)
-        self.id += 1
-        return node
+        assert isinstance(node, pattern.BuiltInPat)
+        nsym = self.symgen.get(node.prefix)
+        return pattern.BuiltInPat(node.kind, node.prefix, nsym).copymetadatafrom(node)
 
     def transformNt(self, node):
-        node.sym = '{}_{}'.format(node.prefix, self.id)
-        self.id += 1
-        return node
+        assert isinstance(node, pattern.Nt)
+        nsym = self.symgen.get(node.prefix)
+        return pattern.Nt(node.prefix, nsym).copymetadatafrom(node)
+
+
+
 
 # Patterns like ((n_1 ... n_1 ...) (n_1 ... n_1 ...)) require all n_1 ... values to be equal.
 # This is done by creating temporary bindings for each n_1 encountered. More specifically,
@@ -662,7 +667,9 @@ class DefineLanguageCalculateNumberOfHoles:
             self.changed = node.update(nmin, nmax) or self.changed
         return nmin, nmax
 
-
+# FIXME according to the algorithm patterns like (P ::= (E)) (E ::= P (E (in-hole P n) hole))) are valid
+# because P matches exactly one hole. Maybe should set max value of in-hole to many? Validating 
+# such patterns in Redex raises exception.
 class PatternNumHolesChecker(pattern.PatternTransformer):
     def __init__(self, definelanguage, pattern):
         self.definelanguage = definelanguage
@@ -959,16 +966,14 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         self.definelanguages[form.name] = form 
 
         resolver = NtResolver(form.ntsyms())
-        remover = UnderscoreRemover()
-        uniquify = UnderscoreIdUniquify()
         for nt, ntdef in form.nts.items():
             npatterns = []
             for pat in ntdef.patterns:
                 pat = resolver.transform(pat)
-                pat = remover.transform(pat)
-                pat = uniquify.transform(pat)
                 npatterns.append(pat)
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
+
+        form = DefineLanguageUniquifyUnderscoreId(form).run()
 
         graph = form.computeclosure()
         self.__definelanguage_checkntcycles(form, graph)

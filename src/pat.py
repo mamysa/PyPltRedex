@@ -168,25 +168,21 @@ class Repeat(Pat):
         return False
 
 class BuiltInPat(Pat):
-    def __init__(self, kind, prefix, sym, aux=None):
+    def __init__(self, kind, prefix, sym):
         assert isinstance(kind, BuiltInPatKind)
         super().__init__()
         self.kind = kind
         self.prefix = prefix
         self.sym = sym
-        self.aux = aux 
 
     def __repr__(self):
-        if self.aux:
-            return 'BuiltInPat({}, {}, {})'.format(self.kind, self.sym, repr(self.aux))
         return 'BuiltInPat({}, {})'.format(self.kind, self.sym)
 
     def __eq__(self, other):
         if isinstance(other, BuiltInPat):
             return self.kind == other.kind     and \
                    self.prefix == other.prefix and \
-                   self.sym == other.sym       and \
-                   self.aux == other.aux
+                   self.sym == other.sym       
         return False
 
 class InHole(Pat):
