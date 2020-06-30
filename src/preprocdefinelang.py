@@ -963,7 +963,6 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
     def _visitDefineLanguage(self, form):
         assert isinstance(form, tlform.DefineLanguage)
-        self.definelanguages[form.name] = form 
 
         resolver = NtResolver(form.ntsyms())
         for nt, ntdef in form.nts.items():
@@ -974,6 +973,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
 
         form = DefineLanguageUniquifyUnderscoreId(form).run()
+
 
         graph = form.computeclosure()
         self.__definelanguage_checkntcycles(form, graph)
@@ -990,6 +990,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
         self.context.add_variables_mentioned(form.name, resolver.variables)
 
+        self.definelanguages[form.name] = form 
         return form
 
     def __processpattern(self, pat, languagename):
