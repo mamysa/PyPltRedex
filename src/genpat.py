@@ -41,8 +41,14 @@ class PatternCodegen(pattern.PatternTransformer):
             tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
 
             forb = rpy.BlockBuilder()
+            try: 
+                symstoremove = self.pattern.getmetadata(pattern.PatConstraintCheckSymsToRemove)
+                for sym in symstoremove.arr:
+                    tmpi = rpy.gen_pyid_temporaries(1, symgen)
+                    forb.AssignTo(tmpi).MethodCall(m, MatchMethodTable.RemoveKey, rpy.PyString(sym))
+            except: 
+                pass
             forb.AssignTo(tmp0).MethodCall(ret, 'append', m)
-
             fb = rpy.BlockBuilder()
             fb.AssignTo(match).New('Match', self._assignable_symbols_to_rpylist(assignable_symbols))
             fb.AssignTo(matches).FunctionCall(func2call, term, match, rpy.PyInt(0), rpy.PyInt(1))
@@ -317,14 +323,12 @@ class PatternCodegen(pattern.PatternTransformer):
                     # for m, h, t in matches{i-1}:
                     #   tmp{i} = m.CompareKeys(sym1, sym2)
                     #   if tmp{i} == True:
-                    #     tmp{k} = m.removebinding(sym2)
                     #     tmp{j} = matches{i}.append( (m, h, t) )
                     # if len(matches{i}) == 0:
                     #   return matches{i} 
                     tmpi, tmpj, tmpk  = rpy.gen_pyid_temporaries(3, symgen)
 
                     ifb1 = rpy.BlockBuilder()
-                    ifb1.AssignTo(tmpk).MethodCall(m, MatchMethodTable.RemoveKey, rpy.PyString(pat.sym2))
                     ifb1.AssignTo(tmpj).MethodCall(matches, 'append', rpy.PyTuple(m, h, t))
 
                     forb = rpy.BlockBuilder()

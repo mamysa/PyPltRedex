@@ -144,83 +144,100 @@ class DefineLanguageUniquifyUnderscoreId(pattern.PatternTransformer):
         return pattern.Nt(node.prefix, nsym).copymetadatafrom(node)
 
 
-
-
 # Patterns like ((n_1 ... n_1 ...) (n_1 ... n_1 ...)) require all n_1 ... values to be equal.
 # This is done by creating temporary bindings for each n_1 encountered. More specifically,
-# (1) ((n_1 ... n_1#2 ... CheckEquality(n_1 n_1#0) (n_1 ... n_1 ...))
+# (1) ((n_1 ... n_1#0 ... CheckEquality(n_1 n_1#0) (n_1 ... n_1 ...))
 # (2) ((n_1 ... n_1#0 ... CheckEquality(n_1 n_1#0) (n_1 ... n_1#1 ... CheckEquality(n_1 n_1#1)))
 # (3) ((n_1 ... n_1#0 ... CheckEquality(n_1 n_1#0) (n_1#2 ... n_1#1 ... CheckEquality(n_1 n_1#1)) CheckEquality(n_1, n_1#2))
 # This class (1) renames all occurences of bindable symbol (except the first one)
 # (2) Inserts contraint checks when at least two syms have been seen in the sequence.
 class ConstraintCheckInserter(pattern.PatternTransformer):
-    def __init__(self, pattern, sym):
-        self.sym = sym
+    def __init__(self, pattern):
         self.pattern = pattern
         self.symgen = SymGen()
+        self.symstoremove = []
 
     def run(self):
         pat, _ = self.transform(self.pattern)
+        pat.addmetadata(pattern.PatConstraintCheckSymsToRemove(self.symstoremove))
         return pat
 
-    def transformPatSequence(self, seq):
-        assert isinstance(seq, pattern.PatSequence) 
-        nseq = [] 
-        syms = []
-        for pat in seq:
-            node, sym = self.transform(pat)
-            nseq.append(node)
-            if sym != None: 
-                syms.append(sym)
+    # maps m1 m2 contain (node.sym -> [nsym]) pairs (e.g. n_1 : [n_1,  n_1#1, n_1#2] etc. If key is in intersection of 
+    # both maps, concatenate obtained lists, for each pair insert constraint check and place any element from the array into 
+    # the map with original key. Key-value pairs not in the intersection are copied into the new map as is.
+    def _merge_variable_maps(self, m1, m2):
+        m1k = set(list(m1.keys()))
+        m2k = set(list(m2.keys()))
+        intersection = m1k.intersection(m2k)
+        nmap, syms2check = {}, []
+        for k in intersection:
+            combined = m1[k] + m2[k] 
+            syms2check.append(combined)
+            nmap[k] = [combined[-1]]
+        for k in m1k:
+            if k not in intersection:
+                nmap[k] = m1[k]
+        for k in m2k:
+            if k not in intersection:
+                nmap[k] = m2[k]
+        return nmap, syms2check
 
-            if len(syms) == 2:
-                nseq.append( pattern.CheckConstraint(syms[0], syms[1]) )
-                syms.pop()
-
-        assert len(syms) < 2
-        nseq = pattern.PatSequence(nseq).copymetadatafrom(seq)
-        if len(syms) == 0:
-            return nseq, None
-        return nseq, syms[0] 
-
-    def transformRepeat(self, repeat):
-        assert isinstance(repeat, pattern.Repeat)
-        pat, sym = self.transform(repeat.pat)
-        nrepeat = pattern.Repeat(pat, repeat.matchmode).copymetadatafrom(repeat)
-        return nrepeat, sym
-
+    # FIXME this is probably incorrect, doesn't insert constraint checks for patterns like ((in-hole E_1 n_1) (in-hole E_1 n_1))
     def transformInHole(self, inhole):
         assert isinstance(inhole, pattern.InHole)
         pat1, _ = self.transform(inhole.pat1)
         pat2, _ = self.transform(inhole.pat2)
-        return pattern.InHole(pat1, pat2).copymetadatafrom(inhole), None
+        return pattern.InHole(pat1, pat2).copymetadatafrom(inhole), {} 
+    
+    def transformPatSequence(self, node):
+        assert isinstance(node, pattern.PatSequence)
+        if len(node.seq) == 0:
+            return node, {}
+        nseq = []
+        npat, syms = self.transform(node.seq[0])
+        nseq.append(npat)
+        for pat in node.seq[1:]:
+            npat, nsyms = self.transform(pat)
+            nseq.append(npat)
+            syms, syms2check = self._merge_variable_maps(syms, nsyms)
+            for sym1, sym2 in syms2check:
+                nseq.append(pattern.CheckConstraint(sym1, sym2))
+        return pattern.PatSequence(nseq).copymetadatafrom(node), syms
 
-    def transformBuiltInPat(self, pat):
-        if pat.sym == self.sym:
-            nsym = self.symgen.get('{}#'.format(self.sym))
-            # First time we see desired symbol we do not rename it - we will keep it in the end.
-            if nsym != '{}#0'.format(self.sym):
-                pat.sym = nsym
-                return pat, nsym
-            return pat, pat.sym
-        return pat, None
 
-    def transformNt(self, pat):
-        assert isinstance(pat, pattern.Nt)
-        if pat.sym == self.sym:
-            nsym = self.symgen.get('{}#'.format(self.sym))
-            # First time we see desired symbol we do not rename it - we will keep it in the end.
-            if nsym != '{}#0'.format(self.sym):
-                pat.sym = nsym
-                return pat, nsym
-            return pat, pat.sym
-        return pat, None
+    def transformRepeat(self, node):
+        assert isinstance(node, pattern.Repeat)
+        pat, syms = self.transform(node.pat)
+        return pattern.Repeat(pat, node.matchmode).copymetadatafrom(node), syms
+
+    def transformNt(self, node):
+        assert isinstance(node, pattern.Nt)
+        # First time we see desired symbol we do not rename it - we will keep it in the end.
+        nsym = self.symgen.get('{}#'.format(node.sym))
+        if nsym == '{}#0'.format(node.sym):
+            nsym = node.sym
+        else:
+            self.symstoremove.append(nsym)
+        return pattern.Nt(node.prefix, nsym).copymetadatafrom(node), {node.sym : [nsym]}
+
+    def transformBuiltInPat(self, node):
+        assert isinstance(node, pattern.BuiltInPat)
+        # First time we see desired symbol we do not rename it - we will keep it in the end.
+        # Also we never bind holes.
+        if node.kind != pattern.BuiltInPatKind.Hole:
+            nsym = self.symgen.get('{}#'.format(node.sym))
+            if nsym == '{}#0'.format(node.sym):
+                nsym = node.sym
+            else:
+                self.symstoremove.append(nsym)
+            return pattern.BuiltInPat(node.kind, node.prefix, nsym).copymetadatafrom(node), {node.sym : [nsym]}
+        return node, {}
 
     def transformLit(self, pat):
-        return pat, None
+        return pat, {} 
 
     def transformCheckConstraint(self, node):
-        return node, None
+        return node, {} 
 
 # pattern is not modified during this pass.
 # TODO seems to be very similar to EllipsisDepthChecker, merge them together?
@@ -921,9 +938,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         lang = self.definelanguages[languagename]
         InHoleChecker(lang, pat).run()
         pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat).run()
-        symbols = pat.getmetadata(pattern.PatAssignableSymbolDepths)
-        for sym in symbols.syms:
-            pat = ConstraintCheckInserter(pat, sym).run()
+        pat = ConstraintCheckInserter(pat).run()
         pat = AssignableSymbolExtractor(pat).run()
         return pat
 

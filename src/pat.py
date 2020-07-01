@@ -292,3 +292,7 @@ class PatNumHoles(PatMetadata):
             return self.numholesmin == other.numholesmin \
                and self.numholesmax == other.numholesmax
 
+class PatConstraintCheckSymsToRemove(PatMetadata):
+    def __init__(self, arr):
+        self.arr = arr
+
