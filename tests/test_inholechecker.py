@@ -301,6 +301,7 @@ class TestInHoleCheck(unittest.TestCase):
     # (n ::= number)                    (zero zero)
     # (P ::= (E))                       (zero many)
     # (E ::= P (in-hole P n) hole        (zero many)  
+    # Think we should disallow in-hole patterns in language grammar definition.
     def test_inholecheck12(self):
         lang = DefineLanguage('Lang', [
             DefineLanguage.NtDefinition(Nt('n', 'n'), [
@@ -316,14 +317,16 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
-        self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
-        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
-        self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
+        try:
+            DefineLanguageCalculateNumberOfHoles(lang).run()
+            self.fail()
+        except CompilationError as ex:
+            self.assertEqual(str(ex), 'in-hole pattern in define-language')
 
     # (n ::= number)                    (zero zero)
     # (P ::= (E))                       (zero many)
     # (E ::= P ((in-hole P n) ...) hole        (zero many)  
+    # Think we should disallow in-hole patterns in language grammar definition.
     def test_inholecheck13(self):
         lang = DefineLanguage('Lang', [
             DefineLanguage.NtDefinition(Nt('n', 'n'), [
@@ -339,7 +342,8 @@ class TestInHoleCheck(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
-        self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
-        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
-        self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
+        try:
+            DefineLanguageCalculateNumberOfHoles(lang).run()
+            self.fail()
+        except CompilationError as ex:
+            self.assertEqual(str(ex), 'in-hole pattern in define-language')

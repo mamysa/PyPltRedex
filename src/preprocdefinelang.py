@@ -318,83 +318,6 @@ class NtGraphNode:
             return True
         return False
 
-
-    """
-    if isinstance(p, pattern.Repeat):
-        gn = NtGraphNode(NtGraphNode.Repeat)
-        if isinstance(p.pat, pattern.Nt):
-            gn.addsuccessors(graph[p.prefix])
-        elif isinstance(p.pat, pattern.BuiltInPatKind):
-            gn.addsuccessor(NtGraphNode(NtGraphNode.LeafHole))
-        else:
-            assert False
-        graph[nt][i].addsuccessor(gn)
-    """
-"""
-digraph {
-  compound=true;
-	subgraph cluster_0{
-		node [style=filled; shape=record; ];
-		graph[style=solid;];
-		Meh
-		T
-	}
-
-
-	c -> T [lhead=cluster_0;];
-	T -> a
-}
-"""
-
-
-
-def dumpgraph(graph):
-    sb = []
-    sb.append('digraph {')
-    sb.append('compound = true;')
-    sb.append('node [style=filled; shape=record;];')
-    sb.append('nodesep=1.0;')
-    sb.append('ranksep=1.0;')
-    sb.append('graph[style=solid;];')
-
-    definednodes = set([])
-    definededges = set([]) 
-
-    def gennode(node):
-        if node.kind == NtGraphNode.LeafHole:    label = 'Hole'
-        if node.kind == NtGraphNode.LeafNotHole: label = 'NotHole'
-        if node.kind == NtGraphNode.Sequence:    label = 'Sequence'
-        if node.kind == NtGraphNode.Repeat:      label = 'Repeat'
-        sb.append('subgraph cluster_{} {{'.format(id(node)))
-        sb.append('label=\"{}\";'.format(label))
-        sb.append('v{} [label=\"\"; shape=point;]'.format(id(node)))
-        sb.append('{{ v{} rank=min; }}'.format(id(node)))
-        definednodes.add(id(node))
-        for succgroup in node.successors:
-            sb.append('v{} [label=\"\"]'.format(id(succgroup)))
-        sb.append('}')
-
-    def genedges(node):
-        for succgroup in node.successors:
-            for succ in succgroup:
-                if id(succ) not in definednodes:
-                    gennode(succ)
-                edge = (id(succgroup), id(succ))
-                if edge not in definededges:
-                    definededges.add(edge)
-                    sb.append('v{} -> v{}' .format(id(succgroup),  id(succ)))
-                    genedges(succ)
-
-    for nt, nodes in graph.items():
-        for patrepr, node in nodes.items():
-            if id(node) not in definednodes:
-                gennode(node)
-                genedges(node)
-
-    sb.append('}')
-    print('\n'.join(sb))
-
-
 def dumpgraph(languagename, graph):
     sb = []
     sb.append('digraph {')
@@ -463,7 +386,7 @@ class NtGraphBuilder(pattern.PatternTransformer):
                     n = NtGraphNode(NtGraphNode.Sequence)
                     self.graph[nt][repr(pat)] = n
                 if isinstance(pat, pattern.InHole):
-                    self.graph[nt][repr(pat)] = NtGraphNode(NtGraphNode.LeafNotHole)
+                    raise CompilationError('in-hole pattern in define-language')
                 if isinstance(pat, pattern.BuiltInPat):
                     kind = NtGraphNode.LeafHole if pat.kind == pattern.BuiltInPatKind.Hole else NtGraphNode.LeafNotHole
                     n = NtGraphNode(kind)
@@ -506,8 +429,7 @@ class NtGraphBuilder(pattern.PatternTransformer):
         return node
 
     def transformInHole(self, node):
-        self.gnodestack[-1].addsuccessor([NtGraphNode(NtGraphNode.LeafNotHole)])
-        return node
+        raise CompilationError('in-hole pattern in define-language')
 
     def transformBuiltInPat(self, node):
         assert isinstance(node, pattern.BuiltInPat)
@@ -652,7 +574,9 @@ class DefineLanguageCalculateNumberOfHoles:
         # (.(E) hole) matches one hole and it also contains a hole by itself - hence (many many) holes are matched.
         # TLDR: we want local convergence first. 
         # btw this was totally not a bug. Totally. I promise ;)
-        for _ in  range(len(node.successors)):
+        changed = True
+        while changed:
+            changed = False
             nmin, nmax = NumberOfHoles.Zero, NumberOfHoles.Zero
             for succgroup in node.successors:
                 sgmin, sgmax = NumberOfHoles.Many, NumberOfHoles.Zero
@@ -664,7 +588,7 @@ class DefineLanguageCalculateNumberOfHoles:
                 if (sgmin, sgmax) != (NumberOfHoles.Many, NumberOfHoles.Zero):
                     nmin = NumberOfHoles.add(nmin, sgmin)
                     nmax = NumberOfHoles.add(nmax, sgmax)
-            self.changed = node.update(nmin, nmax) or self.changed
+            changed = node.update(nmin, nmax) or changed
         return nmin, nmax
 
 # FIXME according to the algorithm patterns like (P ::= (E)) (E ::= P (E (in-hole P n) hole))) are valid
