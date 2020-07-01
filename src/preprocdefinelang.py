@@ -530,10 +530,6 @@ class DefineLanguageCalculateNumberOfHoles:
         for nt, ntdef in self.definelanguage.nts.items():
             calcnt(nt, ntdef)
 
-
-        for nt, ntdef in self.definelanguage.nts.items():
-            print(nt, ntdef.nt.getmetadata(pattern.PatNumHoles))
-
     def dfsvisit(self, node):
         assert isinstance(node, NtGraphNode)
         if node in self.visited:
@@ -649,7 +645,6 @@ class InHoleChecker(pattern.PatternTransformer):
         assert isinstance(node, pattern.InHole)
         pat1 = self.transform(node.pat1)
         minholes, maxholes = PatternNumHolesChecker(self.definelanguage, node.pat1).run()
-        print(minholes, maxholes)
         if not (minholes == NumberOfHoles.One and maxholes == NumberOfHoles.One):
             raise CompilationError('First pattern {} does not match exactly one hole'.format(repr(node)))
         return node
