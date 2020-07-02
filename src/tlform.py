@@ -50,41 +50,6 @@ class DefineLanguage(TopLevelForm):
             self.nts[ntsym] = ntdef
             self.closure = None
 
-    ## Should move this out of here 
-    def computeclosure(self):
-        # compute initial sets.
-        closureof = {}
-        closureof['number'] = set([])
-        closureof['hole'] = set([])
-        closureof['variable-not-otherwise-mentioned'] = set([])
-        for ntdef in self.nts.values():
-            syms = []
-            assert isinstance(ntdef, DefineLanguage.NtDefinition)
-            for pat in ntdef.patterns:
-                if isinstance(pat, pattern.Nt):
-                    syms.append(pat.prefix)
-                if isinstance(pat, pattern.BuiltInPat):
-                    syms.append(pat.prefix)
-            closureof[ntdef.get_nt_sym()] = set(syms)
-        
-        import copy
-        x = copy.deepcopy(closureof)
-
-        # iteratively compute closure.
-        changed = True
-        while changed:
-            changed = False
-            for sym, closure in closureof.items():
-                for elem in closure:
-                    closureof_elem = closureof.get(elem, set([])) # might be built-in pattern.
-                    closureof_sym = closure.union(closureof_elem)
-                    if closureof_sym != closure:
-                        changed = True
-                    closure = closureof_sym 
-                closureof[sym] = closure
-        self.closure = closureof
-        return x
-    
     def ntsyms(self):
         return set(self.nts.keys())
 

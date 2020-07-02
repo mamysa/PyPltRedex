@@ -5,6 +5,7 @@ from src.util import SymGen, CompilationError
 import sys
 from src.context import CompilationContext
 import enum
+import copy 
 
 from src.util import SymGen
 
@@ -753,10 +754,11 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                 return True
             return True
 
-    def __init__(self, definelanguage, pat):
+    def __init__(self, definelanguage, pat, closures):
         assert isinstance(definelanguage, tlform.DefineLanguage)
         self.definelanguage = definelanguage 
         self.pat = pat
+        self.closures = closures
 
 
     # Partitions sequence of terms 
@@ -795,8 +797,7 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
 
     def transformPatSequence(self, sequence):
         assert isinstance(sequence, pattern.PatSequence)
-        closures = self.definelanguage.closure
-        assert self.definelanguage.closure != None
+        closures = self.closures
 
         # recursively transform patterns first.
         tseq = []
@@ -830,6 +831,42 @@ class MakeEllipsisDeterministic(pattern.PatternTransformer):
                 nseq += partition
         return pattern.PatSequence(nseq).copymetadatafrom(sequence)
 
+class DefineLanguageNtClosureSolver:
+    def __init__(self, definelanguage):
+        assert isinstance(definelanguage, tlform.DefineLanguage)
+        self.definelanguage = definelanguage
+
+    def run(self):
+        # compute initial sets.
+        closureof = {}
+        closureof['number'] = set([])
+        closureof['hole'] = set([])
+        closureof['variable-not-otherwise-mentioned'] = set([])
+        for ntdef in self.definelanguage.nts.values():
+            syms = []
+            assert isinstance(ntdef, tlform.DefineLanguage.NtDefinition)
+            for pat in ntdef.patterns:
+                if isinstance(pat, pattern.Nt):
+                    syms.append(pat.prefix)
+                if isinstance(pat, pattern.BuiltInPat):
+                    syms.append(pat.prefix)
+            closureof[ntdef.get_nt_sym()] = set(syms)
+        x = copy.deepcopy(closureof)
+
+        # iteratively compute closure.
+        changed = True
+        while changed:
+            changed = False
+            for sym, closure in closureof.items():
+                for elem in closure:
+                    closureof_elem = closureof.get(elem, set([])) # might be built-in pattern.
+                    closureof_sym = closure.union(closureof_elem)
+                    if closureof_sym != closure:
+                        changed = True
+                    closure = closureof_sym 
+                closureof[sym] = closure
+        return x, closureof
+
 class TopLevelProcessor(tlform.TopLevelFormVisitor):
     def __init__(self, module, context, debug_dump_ntgraph=False):
         assert isinstance(module, tlform.Module)
@@ -842,7 +879,9 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
         # store reference to definelanguage structure for use by redex-match form
         self.definelanguages = {}
+        self.definelanguageclosures = {}
         self.reductionrelations = {}
+
 
     def run(self):
         forms = []
@@ -907,23 +946,23 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
         form = DefineLanguageUniquifyUnderscoreId(form).run()
 
-
-        graph = form.computeclosure()
-        self.__definelanguage_checkntcycles(form, graph)
+        successors, closures = DefineLanguageNtClosureSolver(form).run()
+        #graph = form.computeclosure()
+        self.__definelanguage_checkntcycles(form, successors)
         DefineLanguageCalculateNumberOfHoles(form, debug_dump_ntgraph=self.debug_dump_ntgraph).run()
 
         for nt, ntdef in form.nts.items():
             npatterns = []
             for pat in ntdef.patterns:
-                assert form.closure != None
                 InHoleChecker(form, pat).run()
-                pat = MakeEllipsisDeterministic(form, pat).run()
+                pat = MakeEllipsisDeterministic(form, pat, closures).run()
                 pat = AssignableSymbolExtractor(pat).run()
                 npatterns.append(pat)
             ntdef.patterns = npatterns #FIXME all AstNodes should be immutable...
         self.context.add_variables_mentioned(form.name, resolver.variables)
 
         self.definelanguages[form.name] = form 
+        self.definelanguageclosures[form.name] = closures
         return form
 
     def __processpattern(self, pat, languagename):
@@ -931,10 +970,9 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         resolver = NtResolver(ntsyms)
         pat = resolver.transform(pat)
         pat = EllipsisDepthChecker(pat).run()
-        assert self.definelanguages[languagename].closure != None
         lang = self.definelanguages[languagename]
         InHoleChecker(lang, pat).run()
-        pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat).run()
+        pat = MakeEllipsisDeterministic(self.definelanguages[languagename], pat, self.definelanguageclosures[languagename]).run()
         pat = ConstraintCheckInserter(pat).run()
         pat = AssignableSymbolExtractor(pat).run()
         return pat
