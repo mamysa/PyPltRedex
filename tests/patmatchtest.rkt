@@ -44,6 +44,11 @@
   (redex-match Lc ((n_1 ... n_1 ...) n_1 ...)  (term ((1 2 3 1 2 3) 1 2 3))) 
   (match (bind n_1 (1 2 3))))
 
+; remove multiple bindings in the end of the matching
+(match-equal? 
+  (redex-match Lc ((n_1 n_1 n_1) ...)  (term ((1 1 1)(2 2 2)(3 3 3))))
+  (match (bind n_1 (1 2 3))))
+
 (match-equal?
   (redex-match Lc (+ e_1 e_1)  (term (+ (+ 3 4) (+ 3 4)))) 
   (match (bind e_1 (+ 3 4))))

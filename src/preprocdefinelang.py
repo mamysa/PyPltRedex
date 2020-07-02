@@ -162,32 +162,30 @@ class ConstraintCheckInserter(pattern.PatternTransformer):
         pat.addmetadata(pattern.PatConstraintCheckSymsToRemove(self.symstoremove))
         return pat
 
-    # maps m1 m2 contain (node.sym -> [nsym]) pairs (e.g. n_1 : [n_1,  n_1#1, n_1#2] etc. If key is in intersection of 
-    # both maps, concatenate obtained lists, for each pair insert constraint check and place any element from the array into 
-    # the map with original key. Key-value pairs not in the intersection are copied into the new map as is.
     def _merge_variable_maps(self, m1, m2):
         m1k = set(list(m1.keys()))
         m2k = set(list(m2.keys()))
         intersection = m1k.intersection(m2k)
         nmap, syms2check = {}, []
         for k in intersection:
-            combined = m1[k] + m2[k] 
-            syms2check.append(combined)
-            nmap[k] = [combined[-1]]
+            syms2check.append((m1[k], m2[k]))
+            nmap[k] = m2[k]
         for k in m1k:
             if k not in intersection:
                 nmap[k] = m1[k]
         for k in m2k:
-            if k not in intersection:
                 nmap[k] = m2[k]
         return nmap, syms2check
 
-    # FIXME this is probably incorrect, doesn't insert constraint checks for patterns like ((in-hole E_1 n_1) (in-hole E_1 n_1))
-    def transformInHole(self, inhole):
-        assert isinstance(inhole, pattern.InHole)
-        pat1, _ = self.transform(inhole.pat1)
-        pat2, _ = self.transform(inhole.pat2)
-        return pattern.InHole(pat1, pat2).copymetadatafrom(inhole), {} 
+    def transformInHole(self, node):
+        assert isinstance(node, pattern.InHole)
+        npat1, syms1 = self.transform(node.pat1)
+        npat2, syms2 = self.transform(node.pat2)
+        constraintchecks = []
+        syms, syms2check = self._merge_variable_maps(syms1, syms2)
+        for sym1, sym2 in syms2check:
+            constraintchecks.append(pattern.CheckConstraint(sym1, sym2))
+        return pattern.InHole(npat1, npat2, constraintchecks).copymetadatafrom(node), syms
     
     def transformPatSequence(self, node):
         assert isinstance(node, pattern.PatSequence)
@@ -204,7 +202,6 @@ class ConstraintCheckInserter(pattern.PatternTransformer):
                 nseq.append(pattern.CheckConstraint(sym1, sym2))
         return pattern.PatSequence(nseq).copymetadatafrom(node), syms
 
-
     def transformRepeat(self, node):
         assert isinstance(node, pattern.Repeat)
         pat, syms = self.transform(node.pat)
@@ -218,7 +215,7 @@ class ConstraintCheckInserter(pattern.PatternTransformer):
             nsym = node.sym
         else:
             self.symstoremove.append(nsym)
-        return pattern.Nt(node.prefix, nsym).copymetadatafrom(node), {node.sym : [nsym]}
+        return pattern.Nt(node.prefix, nsym).copymetadatafrom(node), {node.sym : nsym}
 
     def transformBuiltInPat(self, node):
         assert isinstance(node, pattern.BuiltInPat)
@@ -230,7 +227,7 @@ class ConstraintCheckInserter(pattern.PatternTransformer):
                 nsym = node.sym
             else:
                 self.symstoremove.append(nsym)
-            return pattern.BuiltInPat(node.kind, node.prefix, nsym).copymetadatafrom(node), {node.sym : [nsym]}
+            return pattern.BuiltInPat(node.kind, node.prefix, nsym).copymetadatafrom(node), {node.sym : nsym}
         return node, {}
 
     def transformLit(self, pat):

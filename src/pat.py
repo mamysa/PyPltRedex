@@ -186,15 +186,18 @@ class BuiltInPat(Pat):
         return False
 
 class InHole(Pat):
-    def __init__(self, pat1, pat2):
+    def __init__(self, pat1, pat2, constraintchecks=None):
         assert isinstance(pat1, Pat)
         assert isinstance(pat2, Pat)
         super().__init__()
         self.pat1 = pat1
         self.pat2 = pat2
+        self.constraintchecks = constraintchecks 
     
     def __repr__(self):
-        return 'InHole({}, {})'.format(self.pat1, self.pat2)
+        if self.constraintchecks == None:
+            return 'InHole({}, {})'.format(self.pat1, self.pat2)
+        return 'InHole({}, {}, {})'.format(self.pat1, self.pat2, self.constraintchecks)
 
     def __eq__(self, other):
         if isinstance(other, InHole):

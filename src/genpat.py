@@ -531,9 +531,29 @@ class PatternCodegen(pattern.PatternTransformer):
             self.modulebuilder.SingleLineComment('{}'.format(repr(pat)))
             self.modulebuilder.Function(lookupfuncname).WithParameters(term, match, head, tail, path).Block(fb)
 
+            #-------- this produces top-level function with empty list representing the path.
+            # We do constraint checking here also.
+            symgen = SymGen()
+
+            m, h, t = rpy.gen_pyid_for('m', 'h', 't')
+            forb = rpy.BlockBuilder()
+            if pat.constraintchecks != None:
+                for chck in pat.constraintchecks:
+                    tmpi = rpy.gen_pyid_temporaries(1, symgen)
+                    ifb = rpy.BlockBuilder()
+                    ifb.Continue
+
+                    forb.AssignTo(tmpi).MethodCall(m, MatchMethodTable.CompareKeys, rpy.PyString(chck.sym1), rpy.PyString(chck.sym2))
+                    forb.If.NotEqual(tmpi, rpy.PyBoolean(True)).ThenBlock(ifb)
+
+                tmp = rpy.gen_pyid_temporaries(1, symgen)
+                forb.AssignTo(tmp).MethodCall(matches, 'append', rpy.PyTuple(m, h, t))
+
             fb = rpy.BlockBuilder()
+            fb.AssignTo(matches).PyList()
             fb.AssignTo(tmp0).FunctionCall(lookupfuncname, term, match, head, tail, rpy.PyList())
-            fb.Return.PyId(tmp0)
+            fb.For(m, h, t).In(tmp0).Block(forb)
+            fb.Return.PyId(matches)
 
             self.modulebuilder.Function(functionname).WithParameters(term, match, head, tail).Block(fb)
 

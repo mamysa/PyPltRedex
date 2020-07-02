@@ -77,3 +77,33 @@
   (redex-match HoleTest ((in-hole ((n_1 ...) ... hole (n_2 ...) ...) (n_3 ...)) ...) (term (((1) (2 3))((4)))))
   (match (bind n_1 (() ())) (bind n_2 (((2 3)) ())) (bind n_3 ((1) (4))))
   (match (bind n_1 (((1)) ())) (bind n_2 (() ())) (bind n_3 ((2 3) (4)))))
+
+; constraint checking
+(match-equal?
+  (redex-match HoleTest (in-hole ((n_1 ...) hole (n_2 ...)) (n_2 ...)) (term ((1 2 3) (3 4) (3 4))))
+  (match (bind n_1 (1 2 3)) (bind n_2 (3 4))))
+
+
+(match-equal?
+  (redex-match HoleTest (in-hole ((n_1 ...) hole (n_2 ...)) (n_2 ...)) (term ((1 2 3) (3 5) (3 4))))
+  ())
+
+
+(match-equal?
+  (redex-match HoleTest ((in-hole E3 x) ... (in-hole E3 x) ...) (term ((1 2 a)(3 b) (1 2 a) (3 b))))
+  (match (bind E3 ((1 2 hole) (3 hole))) (bind x (a b))))
+
+
+(match-equal?
+  (redex-match HoleTest ((in-hole E3 x) ... (in-hole E3 x) ...) (term ((1 2 a)(4 b) (1 2 a) (3 b))))
+  ())
+
+
+(match-equal?
+  (redex-match HoleTest ((in-hole E3 x) ... (in-hole E3 x) ...) (term ((1 2 a)(3 b) (1 2 x) (3 b))))
+  ())
+
+
+(match-equal?
+  (redex-match HoleTest ((in-hole E3 x) ... (in-hole E3 x) ...) (term ((1 2 a)(3 b) (1 m a) (3 b))))
+  ())
