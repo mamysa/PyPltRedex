@@ -867,6 +867,46 @@ class DefineLanguageNtClosureSolver:
                 closureof[sym] = closure
         return x, closureof
 
+
+class DefineLanguageNtCycleChecker:
+    def __init__(self, definelanguage, successors):
+        self.definelanguage = definelanguage
+        self.successors = successors
+        self.nts = self.definelanguage.ntsyms()
+
+        self.time = 0
+        self.d = dict((g, -1) for g in successors.keys()) # discovery time
+        self.f = dict((g, -1) for g in successors.keys()) # finish time
+
+    def gettime(self):
+        t = self.time 
+        self.time += 1
+        return t
+
+    def reportcycle(self, path, v):
+        idx = path.index(v)
+        assert v in self.nts 
+        for p in path[idx:]:
+            assert p in self.nts
+        cyclepath = path[idx:] + [v]
+        raise CompilationError('nt cycle {}'.format(cyclepath))
+
+    def visit(self, v, path):
+        if self.d[v] == -1: 
+            path.append(v)
+            self.d[v] = self.gettime()
+            for adjv in self.successors.get(v, set([])):
+                self.visit(adjv, path)
+                if self.f[adjv] == -1:
+                    self.reportcycle(path, adjv)
+            self.f[v] = self.gettime()
+            path.pop()
+
+    def run(self):
+        for nt in self.nts:
+            self.visit(nt, [])
+
+
 class TopLevelProcessor(tlform.TopLevelFormVisitor):
     def __init__(self, module, context, debug_dump_ntgraph=False):
         assert isinstance(module, tlform.Module)
@@ -889,50 +929,6 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             forms.append( self._visit(form) )
         return tlform.Module(forms), self.context
 
-
-    def __definelanguage_checkntcycles(self, form, graph):
-        assert isinstance(form, tlform.DefineLanguage)
-
-        class DfsVisitor:
-            def __init__(self, nts, graph):
-                self.nts = nts
-                self.time = 0
-                self.graph = graph
-                self.d = dict((g, -1) for g in graph.keys())
-                self.f = dict((g, -1) for g in graph.keys())
-
-            def gettime(self):
-                t = self.time 
-                self.time += 1
-                return t
-
-            def reportcycle(self, path, v):
-                idx = path.index(v)
-                assert v in self.nts 
-                for p in path[idx:]:
-                    assert p in self.nts
-                cyclepath = path[idx:] + [v]
-                raise CompilationError('nt cycle {}'.format(cyclepath))
-
-            def visit(self, v):
-                self.__visitimpl(v, [])
-
-            def __visitimpl(self, v, path):
-                if self.d[v] == -1: 
-                    path.append(v)
-                    self.d[v] = self.gettime()
-                    for adjv in self.graph.get(v, set([])):
-                        self.__visitimpl(adjv, path)
-                        if self.f[adjv] == -1:
-                            self.reportcycle(path, adjv)
-                    self.f[v] = self.gettime()
-                    path.pop()
-
-        nts = form.ntsyms()
-        for nt in nts:
-            v = DfsVisitor(nts, graph)
-            v.visit(nt)
-
     def _visitDefineLanguage(self, form):
         assert isinstance(form, tlform.DefineLanguage)
 
@@ -948,7 +944,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
         successors, closures = DefineLanguageNtClosureSolver(form).run()
         #graph = form.computeclosure()
-        self.__definelanguage_checkntcycles(form, successors)
+        DefineLanguageNtCycleChecker(form, successors).run()
         DefineLanguageCalculateNumberOfHoles(form, debug_dump_ntgraph=self.debug_dump_ntgraph).run()
 
         for nt, ntdef in form.nts.items():

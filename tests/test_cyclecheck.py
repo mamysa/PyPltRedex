@@ -1,5 +1,5 @@
 import unittest
-from src.preprocdefinelang import MakeEllipsisDeterministic, TopLevelProcessor
+from src.preprocdefinelang import MakeEllipsisDeterministic, TopLevelProcessor, DefineLanguageNtCycleChecker, DefineLanguageNtClosureSolver
 from src.pat import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode
 from src.tlform import DefineLanguage, Module
 from src.context import CompilationContext
@@ -27,10 +27,9 @@ class TestCycleCheck(unittest.TestCase):
             ]),
         ])
 
-        module = Module([lang])
-        context = CompilationContext()
+        successors, _ = DefineLanguageNtClosureSolver(lang).run()
         try:
-            TopLevelProcessor(module, context).run()
+            DefineLanguageNtCycleChecker(lang, successors).run()
             self.fail('should throw')
         except CompilationError as ex:
             self.assertIn(str(ex), [genmsg(['e', 'n', 'e']), genmsg(['n', 'e', 'n'])])
@@ -50,10 +49,9 @@ class TestCycleCheck(unittest.TestCase):
             ]),
         ])
 
-        module = Module([lang])
-        context = CompilationContext()
+        successors, _ = DefineLanguageNtClosureSolver(lang).run()
         try:
-            TopLevelProcessor(module, context).run()
+            DefineLanguageNtCycleChecker(lang, successors).run()
             self.fail('should throw')
         except CompilationError as ex:
             self.assertIn(str(ex), [genmsg(['m', 'm'])])
