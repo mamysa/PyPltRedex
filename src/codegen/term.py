@@ -3,38 +3,9 @@ import src.model.rpython as rpy
 from src.util import SymGen
 from src.context import CompilationContext
 
-
-# ---- FIXME code duplication from patcodegen
-class TermMethodTable:
-    Kind = 'kind'
-    Value = 'value'
-    Length = 'length'
-    Get = 'get'
-    ReplaceWith = 'replacewith'
-    CopyToRoot  = 'copy'
-
-class TermHelperFuncs:
-    CopyPathAndReplaceLast = 'copy_path_and_replace_last'
-
-class MatchHelperFuncs:
-    CombineMatches = 'combine_matches'
-
-class MatchMethodTable:
-    AddToBinding ='addtobinding'
-    AddKey = 'create_binding'
-    IncreaseDepth = 'increasedepth'
-    DecreaseDepth = 'decreasedepth'
-    Copy = 'copy'
-    CompareKeys = 'comparekeys'
-    RemoveKey   = 'removebinding'
-    GetBinding = 'getbinding'
-
-class TermKind:
-    Variable = 0
-    Integer  = 1
-    Sequence = 2 
-    Hole = 3
-#---End code duplication
+from src.codegen.common import TermHelperFuncs, MatchHelperFuncs, \
+                          MatchMethodTable, TermKind, \
+                          TermMethodTable
 
 class TermCodegen(term.TermTransformer):
     def __init__(self, modulebuilder, context):

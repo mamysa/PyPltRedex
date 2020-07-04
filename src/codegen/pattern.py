@@ -4,7 +4,7 @@ import src.model.rpython as rpy
 from src.util import SymGen
 from src.context import CompilationContext
 
-from src.gencommon import TermHelperFuncs, MatchHelperFuncs, \
+from src.codegen.common import TermHelperFuncs, MatchHelperFuncs, \
                           MatchMethodTable, TermKind, \
                           TermMethodTable
 
