@@ -1,6 +1,6 @@
 import src.model.pattern as pattern
 
-class EllipsisDepthChecker(pattern.PatternTransformer):
+class Pattern_EllipsisDepthChecker(pattern.PatternTransformer):
     """
     Traverses a pattern, locates symbols to be bound while matching,
     and adds [sym, depth] annotation to the pattern. It describes the state of match object 

@@ -48,7 +48,7 @@ class PatternNumHolesChecker(pattern.PatternTransformer):
     def transformLit(self, node):
         return NumberOfHoles.Zero, NumberOfHoles.Zero
 
-class InHoleChecker(pattern.PatternTransformer):
+class Pattern_InHoleChecker(pattern.PatternTransformer):
     def __init__(self, definelanguage, pattern):
         self.definelanguage = definelanguage
         self.pattern = pattern

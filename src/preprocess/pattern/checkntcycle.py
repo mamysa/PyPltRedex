@@ -1,7 +1,7 @@
 import src.model.pattern as pattern
 from src.util import CompilationError
 
-class DefineLanguageNtCycleChecker:
+class DefineLanguage_NtCycleChecker:
     def __init__(self, definelanguage, successors):
         self.definelanguage = definelanguage
         self.successors = successors

@@ -1,5 +1,5 @@
 import unittest
-from src.preprocess.pattern import NumberOfHoles, DefineLanguageCalculateNumberOfHoles 
+from src.preprocess.pattern import NumberOfHoles, DefineLanguage_HoleReachabilitySolver
 from src.preprocess.pattern.checkinhole import PatternNumHolesChecker 
 from src.model.pattern import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode, PatNumHoles , InHole
 from src.model.tlform import DefineLanguage, Module
@@ -27,7 +27,7 @@ class TestPatternNumHolesChecker(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         pat = PatSequence([Repeat(Nt('E', 'E'))])
         nmin, nmax = PatternNumHolesChecker(lang, pat).run()
         self.assertEqual(nmin, NumberOfHoles.Zero)

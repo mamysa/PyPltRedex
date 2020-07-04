@@ -1,5 +1,5 @@
 import unittest
-from src.preprocess.pattern import NumberOfHoles, DefineLanguageCalculateNumberOfHoles 
+from src.preprocess.pattern import NumberOfHoles, DefineLanguage_HoleReachabilitySolver 
 from src.model.pattern import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode, PatNumHoles , InHole
 from src.model.tlform import DefineLanguage, Module
 from src.context import CompilationContext
@@ -29,7 +29,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
@@ -49,7 +49,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
 
 
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
 
@@ -72,7 +72,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
         ])
 
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
@@ -96,7 +96,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
@@ -121,7 +121,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -144,7 +144,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -166,7 +166,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
@@ -189,7 +189,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -213,7 +213,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
@@ -236,7 +236,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
@@ -266,7 +266,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -293,7 +293,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguageCalculateNumberOfHoles(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -318,7 +318,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
         ])
 
         try:
-            DefineLanguageCalculateNumberOfHoles(lang).run()
+            DefineLanguage_HoleReachabilitySolver(lang).run()
             self.fail()
         except CompilationError as ex:
             self.assertEqual(str(ex), 'in-hole pattern in define-language')
@@ -343,7 +343,7 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
         ])
 
         try:
-            DefineLanguageCalculateNumberOfHoles(lang).run()
+            DefineLanguage_HoleReachabilitySolver(lang).run()
             self.fail()
         except CompilationError as ex:
             self.assertEqual(str(ex), 'in-hole pattern in define-language')

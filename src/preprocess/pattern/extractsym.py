@@ -1,14 +1,8 @@
+import src.model.tlform as tlform
 import src.model.pattern as pattern
 
+
 class AssignableSymbolExtractor(pattern.PatternTransformer):
-    def __init__(self, pat):
-        self.pat = pat 
-
-    def run(self):
-        pat, variables = self.transform(self.pat)
-        return pat.addmetadata(pattern.PatAssignableSymbols(variables))
-        return pat 
-
     def transformPatSequence(self, node):
         assert isinstance(node, pattern.PatSequence)
         variables = set([]) 
@@ -46,3 +40,29 @@ class AssignableSymbolExtractor(pattern.PatternTransformer):
 
     def transformLit(self, node):
         return node, set([]) 
+
+
+class Pattern_AssignableSymbolExtractor(AssignableSymbolExtractor):
+    def __init__(self, pat):
+        assert isinstance(pat, pattern.Pat)
+        self.pat = pat
+
+    def run(self):
+        pat, variables = self.transform(self.pat)
+        return pat.addmetadata(pattern.PatAssignableSymbols(variables))
+        return pat 
+
+class DefineLanguage_AssignableSymbolExtractor(AssignableSymbolExtractor):
+    def __init__(self, definelanguage):
+        self.definelanguage = definelanguage 
+
+    def run(self):
+        ntdefs = []
+        for nt, ntdef in self.definelanguage.nts.items():
+            npats = []
+            for pat in ntdef.patterns:
+                npat, variables = self.transform(pat)
+                npat.copymetadatafrom(pat).addmetadata(pattern.PatAssignableSymbols(variables))
+                npats.append(npat)
+            ntdefs.append(tlform.DefineLanguage.NtDefinition(ntdef.nt, npats))
+        return tlform.DefineLanguage(self.definelanguage.name, ntdefs)

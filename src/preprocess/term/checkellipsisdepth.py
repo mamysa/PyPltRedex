@@ -14,7 +14,7 @@ from src.context import CompilationContext
 # Once all pattern variables all been resolved, ensure that there are no-unannotated ellipses. Along the way
 # collect all literal terms and assign a variable to them - this way there will be only a single instance of the term.
 
-class TermAnnotate(term.TermTransformer):
+class Term_EllipsisDepthChecker(term.TermTransformer):
     def __init__(self, variables, idof, context):
         self.idof = idof
         self.path = []
@@ -44,7 +44,7 @@ class TermAnnotate(term.TermTransformer):
         terms = []
         for t in pycall.termargs:
             idof = self.symgen.get('{}_pycall_gen_term_'.format(self.idof))
-            transformer = TermAnnotate(self.variables, idof, self.context)
+            transformer = Term_EllipsisDepthChecker(self.variables, idof, self.context)
             terms.append( transformer.transform(t) )
 
         return term.PyCall(pycall.mode, pycall.functionname, terms) \

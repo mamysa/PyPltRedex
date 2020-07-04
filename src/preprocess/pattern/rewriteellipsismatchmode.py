@@ -90,12 +90,10 @@ class EllipsisMatchModeRewriter(pattern.PatternTransformer):
                 return True
             return True
 
-    def __init__(self, definelanguage, pat, closures):
+    def __init__(self, definelanguage, closures):
         assert isinstance(definelanguage, tlform.DefineLanguage)
         self.definelanguage = definelanguage 
-        self.pat = pat
         self.closures = closures
-
 
     # Partitions sequence of terms 
     def _partitionseq(self, seq):
@@ -127,9 +125,6 @@ class EllipsisMatchModeRewriter(pattern.PatternTransformer):
                 partitions.append((False, partition))
 
         return partitions
-
-    def run(self):
-        return self.transform(self.pat)
 
     def transformPatSequence(self, sequence):
         assert isinstance(sequence, pattern.PatSequence)
@@ -166,3 +161,26 @@ class EllipsisMatchModeRewriter(pattern.PatternTransformer):
             else: 
                 nseq += partition
         return pattern.PatSequence(nseq).copymetadatafrom(sequence)
+
+class Pattern_EllipsisMatchModeRewriter(EllipsisMatchModeRewriter):
+    def __init__(self, definelanguage, pattern, closures):
+        super().__init__(definelanguage, closures)
+        self.pattern = pattern
+
+    def run(self):
+        return self.transform(self.pattern)
+
+class DefineLanguage_EllipsisMatchModeRewriter(EllipsisMatchModeRewriter):
+    def __init__(self, definelanguage, closures):
+        super().__init__(definelanguage, closures)
+
+    def run(self):
+        ntdefs = []
+        for nt, ntdef in self.definelanguage.nts.items():
+            npats = []
+            for pat in ntdef.patterns:
+                npat = self.transform(pat)
+                npat.copymetadatafrom(pat)
+                npats.append(npat)
+            ntdefs.append(tlform.DefineLanguage.NtDefinition(ntdef.nt, npats))
+        return tlform.DefineLanguage(self.definelanguage.name, ntdefs)

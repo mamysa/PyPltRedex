@@ -3,7 +3,7 @@ import src.model.pattern as pattern
 from src.util import SymGen
 
 #DefineLanguageIdRewriter
-class DefineLanguageIdRewriter(pattern.PatternTransformer):
+class DefineLanguage_IdRewriter(pattern.PatternTransformer):
     def __init__(self, definelanguage):
         assert isinstance(definelanguage, tlform.DefineLanguage)
         super().__init__()

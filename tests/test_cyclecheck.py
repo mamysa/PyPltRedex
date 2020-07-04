@@ -1,6 +1,6 @@
 import unittest
 from src.preprocess import TopLevelProcessor
-from src.preprocess.pattern import DefineLanguageNtCycleChecker, DefineLanguageNtClosureSolver
+from src.preprocess.pattern import DefineLanguage_NtCycleChecker, DefineLanguage_NtClosureSolver
 from src.model.pattern import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode
 from src.model.tlform import DefineLanguage, Module
 from src.context import CompilationContext
@@ -28,9 +28,9 @@ class TestCycleCheck(unittest.TestCase):
             ]),
         ])
 
-        successors, _ = DefineLanguageNtClosureSolver(lang).run()
+        successors, _ = DefineLanguage_NtClosureSolver(lang).run()
         try:
-            DefineLanguageNtCycleChecker(lang, successors).run()
+            DefineLanguage_NtCycleChecker(lang, successors).run()
             self.fail('should throw')
         except CompilationError as ex:
             self.assertIn(str(ex), [genmsg(['e', 'n', 'e']), genmsg(['n', 'e', 'n'])])
@@ -50,9 +50,9 @@ class TestCycleCheck(unittest.TestCase):
             ]),
         ])
 
-        successors, _ = DefineLanguageNtClosureSolver(lang).run()
+        successors, _ = DefineLanguage_NtClosureSolver(lang).run()
         try:
-            DefineLanguageNtCycleChecker(lang, successors).run()
+            DefineLanguage_NtCycleChecker(lang, successors).run()
             self.fail('should throw')
         except CompilationError as ex:
             self.assertIn(str(ex), [genmsg(['m', 'm'])])

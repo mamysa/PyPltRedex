@@ -8,7 +8,7 @@ from src.util import SymGen
 # (3) ((n_1 ... n_1#0 ... CheckEquality(n_1 n_1#0) (n_1#2 ... n_1#1 ... CheckEquality(n_1 n_1#1)) CheckEquality(n_1, n_1#2))
 # This class (1) renames all occurences of bindable symbol (except the first one)
 # (2) Inserts contraint checks when at least two syms have been seen in the sequence.
-class ConstraintCheckInserter(pattern.PatternTransformer):
+class Pattern_ConstraintCheckInserter(pattern.PatternTransformer):
     def __init__(self, pattern):
         self.pattern = pattern
         self.symgen = SymGen()

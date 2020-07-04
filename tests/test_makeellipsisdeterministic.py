@@ -1,6 +1,6 @@
 import unittest
 from src.preprocess import TopLevelProcessor 
-from src.preprocess.pattern import EllipsisMatchModeRewriter, DefineLanguageNtClosureSolver
+from src.preprocess.pattern import Pattern_EllipsisMatchModeRewriter, DefineLanguage_NtClosureSolver
 from src.model.pattern import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode
 from src.model.tlform import DefineLanguage, Module
 from src.context import CompilationContext
@@ -27,7 +27,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
             ]),
         ])
 
-        _, closure = DefineLanguageNtClosureSolver(lang).run()
+        _, closure = DefineLanguage_NtClosureSolver(lang).run()
 
         self.assertSetEqual(closure['m'], {'e', 'n', 'number'})
         self.assertSetEqual(closure['e'], {     'n', 'number'})
@@ -39,7 +39,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
     def test_partitioning(self):
         seq1 = [ Nt('y', 'y'), Repeat(Nt('e', 'e')), Repeat(Nt('x', 'x')), Nt('y', 'y'), Nt('z', 'z')]
 
-        partitions = EllipsisMatchModeRewriter._partitionseq(None, seq1)
+        partitions = Pattern_EllipsisMatchModeRewriter._partitionseq(None, seq1)
         self.assertEqual(len(partitions), 3)
 
         contains_ellipsis, partition = partitions[0]
@@ -82,7 +82,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
             ]),
         ])
 
-        _, closure = DefineLanguageNtClosureSolver(lang).run()
+        _, closure = DefineLanguage_NtClosureSolver(lang).run()
 
         #( number ... number ...) 
         pat = PatSequence([
@@ -95,7 +95,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                 Repeat(BuiltInPat(BuiltInPatKind.Number, 'number', 'number'), RepeatMatchMode.Deterministic), 
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, expected)
 
         # (e e ... m ... n)  no deterministm possible
@@ -105,7 +105,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                 Repeat(Nt('m', 'm')), 
                 Nt('n', 'n') 
             ])
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, pat)
         # (e ... number ... m ...) # s can be matched deterministically
         pat = PatSequence([
@@ -120,7 +120,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                 Repeat(Nt('m', 'm'), RepeatMatchMode.Deterministic), 
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, expected)
 
         # (e e ... m ... h)  m should be deterministic
@@ -138,7 +138,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                 Nt('h', 'h') 
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, expected)
 
         # (e e ... m ... h ...)  m and h should be deterministic.
@@ -156,7 +156,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                 Repeat(Nt('h', 'h'), RepeatMatchMode.Deterministic)
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, expected)
 
 
@@ -173,7 +173,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                 Repeat(PatSequence([Nt('h', 'h')]), RepeatMatchMode.Deterministic),
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, expected)
 
         #((e ...) ... (m ...) ... (m ... h ...) ...) -> (m ... h ...) term can be matched deterministically
@@ -203,7 +203,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                     ]), RepeatMatchMode.Deterministic),
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, expected)
 
         #((e ...) ... (m ... h ...) ... (m ... h ...)) ->  nondeterministc
@@ -235,7 +235,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                     ]),
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, expected)
 
     # ((n h ... n) ... (m e) ...)
@@ -263,7 +263,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                     ]), RepeatMatchMode.Deterministic),
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, expected)
 
     # ((n "string" n) ... (m "string" e) ...)
@@ -280,7 +280,7 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                     ]), RepeatMatchMode.Deterministic),
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, pat)
 
     # ((n "string" n) ... (m "another_string" e) ...)
@@ -310,5 +310,5 @@ class TestMakeEllipsisDeterministic(unittest.TestCase):
                     ]), RepeatMatchMode.Deterministic),
             ])
 
-        actual = EllipsisMatchModeRewriter(lang, pat, closure).run()
+        actual = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         self.assertEqual(actual, expected)

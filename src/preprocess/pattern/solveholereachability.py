@@ -218,7 +218,7 @@ class NtGraphBuilder(pattern.PatternTransformer):
 # in the graph - we simply disregard these values.)
 # For example, language (P ::= (E E)) (E ::= P (E n)  hole) requires two iterations to converge -
 # in the first iteration E = (1 1) and the second iteration E = (2 2) since E is P and P = (2 2)
-class DefineLanguageCalculateNumberOfHoles:
+class DefineLanguage_HoleReachabilitySolver:
     def __init__(self, definelanguage, debug_dump_ntgraph=False):
         assert isinstance(definelanguage, tlform.DefineLanguage)
         self.definelanguage = definelanguage

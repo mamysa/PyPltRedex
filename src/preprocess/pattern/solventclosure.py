@@ -2,7 +2,7 @@ import src.model.tlform as tlform
 import src.model.pattern as pattern
 import copy
 
-class DefineLanguageNtClosureSolver:
+class DefineLanguage_NtClosureSolver:
     def __init__(self, definelanguage):
         assert isinstance(definelanguage, tlform.DefineLanguage)
         self.definelanguage = definelanguage
