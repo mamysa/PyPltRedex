@@ -1,9 +1,9 @@
 import ply.lex as lex
 import ply.yacc as yacc
 
-import src.tlform as tlform
-import src.pat as pat
-import src.term as term
+import src.model.tlform as tlform
+import src.model.pattern as pat
+import src.model.term as term
 
 import os
 

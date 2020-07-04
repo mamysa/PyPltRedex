@@ -1,5 +1,5 @@
-import src.term as term
-import src.rpython as rpy
+import src.model.term as term
+import src.model.rpython as rpy
 from src.util import SymGen
 from src.context import CompilationContext
 

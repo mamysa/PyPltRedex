@@ -1,4 +1,4 @@
-import src.pat as pattern
+import src.model.pattern as pattern
 
 # object containing other top-level forms...
 class Module:

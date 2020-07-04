@@ -7,7 +7,7 @@ import sys
 import os
 import shutil
 import argparse
-import src.rpython as rpy
+import src.model.rpython as rpy
 
 from src.context import CompilationContext
 

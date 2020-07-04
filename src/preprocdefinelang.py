@@ -1,5 +1,5 @@
-import src.tlform as tlform
-import src.pat as pattern
+import src.model.tlform as tlform
+import src.model.pattern as pattern
 import src.genterm as genterm
 from src.util import SymGen, CompilationError
 import sys

@@ -1,7 +1,7 @@
-import src.tlform as tlform
-import src.term as TERM
-import src.rpython as rpy
-import src.pat as pattern
+import src.model.tlform as tlform
+import src.model.term as TERM
+import src.model.rpython as rpy
+import src.model.pattern as pattern
 
 import src.genterm as genterm
 import src.genpat  as genpat

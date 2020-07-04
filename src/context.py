@@ -1,4 +1,4 @@
-import src.rpython as rpy
+import src.model.rpython as rpy
 from src.util import SymGen
 
 class CompilationContext:

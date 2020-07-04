@@ -1,7 +1,7 @@
 import unittest
 from src.preprocdefinelang import NumberOfHoles, DefineLanguageCalculateNumberOfHoles 
-from src.pat import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode, PatNumHoles , InHole
-from src.tlform import DefineLanguage, Module
+from src.model.pattern import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode, PatNumHoles , InHole
+from src.model.tlform import DefineLanguage, Module
 from src.context import CompilationContext
 from src.parser import parse_string
 from src.util import CompilationError
