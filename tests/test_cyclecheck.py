@@ -1,5 +1,6 @@
 import unittest
-from src.preprocdefinelang import MakeEllipsisDeterministic, TopLevelProcessor, DefineLanguageNtCycleChecker, DefineLanguageNtClosureSolver
+from src.preprocess import TopLevelProcessor
+from src.preprocess.pattern import DefineLanguageNtCycleChecker, DefineLanguageNtClosureSolver
 from src.model.pattern import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode
 from src.model.tlform import DefineLanguage, Module
 from src.context import CompilationContext
