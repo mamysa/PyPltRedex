@@ -3,8 +3,8 @@ import src.model.term as TERM
 import src.model.rpython as rpy
 import src.model.pattern as pattern
 
-import src.genterm as genterm
-import src.genpat  as genpat
+from src.codegen.pattern import PatternCodegen
+from src.codegen.term    import TermCodegen
 
 from src.util import SymGen
 from src.context import CompilationContext
@@ -55,7 +55,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         assert isinstance(ntdef, tlform.DefineLanguage.NtDefinition)
         for pat in ntdef.patterns:
             if self.context.get_toplevel_function_for_pattern(languagename, repr(pat)) is None:
-                genpat.PatternCodegen(self.modulebuilder, pat, self.context, languagename, self.symgen).run()
+                PatternCodegen(self.modulebuilder, pat, self.context, languagename, self.symgen).run()
         
         nameof_this_func = 'lang_{}_isa_nt_{}'.format(languagename, ntdef.nt.prefix)
         term, match, matches = rpy.gen_pyid_for('term', 'match', 'matches')
@@ -96,7 +96,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
     def _visitRedexMatch(self, form):
         assert isinstance(form, tlform.RedexMatch)
         if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat)) is None:
-            genpat.PatternCodegen(self.modulebuilder, form.pat, self.context, form.languagename, self.symgen).run()
+            PatternCodegen(self.modulebuilder, form.pat, self.context, form.languagename, self.symgen).run()
 
         func2call = self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat))
         symgen = SymGen()
@@ -119,7 +119,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
     def _visitMatchEqual(self, form):
         assert isinstance(form, tlform.MatchEqual)
         if self.context.get_toplevel_function_for_pattern(form.redexmatch.languagename, repr(form.redexmatch.pat)) is None:
-            genpat.PatternCodegen(self.modulebuilder, form.redexmatch.pat, self.context, form.redexmatch.languagename, self.symgen).run()
+            PatternCodegen(self.modulebuilder, form.redexmatch.pat, self.context, form.redexmatch.languagename, self.symgen).run()
 
         fb = rpy.BlockBuilder()
         symgen = SymGen()
@@ -161,7 +161,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
     def _visitAssertTermsEqual(self, form):
         assert isinstance(form, tlform.AssertTermsEqual)
         template = form.template
-        template = genterm.TermCodegen(self.modulebuilder, self.context).transform(template)
+        template = TermCodegen(self.modulebuilder, self.context).transform(template)
 
         fb = rpy.BlockBuilder()
         symgen = SymGen()
@@ -194,8 +194,8 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         assert isinstance(rc, tlform.DefineReductionRelation.ReductionCase)
 
         if self.context.get_toplevel_function_for_pattern(languagename, repr(rc.pattern)) is None:
-            genpat.PatternCodegen(self.modulebuilder, rc.pattern, self.context, languagename, self.symgen).run()
-        genterm.TermCodegen(self.modulebuilder, self.context).transform(rc.termtemplate)
+            PatternCodegen(self.modulebuilder, rc.pattern, self.context, languagename, self.symgen).run()
+        TermCodegen(self.modulebuilder, self.context).transform(rc.termtemplate)
 
         nameof_matchfn = self.context.get_toplevel_function_for_pattern(languagename, repr(rc.pattern))
         nameof_termfn  = rc.termtemplate.getattribute(TERM.TermAttribute.FunctionName)[0]
@@ -250,7 +250,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         # return outterms
         if form.domain != None:
             if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.domain)) is None:
-                genpat.PatternCodegen(self.modulebuilder, form.domain, self.context, form.languagename, self.symgen).run()
+                PatternCodegen(self.modulebuilder, form.domain, self.context, form.languagename, self.symgen).run()
 
         nameof_domaincheck = None
         if form.domain != None:

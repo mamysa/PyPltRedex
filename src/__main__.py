@@ -1,7 +1,6 @@
 from src.parser import parse 
 from src.preprocdefinelang import  TopLevelProcessor 
-
-from src.gentlform import TopLevelFormCodegen
+from src.codegen.tlform import TopLevelFormCodegen
 
 import sys
 import os
@@ -36,7 +35,6 @@ if __name__ == '__main__':
     parser.add_argument('src', help='.rkt containing Redex spec')
     parser.add_argument('-dump-ast', action='store_true', help='Write spec to stdout')
     parser.add_argument('-debug-dump-ntgraph', action='store_true', help='Write Nt graph')
-    parser.add_argument('--include-py', nargs=1)
     args = parser.parse_args()
     entrypoint(args)
 

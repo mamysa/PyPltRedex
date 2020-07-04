@@ -1,6 +1,6 @@
 import src.model.tlform as tlform
 import src.model.pattern as pattern
-import src.genterm as genterm
+from src.preprocess.term import TermAnnotate 
 from src.util import SymGen, CompilationError
 import sys
 from src.context import CompilationContext
@@ -986,7 +986,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
     def _visitAssertTermsEqual(self, form):
         assert isinstance(form, tlform.AssertTermsEqual)
         idof = self.symgen.get('termlet')
-        form.template = genterm.TermAnnotate(form.variabledepths, idof, self.context).transform(form.template)
+        form.template = TermAnnotate(form.variabledepths, idof, self.context).transform(form.template)
         return form
 
     def processReductionCase(self, reductioncase, languagename):
@@ -994,7 +994,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         reductioncase.pattern = self.__processpattern(reductioncase.pattern, languagename)
         assignablesymsdepths = reductioncase.pattern.getmetadata(pattern.PatAssignableSymbolDepths)
         idof = self.symgen.get('reductionrelation')
-        reductioncase.termtemplate = genterm.TermAnnotate(assignablesymsdepths.syms, idof, self.context).transform(reductioncase.termtemplate)
+        reductioncase.termtemplate = TermAnnotate(assignablesymsdepths.syms, idof, self.context).transform(reductioncase.termtemplate)
 
     def _visitDefineReductionRelation(self, form):
         assert isinstance(form, tlform.DefineReductionRelation)
