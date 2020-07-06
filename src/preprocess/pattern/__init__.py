@@ -6,7 +6,7 @@ from src.preprocess.pattern.insertconstraintcheck import Pattern_ConstraintCheck
 from src.preprocess.pattern.rewriteellipsismatchmode import DefineLanguage_EllipsisMatchModeRewriter, Pattern_EllipsisMatchModeRewriter
 from src.preprocess.pattern.rewriteid import DefineLanguage_IdRewriter
 from src.preprocess.pattern.rewritent import DefineLanguage_NtRewriter, Pattern_NtRewriter
-from src.preprocess.pattern.solveholereachability import DefineLanguage_HoleReachabilitySolver, NtGraphBuilder, NumberOfHoles
+from src.preprocess.pattern.solveholereachability import NtGraphBuilder, NumberOfHoles, NtGraph
 from src.preprocess.pattern.solventclosure import DefineLanguage_NtClosureSolver
 
 __all__ = [
@@ -21,7 +21,7 @@ __all__ = [
     'DefineLanguage_IdRewriter', 
     'DefineLanguage_NtRewriter', 
     'Pattern_NtRewriter', 
-    'DefineLanguage_HoleReachabilitySolver', 
+    'NtGraph', 
     'NtGraphBuilder', 
     'NumberOfHoles', 
     'DefineLanguage_NtClosureSolver', 

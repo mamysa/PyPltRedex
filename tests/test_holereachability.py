@@ -10,6 +10,7 @@ def result(lang, nt):
     return lang.nts[nt].nt.getmetadata(PatNumHoles)
 
 class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
+    """
             
     # (n ::= number)
     # (P ::= (E))
@@ -347,3 +348,35 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             self.fail()
         except CompilationError as ex:
             self.assertEqual(str(ex), 'in-hole pattern in define-language')
+
+
+    # n ::number                 (zero, zero)
+    # E ::= (E hole)(E E) n      (zero, many)
+    def test_holereachability14(self):
+        lang = DefineLanguage('Lang', [
+            DefineLanguage.NtDefinition(Nt('n', 'n'), [
+                BuiltInPat(BuiltInPatKind.Number, 'number', 'number'),
+            ]),
+            DefineLanguage.NtDefinition(Nt('E', 'E'), [
+                PatSequence([Nt('E', 'E'), Nt('E', 'E') ]),
+                PatSequence([Nt('E', 'E'), BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole') ]),
+                Nt('n', 'n'),
+            ]),
+        ])
+
+        DefineLanguage_HoleReachabilitySolver(lang).run()
+        self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
+        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
+        """
+
+    # E ::= (E hole)(E E)      (many, many)
+    def test_holereachability15(self):
+        lang = DefineLanguage('Lang', [
+            DefineLanguage.NtDefinition(Nt('E', 'E'), [
+                PatSequence([Nt('E', 'E'), BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole') ]),
+                PatSequence([Nt('E', 'E'), Nt('E', 'E') ]),
+            ]),
+        ])
+
+        DefineLanguage_HoleReachabilitySolver(lang).run()
+        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))

@@ -34,7 +34,14 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         form = DefineLanguage_IdRewriter(form).run()
         successors, closures = DefineLanguage_NtClosureSolver(form).run()
         DefineLanguage_NtCycleChecker(form, successors).run()
-        DefineLanguage_HoleReachabilitySolver(form, debug_dump_ntgraph=self.debug_dump_ntgraph).run()
+
+        graph = NtGraphBuilder(form).run()
+        print(graph.getnumberofedges())
+        if self.debug_dump_ntgraph:
+            graph.dump(form.name)
+        import sys
+        sys.exit(1)
+        #DefineLanguage_HoleReachabilitySolver(form, debug_dump_ntgraph=self.debug_dump_ntgraph).run()
         form = DefineLanguage_EllipsisMatchModeRewriter(form, closures).run()
         form = DefineLanguage_AssignableSymbolExtractor(form).run()
         self.definelanguages[form.name] = form 
