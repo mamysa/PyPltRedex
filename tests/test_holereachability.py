@@ -1,5 +1,5 @@
 import unittest
-from src.preprocess.pattern import NumberOfHoles, DefineLanguage_HoleReachabilitySolver 
+from src.preprocess.pattern import NumberOfHoles, DefineLanguage_HoleReachabilitySolver, NtGraphBuilder 
 from src.model.pattern import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode, PatNumHoles , InHole
 from src.model.tlform import DefineLanguage, Module
 from src.context import CompilationContext
@@ -10,7 +10,6 @@ def result(lang, nt):
     return lang.nts[nt].nt.getmetadata(PatNumHoles)
 
 class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
-    """
             
     # (n ::= number)
     # (P ::= (E))
@@ -29,8 +28,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
                 BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole'),
             ]),
         ])
-
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
@@ -50,13 +49,21 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
 
 
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
 
     # (n ::= number)          (zero zero)
     # (P ::= (E))             (one one)
     # (E ::= P (E n) hole)    (one one)
+    # The algorithm does not deal with infinite cycles that well - for example we can have
+    # term (((( (E) )))) that is infinite and thus ideally should match zero holes. 
+    # Since algorithm used to simply propagates holes throughout the graph, it does not take 
+    # into account inner-node cycles such as (E) -> (E n) -> (E). Perhaps for each edge in such
+    # cycle we should enforce min value of Zero holes?
+    # It might be fine for our purposes of checking in-hole patterns that involves checking
+    # if given expression matches exactly one hole.
     def test_holereachability2(self):
         lang = DefineLanguage('Lang', [
             DefineLanguage.NtDefinition(Nt('n', 'n'), [
@@ -73,7 +80,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
         ])
 
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.One ))
@@ -97,7 +105,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
@@ -122,7 +131,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -145,14 +155,15 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
 
     # (n ::= number)                  (zero zero)
-    # (P ::= (E))                     (many many) 
-    # (E ::= P (E hole))              (many many) (((...) hole) hole)
+    # (P ::= (E))                     (one many) 
+    # (E ::= P (E hole))              (one many) (((...) hole) hole)
     def test_holereachability6(self):
         lang = DefineLanguage('Lang', [
             DefineLanguage.NtDefinition(Nt('n', 'n'), [
@@ -167,7 +178,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
@@ -190,7 +202,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -214,7 +227,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
@@ -237,7 +251,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One , NumberOfHoles.Many))
@@ -267,7 +282,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -294,7 +310,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
@@ -319,7 +336,8 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
         ])
 
         try:
-            DefineLanguage_HoleReachabilitySolver(lang).run()
+            graph = NtGraphBuilder(lang).run()
+            DefineLanguage_HoleReachabilitySolver(lang, graph).run()
             self.fail()
         except CompilationError as ex:
             self.assertEqual(str(ex), 'in-hole pattern in define-language')
@@ -344,11 +362,12 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
         ])
 
         try:
-            DefineLanguage_HoleReachabilitySolver(lang).run()
+
+            graph = NtGraphBuilder(lang).run()
+            DefineLanguage_HoleReachabilitySolver(lang, graph).run()
             self.fail()
         except CompilationError as ex:
             self.assertEqual(str(ex), 'in-hole pattern in define-language')
-
 
     # n ::number                 (zero, zero)
     # E ::= (E hole)(E E) n      (zero, many)
@@ -364,19 +383,47 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
-        """
 
-    # E ::= (E hole)(E E)      (many, many)
+    # n ::number                 (zero, zero)
+    # E ::= (E hole)(E E) n      (zero, many)
     def test_holereachability15(self):
         lang = DefineLanguage('Lang', [
+            DefineLanguage.NtDefinition(Nt('n', 'n'), [
+                BuiltInPat(BuiltInPatKind.Number, 'number', 'number'),
+            ]),
             DefineLanguage.NtDefinition(Nt('E', 'E'), [
                 PatSequence([Nt('E', 'E'), BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole') ]),
                 PatSequence([Nt('E', 'E'), Nt('E', 'E') ]),
+                Nt('n', 'n'),
             ]),
         ])
 
-        DefineLanguage_HoleReachabilitySolver(lang).run()
-        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Many, NumberOfHoles.Many))
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
+        self.assertEqual(result(lang, 'n'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
+        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Many))
+
+    # (P ::= (E))                       (zero one)
+    # (E ::= P hole (()) )               (zero one)  
+    def test_holereachability16(self):
+        lang = DefineLanguage('Lang', [
+           DefineLanguage.NtDefinition(Nt('P', 'P'), [
+                PatSequence([Nt('E', 'E_0')]),
+            ]),
+            DefineLanguage.NtDefinition(Nt('E', 'E'), [
+                Nt('P', 'P_1'),
+                BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole'),
+                PatSequence([
+                    PatSequence([]),
+                ]),
+            ]),
+        ])
+
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
+        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
+        self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))

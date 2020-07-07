@@ -36,12 +36,13 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         DefineLanguage_NtCycleChecker(form, successors).run()
 
         graph = NtGraphBuilder(form).run()
-        print(graph.getnumberofedges())
+        DefineLanguage_HoleReachabilitySolver(form, graph).run()
         if self.debug_dump_ntgraph:
             graph.dump(form.name)
-        import sys
-        sys.exit(1)
-        #DefineLanguage_HoleReachabilitySolver(form, debug_dump_ntgraph=self.debug_dump_ntgraph).run()
+            print('------ Debug Nt hole counts for language {}: ------'.format(form.name))
+            for nt, ntdef in form.nts.items():
+                print('{}: {}'.format(nt, repr(ntdef.nt.getmetadata(pattern.PatNumHoles))))
+            print('\n') 
         form = DefineLanguage_EllipsisMatchModeRewriter(form, closures).run()
         form = DefineLanguage_AssignableSymbolExtractor(form).run()
         self.definelanguages[form.name] = form 
