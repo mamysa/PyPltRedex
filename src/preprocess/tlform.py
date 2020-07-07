@@ -97,3 +97,8 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         assert isinstance(form, tlform.ApplyReductionRelation)
         reductionrelation = self.reductionrelations[form.reductionrelationname]
         return form
+
+    def _visitDefineMetafunction(self, form):
+        assert isinstance(form, tlform.DefineMetafunction)
+        return form
+

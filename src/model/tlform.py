@@ -56,6 +56,33 @@ class DefineLanguage(TopLevelForm):
     def __repr__(self):
         return 'DefineLanguage({}, {})'.format(self.name, self.nts)
 
+class DefineMetafunction(TopLevelForm):
+    class MetafunctionCase:
+        def __init__(self, name, patternsequence, termtemplate):
+            self.name = name
+            self.patternsequence = patternsequence
+            self.termtemplate = termtemplate
+
+        def __repr__(self):
+            return 'MetaFunctionCase({}, {}, {})'.format(self.name, self.patternsequence, self.termtemplate)
+
+    class MetafunctionContract:
+        def __init__(self, name, domain, codomain):
+            self.name = name 
+            self.domain = domain
+            self.codomain = codomain
+
+        def __repr__(self):
+            return 'MetafunctionContract({}, {})'.format(self.name, self.domain, self.codomain)
+
+    def __init__(self, languagename, contract, cases):
+        self.languagename = languagename
+        self.contract = contract
+        self.cases = cases
+
+    def __repr__(self):
+        return 'DefineMetafunction({}, {}, {})'.format(self.languagename, self.contract, self.cases)
+
 class DefineReductionRelation(TopLevelForm):
     class ReductionCase:
         def __init__(self, pattern, termtemplate, name):

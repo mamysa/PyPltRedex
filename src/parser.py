@@ -21,11 +21,14 @@ reserved = {
     'assert-term-eq' : 'ASSERTTERMEQ',
     ','              : 'COMMA',
     ',@'             : 'COMMAATSIGN',
+    '->'             : 'LEFTARROW',
     '-->'            : 'ARROW',
+    ':'              : 'COLON',
     'define-reduction-relation' : 'DEFINEREDUCTIONRELATION',
+    'define-metafunction' : 'DEFINEMETAFUNCTION',
     'require-python-source' : 'REQUIREPYTHONSOURCE',
     'apply-reduction-relation' : 'APPLYREDUCTIONRELATION',
-    'assert-term-lists-equal' : 'ASSERTTERMLISTSEQUAL'
+    'assert-term-lists-equal' : 'ASSERTTERMLISTSEQUAL',
 }
 
 tokens = [
@@ -113,6 +116,7 @@ def p_top_level_form(t):
                    | define-reduction-relation
                    | apply-reduction-relation
                    | assert-term-lists-equal
+                   | define-metafunction
     """
     t[0] = t[1]
 
@@ -159,6 +163,48 @@ def p_pattern_list(t):
         t[0] = t[1] 
         t[0].append(t[2])
 
+# --------------------- DEFINE-METAFUNCTION-----------------
+# define-metafunction ::=  ( define-metafunction IDENT metafunction-contract metafunction-case ... )
+# metafunction-contract ::= IDENT : pattern-sequence ...  -> pattern
+# metafunction-case ::= [ (IDENT pattern ...) term-template ]
+def p_define_metafunction(p):
+    """
+    define-metafunction : LPAREN DEFINEMETAFUNCTION IDENT metafunction-contract metafunction-case-list RPAREN
+    """
+    p[0] = tlform.DefineMetafunction(p[3], p[4], p[5])
+
+
+def p_define_metafunction_contract(p):
+    """
+    metafunction-contract : IDENT COLON LEFTARROW pattern
+                         | IDENT COLON pattern-sequence LEFTARROW pattern
+    """
+    if len(p) == 5:
+        p[0] = tlform.DefineMetafunction.MetafunctionContract(p[1], [], p[4])
+    else:
+        p[0] = tlform.DefineMetafunction.MetafunctionContract(p[1], p[3], p[5])
+
+def p_metafunction_case_list(t):
+    """
+    metafunction-case-list : metafunction-case-list metafunction-case 
+                           | metafunction-case 
+    """
+    if len(t) == 2:
+        t[0] = [t[1]]
+    else:
+        t[0] = t[1] 
+        t[0].append(t[2])
+
+def p_metafunction_case(p):
+    """
+    metafunction-case : LPAREN LPAREN IDENT RPAREN term-template RPAREN
+                      | LPAREN LPAREN IDENT pattern-sequence RPAREN term-template RPAREN
+    """
+    if len(p) == 7:
+        p[0] = tlform.DefineMetafunction.MetafunctionCase(p[3], [], p[5])
+    else:
+        print(p[4])
+        p[0] = tlform.DefineMetafunction.MetafunctionCase(p[3], p[4], p[6])
 
 # --------------------- DEFINE-REDUCTION-RELATION FORM ---------
 # define-reduction-relation ::= ( define-reduction-relation IDENT IDENT domain reduction-case ... )
