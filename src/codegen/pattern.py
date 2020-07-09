@@ -126,7 +126,70 @@ class PatternCodegen(pattern.PatternTransformer):
                 # tmp4 = match.decreasedepth(...)
                 # return (match, head, tail)
 
+                # tmp0 = match.increasedepth(...)
+                # outmatches = []
+                # matches = [(tmp0, head, tail)]
+                # while len(matches) != 0:
+                #   nmatches = []
+                #   for m, h, t in matches:
+                #     if h == t:
+                #       tmp1 = (m,h,t)
+                #       tmp1 = completedmatches.append()
+                #       continue
+                #     tmp2 = term.get[h]
+                #     tmp3 = match_term(tmp2, m, h, t) 
+                #     if len(tmp3) == 0:
+                #       completedmatches.append((m,h,t))
+                #       continue
+                #     nmatches = nmatches + tmp3
+                #   matches = nmatches 
+                # for match in outmatches:
+                #   tmp4 = match.decreasedepth(...)
+                # return outmatches
+                matches, nmatches, outmatches = rpy.gen_pyid_for('matches', 'nmatches', 'outmatches')
+                m, h, t = rpy.gen_pyid_for('m', 'h', 't')
 
+                ifb1 = rpy.BlockBuilder()
+                ifb1.AssignTo(tmp1).PyTuple(m, h, t)
+                ifb1.AssignTo(tmp1).MethodCall(outmatches, 'append', tmp1)
+                ifb1.Continue
+
+                ifb2 = rpy.BlockBuilder()
+                ifb2.AssignTo(tmp4).PyTuple(m, h, t)
+                ifb2.AssignTo(tmp4).MethodCall(outmatches, 'append', tmp4)
+                ifb2.Continue
+
+                forb1 = rpy.BlockBuilder()
+                forb1.If.Equal(h, t).ThenBlock(ifb1)
+                forb1.AssignTo(tmp2).MethodCall(term, TermMethodTable.Get, h)
+                forb1.AssignTo(tmp3).FunctionCall(functionname, tmp2, m, h, t)
+                forb1.If.LengthOf(tmp3).Equal(rpy.PyInt(0)).ThenBlock(ifb2)
+                forb1.AssignTo(nmatches).Add(nmatches, tmp3)
+
+                whb = rpy.BlockBuilder()
+                whb.AssignTo(nmatches).PyList()
+                whb.For(m,h,t).In(matches).Block(forb1)
+                whb.AssignTo(matches).PyId(nmatches)
+
+                forb2 = rpy.BlockBuilder()
+                for bindable in assignable_symbols:
+                    forb2.AssignTo(tmp4).MethodCall(m, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
+
+
+                fb = rpy.BlockBuilder()
+                for bindable in assignable_symbols:
+                    fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.IncreaseDepth, rpy.PyString(bindable))
+                fb.AssignTo(outmatches).PyList()
+                fb.AssignTo(matches).PyList( rpy.PyTuple(match, head, tail) )
+                fb.While.LengthOf(matches).NotEqual(rpy.PyInt(0)).Block(whb)
+                fb.For(m,h,t).In(outmatches).Block(forb2)
+                fb.Return.PyId(outmatches)
+
+                self.modulebuilder.SingleLineComment('{} deterministic'.format(repr(repeat)))
+                self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
+
+
+                """
                 ifb0 = rpy.BlockBuilder()
                 ifb0.Break
 
@@ -156,6 +219,7 @@ class PatternCodegen(pattern.PatternTransformer):
 
                 self.modulebuilder.SingleLineComment('{} deterministic'.format(repr(repeat)))
                 self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
+                """
 
             if repeat.matchmode == pattern.RepeatMatchMode.NonDetermininstic:
                 matches, queue = rpy.gen_pyid_for('matches', 'queue')
