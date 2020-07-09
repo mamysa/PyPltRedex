@@ -203,7 +203,6 @@ def p_metafunction_case(p):
     if len(p) == 7:
         p[0] = tlform.DefineMetafunction.MetafunctionCase(p[3], [], p[5])
     else:
-        print(p[4])
         p[0] = tlform.DefineMetafunction.MetafunctionCase(p[3], p[4], p[6])
 
 # --------------------- DEFINE-REDUCTION-RELATION FORM ---------
@@ -243,9 +242,9 @@ def p_reduction_case(t):
 
 
 # --------------------- APPLY-REDUCTION-RELATION FORM -----------------------
-# apply-reduction-relation : (apply-reduction-relation IDENT term-literal-top)
+# apply-reduction-relation : (apply-reduction-relation IDENT term-template-top)
 def p_apply_reduction_relation(p):
-    'apply-reduction-relation : LPAREN APPLYREDUCTIONRELATION IDENT term-literal-top RPAREN'
+    'apply-reduction-relation : LPAREN APPLYREDUCTIONRELATION IDENT term-template-top RPAREN'
     p[0] = tlform.ApplyReductionRelation(p[3], p[4])
 
 
@@ -253,7 +252,7 @@ def p_apply_reduction_relation(p):
 # redex-match ::= (redex-match lang-name pattern term)
 # A bit inflexible at the moment - terms must be 'literal'
 def p_redex_match(t):
-    'redex-match : LPAREN REDEXMATCH IDENT pattern term-literal-top RPAREN'
+    'redex-match : LPAREN REDEXMATCH IDENT pattern term-template-top RPAREN'
     t[0] = tlform.RedexMatch(t[3], t[4], t[5])
 
 # --------------------- TERM-LET FORM -----------------------
@@ -262,7 +261,7 @@ def p_redex_match(t):
 # tl-pat-ele : tl_pat | tl_pat ELLPISIS 
 
 def p_assert_term_eq(t):
-    'assert-term-eq : LPAREN ASSERTTERMEQ LPAREN variable-assignment-list RPAREN term-template-top term-literal-top RPAREN'
+    'assert-term-eq : LPAREN ASSERTTERMEQ LPAREN variable-assignment-list RPAREN term-template-top term-template-top RPAREN'
     variabledepths = {} 
     variableassignments = {}
     for sym, (depth, term) in t[4].items():
@@ -290,7 +289,7 @@ def p_variable_assignment_list(t):
 # provide ellipsis depth instead of tl-pat. Ellipsis depth is known at compile time. 
 # FIXME rename the form to something else?
 def p_variable_assignment(t):
-    'variable-assignment : LPAREN IDENT INTEGER term-literal-top RPAREN'
+    'variable-assignment : LPAREN IDENT INTEGER term-template-top RPAREN'
     t[0] = (t[2], int(t[3]), t[4])
 
 def p_tl_pat(t):
@@ -344,12 +343,12 @@ def p_match_list(t):
 # assert-term-lists-equal ::= ( apply-reduction-relation literal-term-list )
 # literal'
 def p_assert_term_lists_equal(p):
-    'assert-term-lists-equal : LPAREN ASSERTTERMLISTSEQUAL apply-reduction-relation listof-literal-terms RPAREN'
+    'assert-term-lists-equal : LPAREN ASSERTTERMLISTSEQUAL apply-reduction-relation listof-terms RPAREN'
     p[0] = tlform.AssertTermListsEqual(p[3], p[4])
 
 def p_listof_literal_terms(t):
     """
-    listof-literal-terms : LPAREN literal-term-list RPAREN
+    listof-terms : LPAREN literal-term-list RPAREN
                           | LPAREN RPAREN
     """
     if len(t) == 4:
@@ -359,8 +358,8 @@ def p_listof_literal_terms(t):
 
 def p_literalterm_list(t):
     """
-    literal-term-list : literal-term-list term-literal-top 
-                      | term-literal-top
+    literal-term-list : literal-term-list term-template-top 
+                      | term-template-top
     """
     if len(t) == 3:
         t[0] = t[1]
@@ -395,7 +394,7 @@ def p_match_bind_list(t):
         t[0] = [t[1]]
 
 def p_match_bind(t):
-    'match-bind : LPAREN BIND IDENT term_literal RPAREN'
+    'match-bind : LPAREN BIND IDENT term-template RPAREN'
     t[0] = (t[3], t[4])
 
 # --------------------- PATTERN -----------------------
@@ -487,7 +486,7 @@ def p_term_template(t):
     term-template : LPAREN term-template-list RPAREN 
                   | LPAREN RPAREN
     """
-    if len(t) == 2:
+    if len(t) == 3:
         t[0] = term.TermSequence([])
     else: 
         t[0] = term.TermSequence(t[2])
@@ -511,7 +510,6 @@ def p_term_pycall_append_list(t):
 def p_term_template_unresolved(t):
     'term-template : IDENT'
     t[0] = term.UnresolvedSym(t[1])
-
 
 def p_list_of_template_list_top(t):
     """
@@ -551,57 +549,10 @@ def p_term_template_pycall_extend(t):
     'term-template-pycall-extend : COMMAATSIGN LPAREN IDENT list-of-term-template-top RPAREN'
     t[0] = term.PyCall(term.PyCallInsertionMode.Extend, t[3], t[4])
 
-# ---------------------LITERAL TERMS -----------------------
-# Parsing 'literal' terms. These will be inserted into output directly using runtime classes.
-# E.g. (1 2) -> Sequence([Integer(1), Integer(2)])
-# term ::= (term ...) | atom
-# atom ::= INTEGER | IDENTIFIER
-
-def p_term_literal_top(t):
-    'term-literal-top : LPAREN TERM term_literal RPAREN'
-    t[0] = t[3]
-
 # This is how we can handle errors!
 #def p_term_literal_top_error_1(t):
 #    'term-literal-top : LPAREN error term_literal RPAREN'
 #    raise Exception('blah', t[2], t[2].lineno)
-
-
-def p_term_literal(t):
-    """
-    term_literal : LPAREN term_literal_list RPAREN 
-                 | LPAREN RPAREN
-                 | term_literal_atom
-    """
-    if len(t) == 2:
-        t[0] = t[1]
-    elif len(t) == 3:
-        t[0] = term.TermLiteral(term.TermLiteralKind.List, [])
-    else:
-        t[0] = term.TermLiteral(term.TermLiteralKind.List, t[2])
-
-def p_term_literal_list(t):
-    """
-    term_literal_list : term_literal_list term_literal
-                      | term_literal
-    """
-    if len(t) == 3:
-        t[0] = t[1]
-        t[0].append(t[2])
-    else:
-        t[0] = [t[1]]
-
-def p_term_literal_atom_integer(t):
-    'term_literal_atom : INTEGER'
-    t[0] = term.TermLiteral(term.TermLiteralKind.Integer, t[1])
-
-def p_term_literal_atom_identifier(t):
-    'term_literal_atom : IDENT'
-    t[0] = term.TermLiteral(term.TermLiteralKind.Variable, t[1])
-
-def p_term_literal_atom_hole(t):
-    'term_literal_atom : HOLE'
-    t[0] = term.TermLiteral(term.TermLiteralKind.Hole, t[1])
 
 def p_error(t):
     raise Exception('unexpected token {} on line {}'.format(t.value, t.lineno))

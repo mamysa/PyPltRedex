@@ -1,4 +1,5 @@
 import src.model.pattern as pattern
+from src.util import CompilationError
 
 # object containing other top-level forms...
 class Module:
@@ -60,7 +61,7 @@ class DefineMetafunction(TopLevelForm):
     class MetafunctionCase:
         def __init__(self, name, patternsequence, termtemplate):
             self.name = name
-            self.patternsequence = patternsequence
+            self.patternsequence = pattern.PatSequence([pattern.Lit(name, pattern.LitKind.Variable)] + patternsequence)
             self.termtemplate = termtemplate
 
         def __repr__(self):
@@ -69,7 +70,7 @@ class DefineMetafunction(TopLevelForm):
     class MetafunctionContract:
         def __init__(self, name, domain, codomain):
             self.name = name 
-            self.domain = domain
+            self.domain = pattern.PatSequence([pattern.Lit(name, pattern.LitKind.Variable)] + domain) # we will turn contract into pattern.
             self.codomain = codomain
 
         def __repr__(self):
@@ -79,6 +80,9 @@ class DefineMetafunction(TopLevelForm):
         self.languagename = languagename
         self.contract = contract
         self.cases = cases
+        for case in self.cases:
+            if case.name != contract.name:
+                raise CompilationError('each metafunction case must begin with {}'.format(contract.name))
 
     def __repr__(self):
         return 'DefineMetafunction({}, {}, {})'.format(self.languagename, self.contract, self.cases)
@@ -130,14 +134,14 @@ class MatchEqual(TopLevelForm):
         return 'MatchEqual({} {})'.format(self.redexmatch, self.list_of_matches)
 
 class AssertTermsEqual(TopLevelForm):
-    def __init__(self, variabledepths, variableassignments, template, literal):
+    def __init__(self, variabledepths, variableassignments, template, expected):
         self.variabledepths = variabledepths # ellipsis depth
         self.variableassignments = variableassignments
         self.template = template
-        self.literal = literal
+        self.expected = expected 
 
     def __repr__(self):
-        return 'AssertTermsEqual({}, {}, {}, {})'.format(repr(self.variabledepths), repr(self.variableassignments), repr(self.template), repr(self.literal))
+        return 'AssertTermsEqual({}, {}, {}, {})'.format(repr(self.variabledepths), repr(self.variableassignments), repr(self.template), repr(self.expected))
 
 class AssertTermListsEqual(TopLevelForm):
     def __init__(self, applyreductionrelation, terms):

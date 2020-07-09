@@ -14,6 +14,8 @@ class CompilationContext:
 
         self.__reductionrelations = {}
 
+        self.__redexmatches = {}
+
         self.symgen = SymGen()
 
     def add_variables_mentioned(self, languagename,  variables):
@@ -85,3 +87,9 @@ class CompilationContext:
         if k in self.__reductionrelations:
             return self.__reductionrelations[k]
         return None
+
+    def get_redexmatch_for(self, form):
+        return self.__redexmatches[form]
+
+    def add_redexmatch_for(self, form, name):
+        self.__redexmatches[form] = name

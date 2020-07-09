@@ -48,7 +48,7 @@ class TermLiteral(Term):
 
     def __repr__(self):
         if self.kind in [TermLiteralKind.Integer, TermLiteralKind.Variable, TermLiteralKind.Hole]: 
-            return str(self.value)
+            return '{}'.format(self.value)
         # is a list, 
         return '({})'.format(' '.join(map(repr, self.value)))
 

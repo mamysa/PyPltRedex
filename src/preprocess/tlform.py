@@ -63,18 +63,40 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
     def _visitRedexMatch(self, form):
         assert isinstance(form, tlform.RedexMatch)
+        #import sys
+        #sys.exit(0)
         form.pat = self.__processpattern(form.pat, form.languagename)
+        idof = self.symgen.get('redexmatch_term')
+        form.termstr = Term_EllipsisDepthChecker({}, idof, self.context).transform(form.termstr)
         return form
 
     def _visitMatchEqual(self, form):
         assert isinstance(form, tlform.MatchEqual)
+        for i, match in enumerate(form.list_of_matches):
+            assert isinstance(match, tlform.MatchEqual.Match)
+            nbindings = []
+            for (ident, term) in match.bindings:
+                idof = self.symgen.get('mkterm')
+                nterm = Term_EllipsisDepthChecker({}, idof, self.context).transform(term)
+                nbindings.append((ident, nterm))
+            match.bindings = nbindings
+            
+            
         form.redexmatch = self._visit(form.redexmatch)
         return form
 
     def _visitAssertTermsEqual(self, form):
         assert isinstance(form, tlform.AssertTermsEqual)
-        idof = self.symgen.get('termlet')
-        form.template = Term_EllipsisDepthChecker(form.variabledepths, idof, self.context).transform(form.template)
+        variable_assignments = {}
+        for ident, term in form.variableassignments.items(): 
+            print(term)
+            idof = self.symgen.get('termlet')
+            form.variableassignments[ident] = Term_EllipsisDepthChecker({}, idof, self.context).transform(term)
+            
+        idof1 = self.symgen.get('termlet')
+        idof2 = self.symgen.get('termlet')
+        form.template = Term_EllipsisDepthChecker(form.variabledepths, idof1, self.context).transform(form.template)
+        form.expected = Term_EllipsisDepthChecker({}, idof2, self.context).transform(form.expected)
         return form
 
     def processReductionCase(self, reductioncase, languagename):
@@ -96,9 +118,20 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
     def _visitApplyReductionRelation(self, form):
         assert isinstance(form, tlform.ApplyReductionRelation)
         reductionrelation = self.reductionrelations[form.reductionrelationname]
+        idof = self.symgen.get('apply_reduction_Relation')
+        form.term = Term_EllipsisDepthChecker({}, idof, self.context).transform(form.term) 
         return form
 
     def _visitDefineMetafunction(self, form):
         assert isinstance(form, tlform.DefineMetafunction)
         return form
+
+    def _visitAssertTermListsEqual(self, form):
+        assert isinstance(form, tlform.AssertTermListsEqual)
+        form.applyreductionrelation = self._visitApplyReductionRelation(form.applyreductionrelation)
+        for i, termtemplate in enumerate(form.terms):
+            idof = self.symgen.get('term_assert_term_lists_equal')
+            form.terms[i] = Term_EllipsisDepthChecker({}, idof, self.context).transform(termtemplate) 
+        return form
+
 

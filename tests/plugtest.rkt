@@ -74,11 +74,6 @@
   (term (in-hole (1 hole (hole x)) n))
   (term (1 2 (hole x))))
 
-(assert-term-eq 
-  ([n 0 (term 2)])
-  (term (in-hole (1 hole (hole x)) n))
-  (term (1 2 (hole x))))
-
 (assert-term-eq
   ([E 1 (term (1 2 3))])
   (term ((in-hole E x) ...))

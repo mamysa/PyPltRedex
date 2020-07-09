@@ -93,48 +93,51 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         assert isinstance(form, tlform.RequirePythonSource)
         self.modulebuilder.IncludeFromPythonSource(form.filename)
 
-    def _visitRedexMatch(self, form):
+    def _visitRedexMatch(self, form, callself=True):
         assert isinstance(form, tlform.RedexMatch)
         if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat)) is None:
             PatternCodegen(self.modulebuilder, form.pat, self.context, form.languagename, self.symgen).run()
 
-        func2call = self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat))
+        TermCodegen(self.modulebuilder, self.context).transform(form.termstr)
+        termfunc = form.termstr.getattribute(TERM.TermAttribute.FunctionName)[0]
+
+        matchfunc = self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat))
         symgen = SymGen()
 
         matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
         tmp0 = rpy.gen_pyid_temporaries(1, symgen)
 
         fb = rpy.BlockBuilder()
-        fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(form.termstr)))
-        fb.AssignTo(term).MethodCall(tmp0, 'parse') 
-        fb.AssignTo(matches).FunctionCall(func2call, term)
+        fb.AssignTo(tmp0).New('Match')
+        fb.AssignTo(term).FunctionCall(termfunc, tmp0)
+        fb.AssignTo(matches).FunctionCall(matchfunc, term)
         fb.Print(matches)
+        fb.Return.PyId(matches)
 
         # call redex-match itself.
         nameof_this_func = self.symgen.get('redexmatch')
-        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
+        self.context.add_redexmatch_for(form, nameof_this_func)
         self.modulebuilder.Function(nameof_this_func).Block(fb)
-        self.modulebuilder.AssignTo(tmp0).FunctionCall(nameof_this_func)
+        if callself:
+            tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
+            self.modulebuilder.AssignTo(tmp0).FunctionCall(nameof_this_func)
+
 
     def _visitMatchEqual(self, form):
         assert isinstance(form, tlform.MatchEqual)
         if self.context.get_toplevel_function_for_pattern(form.redexmatch.languagename, repr(form.redexmatch.pat)) is None:
             PatternCodegen(self.modulebuilder, form.redexmatch.pat, self.context, form.redexmatch.languagename, self.symgen).run()
 
+        self._visitRedexMatch(form.redexmatch,callself=False)
+        redexmatchfunc = self.context.get_redexmatch_for(form.redexmatch)
+
+
         fb = rpy.BlockBuilder()
         symgen = SymGen()
 
-        # FIXME CODE DUPLICATION - see redex-match
-        matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
-        tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
-        func2call = self.context.get_toplevel_function_for_pattern(form.redexmatch.languagename, repr(form.redexmatch.pat))
-
-        fb = rpy.BlockBuilder()
-        fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(form.redexmatch.termstr)))
-        fb.AssignTo(term).MethodCall(tmp0, 'parse') 
-        fb.AssignTo(matches).FunctionCall(func2call, term)
-        fb.Print(matches)
-        # ----- End code duplication
+        matches = rpy.gen_pyid_for('matches') 
+        fb.AssignTo(matches).FunctionCall(redexmatchfunc)
+        
         processedmatches = []
         for m in form.list_of_matches:
             tmp0 = rpy.gen_pyid_temporaries(1, symgen)
@@ -144,8 +147,11 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             for sym, termx in m.bindings:
                 tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
 
-                fb.AssignTo(tmp1).New('Parser', rpy.PyString(repr(termx)))
-                fb.AssignTo(tmp2).MethodCall(tmp1, 'parse')
+                TermCodegen(self.modulebuilder, self.context).transform(termx)
+                termfunc = termx.getattribute(TERM.TermAttribute.FunctionName)[0]
+
+                fb.AssignTo(tmp1).New('Match')
+                fb.AssignTo(tmp2).FunctionCall(termfunc, tmp1)
                 fb.AssignTo(tmp3).MethodCall(tmp0, MatchMethodTable.AddKey, rpy.PyString(sym))
                 fb.AssignTo(tmp4).MethodCall(tmp0, MatchMethodTable.AddToBinding, rpy.PyString(sym), tmp2)
 
@@ -160,29 +166,38 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
     def _visitAssertTermsEqual(self, form):
         assert isinstance(form, tlform.AssertTermsEqual)
+
         template = form.template
         template = TermCodegen(self.modulebuilder, self.context).transform(template)
+        templatetermfunc = template.getattribute(TERM.TermAttribute.FunctionName)[0]
+
+        expectedterm = TermCodegen(self.modulebuilder, self.context).transform(form.expected)
+        expectedtermfunc = form.expected.getattribute(TERM.TermAttribute.FunctionName)[0]
 
         fb = rpy.BlockBuilder()
         symgen = SymGen()
 
         expected, match = rpy.gen_pyid_for('expected', 'match')
-
         tmp0 = rpy.gen_pyid_temporaries(1, symgen)
-        fb.AssignTo(tmp0).New('Parser', rpy.PyString(repr(form.literal)))
-        fb.AssignTo(expected).MethodCall(tmp0, 'parse') 
 
+
+        fb.AssignTo(tmp0).New('Match')
+        fb.AssignTo(expected).FunctionCall(expectedtermfunc, tmp0) 
+        
         fb.AssignTo(match).New('Match')
         for variable, term in form.variableassignments.items():
             tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
-            fb.AssignTo(tmp1).New('Parser', rpy.PyString(repr(term)))
-            fb.AssignTo(tmp2).MethodCall(tmp1, 'parse')
+
+            TermCodegen(self.modulebuilder, self.context).transform(term)
+            termfunc = term.getattribute(TERM.TermAttribute.FunctionName)[0]
+
+            fb.AssignTo(tmp1).New('Match')
+            fb.AssignTo(tmp2).FunctionCall(termfunc, tmp1) 
             fb.AssignTo(tmp3).MethodCall(match, MatchMethodTable.AddKey, rpy.PyString(variable))
             fb.AssignTo(tmp4).MethodCall(match, MatchMethodTable.AddToBinding, rpy.PyString(variable), tmp2)
 
-        funcname = template.getattribute(TERM.TermAttribute.FunctionName)[0]
         tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
-        fb.AssignTo(tmp0).FunctionCall(funcname, match)
+        fb.AssignTo(tmp0).FunctionCall(templatetermfunc, match)
         fb.Print(tmp0)
         fb.AssignTo(tmp1).FunctionCall('asserttermsequal', tmp0, expected)
 
@@ -287,11 +302,15 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         return form
 
     # This generates call to reduction relation. Used by multiple other tlforms.
-    def _genreductionrelation(self, fb, symgen, nameof_reductionrelation, reprof):
+    def _genreductionrelation(self, fb, symgen, nameof_reductionrelation, term):
+        TermCodegen(self.modulebuilder, self.context).transform(term)
+        termfunc = term.getattribute(TERM.TermAttribute.FunctionName)[0]
+
         term, terms = rpy.gen_pyid_for('term', 'terms')
+
         tmp0 = rpy.gen_pyid_temporaries(1, symgen)
-        fb.AssignTo(tmp0).New('Parser', rpy.PyString(reprof))
-        fb.AssignTo(term).MethodCall(tmp0, 'parse') 
+        fb.AssignTo(tmp0).New('Match')
+        fb.AssignTo(term).FunctionCall(termfunc, tmp0)
         fb.AssignTo(terms).FunctionCall(nameof_reductionrelation, term)
         fb.Print(terms)
         return terms
@@ -303,7 +322,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
         fb = rpy.BlockBuilder()
         symgen = SymGen()
-        self._genreductionrelation(fb, symgen, nameof_reductionrelation, repr(form.term))
+        self._genreductionrelation(fb, symgen, nameof_reductionrelation, form.term)
         tmp1 = rpy.gen_pyid_temporaries(1, symgen)
         nameof_function = self.symgen.get('applyreductionrelation')
         self.modulebuilder.Function(nameof_function).Block(fb)
@@ -316,17 +335,18 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
         fb = rpy.BlockBuilder()
         fb.AssignTo(expectedterms).PyList()
-        for term in form.terms:
+        for expectedterm in form.terms:
+            TermCodegen(self.modulebuilder, self.context).transform(expectedterm)
+            expectedtermfunc = expectedterm.getattribute(TERM.TermAttribute.FunctionName)[0]
+
             tmpi, tmpj, tmpk = rpy.gen_pyid_temporaries(3, symgen)
-            fb.AssignTo(tmpi).New('Parser', rpy.PyString(repr(term)))
-            fb.AssignTo(tmpj).MethodCall(tmpi, 'parse') 
+            fb.AssignTo(tmpi).New('Match')
+            fb.AssignTo(tmpj).FunctionCall(expectedtermfunc, tmpi) 
             fb.AssignTo(tmpk).MethodCall(expectedterms, 'append', tmpj)
 
         nameof_reductionrelation = self.context.get_reduction_relation(form.applyreductionrelation.reductionrelationname)
         assert nameof_reductionrelation != None
-        
-        terms = self._genreductionrelation(fb, symgen, nameof_reductionrelation, repr(form.applyreductionrelation.term))
-
+        terms = self._genreductionrelation(fb, symgen, nameof_reductionrelation, form.applyreductionrelation.term)
         tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
         fb.AssignTo(tmp0).FunctionCall(TermHelperFuncs.AssertTermListsEqual, terms, expectedterms)
 
