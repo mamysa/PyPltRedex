@@ -50,6 +50,19 @@
   (match (bind n_1 (1 2 3))))
 
 (match-equal?
+  (redex-match Lc ((n_1 ... n_2 ...) ...) (term ((1 2) (3 4))))
+  (match (bind n_2 ((1 2) (3 4))) (bind n_1 ((   ) (   ))))
+  (match (bind n_2 ((1 2) (  4))) (bind n_1 ((   ) (3  ))))
+  (match (bind n_2 ((1 2) (   ))) (bind n_1 ((   ) (3 4))))
+  (match (bind n_2 ((  2) (3 4))) (bind n_1 ((1  ) (   ))))
+  (match (bind n_2 ((  2) (  4))) (bind n_1 ((1  ) (3  ))))
+  (match (bind n_2 ((  2) (   ))) (bind n_1 ((1  ) (3 4))))
+  (match (bind n_2 ((   ) (3 4))) (bind n_1 ((1 2) (   ))))
+  (match (bind n_2 ((   ) (  4))) (bind n_1 ((1 2) (3  ))))
+  (match (bind n_2 ((   ) (   ))) (bind n_1 ((1 2) (3 4))))
+)
+
+(match-equal?
   (redex-match Lc (+ e_1 e_1)  (term (+ (+ 3 4) (+ 3 4)))) 
   (match (bind e_1 (+ 3 4))))
 
@@ -73,3 +86,4 @@
 (match-equal?
   (redex-match Lc (n_1 ... hole n_2 ...) (term ( 1 2 hole 3)))
   (match (bind n_1 (1 2)) (bind n_2 (3))))
+
