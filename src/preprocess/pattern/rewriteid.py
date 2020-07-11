@@ -30,3 +30,13 @@ class DefineLanguage_IdRewriter(pattern.PatternTransformer):
         assert isinstance(node, pattern.Nt)
         nsym = self.symgen.get(node.prefix)
         return pattern.Nt(node.prefix, nsym).copymetadatafrom(node)
+
+
+class Pattern_IdRewriter(DefineLanguage_IdRewriter):
+    def __init__(self, pat):
+        self.pattern = pat 
+        self.symgen = SymGen()
+
+    def run(self):
+        return self.transform(self.pattern)
+

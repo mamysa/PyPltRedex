@@ -13,6 +13,7 @@ class CompilationContext:
         self.__toplevel_patterns = {}
 
         self.__reductionrelations = {}
+        self.__metafuctions = {}
 
         self.__redexmatches = {}
 
@@ -79,13 +80,24 @@ class CompilationContext:
 
     def add_reduction_relation(self, reductionrelationname, function):
         k = reductionrelationname
-        assert k not in self.__reductionrelations, 'function for {}-{} is present'.format(languagename, patrepr)
+        assert k not in self.__reductionrelations
         self.__reductionrelations[k] = function 
 
     def get_reduction_relation(self, reductionrelationname):
         k = reductionrelationname
         if k in self.__reductionrelations:
             return self.__reductionrelations[k]
+        return None
+
+    def add_metafunction(self, mfname, function):
+        k = mfname 
+        assert k not in self.__metafuctions
+        self.__metafuctions[k] = function 
+
+    def get_metafunction(self, mfname):
+        k = mfname 
+        if k in self.__metafuctions:
+            return self.__metafuctions[k]
         return None
 
     def get_redexmatch_for(self, form):

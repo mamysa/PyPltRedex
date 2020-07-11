@@ -31,6 +31,10 @@ class Term:
         self._attributes = copy.copy(node._attributes)
         return self
 
+    def removeattribute(self, key):
+        del self._attributes[key]
+        return self
+
 class InHole(Term):
     def __init__(self, term1, term2):
         super().__init__()
@@ -104,6 +108,15 @@ class PyCall(Term):
     def __repr__(self):
         return 'PythonFunctionCall({}, {}, {}, {})'.format(self.mode, self.functionname, self.termargs, self._attributes)
 
+class MetafunctionApplication(Term):
+    def __init__(self, metafunctionname, termtemplate):
+        super().__init__()
+        self.metafunctionname = metafunctionname
+        self.termtemplate = termtemplate
+
+    def __repr__(self):
+        return 'MetafunctionApplication({}, {}, {})'.format(self.metafunctionname, self.termtemplate, self._attributes)
+
 class TermTransformer:
     def transform(self, element):
         assert isinstance(element, Term)
@@ -138,4 +151,7 @@ class TermTransformer:
         return PyCall(pycall.mode, pycall.functionname, pycall.termargs).copyattributesfrom(pycall)
 
     def transformTermLiteral(self, node):
+        return node
+
+    def transformMetafunctionApplication(self, node):
         return node

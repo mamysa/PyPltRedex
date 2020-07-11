@@ -250,3 +250,26 @@ class TermCodegen(term.TermTransformer):
         fb.Return.PyId( rpy.PyId(var) )
         match, parameters, matchreads = self._gen_inputs(node)
         self.modulebuilder.Function(funcname).WithParameters(match).Block(fb)
+        return node
+
+    def transformMetafunctionApplication(self, node):
+        assert isinstance(node, term.MetafunctionApplication)
+        nameof_function = node.getattribute(term.TermAttribute.FunctionName)[0]
+        nodematch, nodeparameters, nodematchreads = self._gen_inputs(node)
+        assert len(nodematchreads) == 0 
+
+        self.transform(node.termtemplate)
+
+        ttmatch, ttparameters, _ = self._gen_inputs(node.termtemplate)
+        func_tocall = node.termtemplate.getattribute(term.TermAttribute.FunctionName)[0]
+
+        metafunctionfunc = self.context.get_metafunction(node.metafunctionname)
+
+        symgen = SymGen()
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(tmp0).FunctionCall(func_tocall, ttmatch, *ttparameters)
+        fb.AssignTo(tmp1).FunctionCall(metafunctionfunc, tmp0)
+        fb.Return.PyId(tmp1)
+        self.modulebuilder.Function(nameof_function).WithParameters(nodematch, *nodeparameters).Block(fb)
