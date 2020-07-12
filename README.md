@@ -18,7 +18,6 @@ and then
 ## Testing
 `make test`
 
-
 ## What works 
 * Built-in patterns: `number` (that act like integers for now), `variable-not-othewise-mentioned`, literal variables.
 * `define-language` and `redex-match` forms. 
@@ -29,24 +28,21 @@ and then
 * Matching `in-hole` pattern.
 * Plugging terms into terms, including `(in-hole term term)` and python function calls (`','` and `',@'`). See `plugtest.rkt` for testcases.
 * `define-reduction-relation` and `apply-reduction-relation` forms
+* `define-metafunction` and metafunction application. Metafunction applications are detected statically when processing terms. 
 
 ## TODOs
 From most to least important.
-* Remove non-determinism from sequences with consecutive ellipsis.
+* Fix bug in `EllipsisMatchModeRewriter`. [See here](https://github.com/mamysa/PyPltRedex/issues/1#issuecomment-656267262). Aside from general `PatSequence` structural checking logic being incorrect, I also suspect `NtClosure` computation is not sufficient.
+* More reasonable copying in `in-hole` pattern. 
+* Term level non-terminal / built-in pattern membership caching. For example, when asking if a given term is `e`, store `e` symbol in the set. Thus, next time we try to determine if the term is `e`, we just look it up in the set.
+* RPython compatibility.
+* More testing.
+* Sample languages as examples (and evaluation).
 * Compile `reduction-relation` in smarter way - instead of pattern matching rule-by-rule, find common subpatterns  and run for a set of rules with said subpattern matcher only once. Also want to merge multiple in-hole into one. `(in-hole V (+ n_1 n_2)` and `(in-hole V (- n_1 n_2))` --> `(in-hole V [(+ n_1 n_2) (- n_1 n_2)]) to traverse term only once while looking for redexes.
 * Start outlining the written thesis.
 * Start testing if generated code complies with RPython requirements.
-* `define-metafunction` form.
 * Make specification handling more Racket-like - i.e. instead of hardcoding certain form to expect a certain form as an argument (for example, `assert-term-lists-equal` expects its first argument to be `apply-reduction-relation`), we reason in terms of a return type of the form.
-* Term level non-terminal / built-in pattern membership caching. For example, when asking if a given term is `e`, store `e` symbol in the set. Thus, next time we try to determine if the term is `e`, we just look it up in the set.
 * Add `assert-term-throws` to test term plugging that is supposed to fail due to wrong ellipsis match counts.
-* Optimize patterns to reduce number of non-deterministic repetition matches.
-* Perform input validation:
-	* Ellipsis depth checking and constraint checking on `in-hole pat1 pat2` - same bindable symbols in `pat1` and `pat2` must have same ellipsis depth.
-	* Ensure `pat1` has exactly one `hole` in `in-hole pat1 pat2`.
-	* Non-terminal cycles (?) in `define-language` form - `x ::= y y ::= x` should be invalid.
-	* Ensure `pat1` in `(in-hole pat1 pat2)` has exactly one hole. I am not sure how to handle strange grammars like `((E ::= P) (P :: (E)))` which have circular dependencies. Perhaps turn this problem into graph traversal problem?
-* `define-judgment-form` and `judgment-holds` forms.
 
 ## References
 * Glynn Winskell The Formal Semantics of Programming Languages, Operational semantics and principles of induction chapters.
