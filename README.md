@@ -38,6 +38,7 @@ From most to least important.
 * RPython compatibility.
 * More testing.
 * Sample languages as examples (and evaluation).
+* Feature freeze.
 * Compile `reduction-relation` in smarter way - instead of pattern matching rule-by-rule, find common subpatterns  and run for a set of rules with said subpattern matcher only once. Also want to merge multiple in-hole into one. `(in-hole V (+ n_1 n_2)` and `(in-hole V (- n_1 n_2))` --> `(in-hole V [(+ n_1 n_2) (- n_1 n_2)]) to traverse term only once while looking for redexes.
 * Start outlining the written thesis.
 * Start testing if generated code complies with RPython requirements.
