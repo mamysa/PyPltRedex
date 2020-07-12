@@ -9,6 +9,7 @@ testcases = [
     'tests/inholetest.rkt',
     'tests/plugtest.rkt',
     'tests/applyreductionrelationtest.rkt',
+    'tests/metafunction_test1.rkt',
 ]
 
 def runpython(filename):

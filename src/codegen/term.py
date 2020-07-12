@@ -168,7 +168,8 @@ class TermCodegen(term.TermTransformer):
             if isinstance(t, term.PatternVariable) or \
                isinstance(t, term.TermSequence)    or \
                isinstance(t, term.TermLiteral)     or \
-               isinstance(t, term.InHole):
+               isinstance(t, term.InHole)          or \
+               isinstance(t, term.MetafunctionApplication):
                 terms2codegen.append(t)
                 tmatch, tparameters, _ = self._gen_inputs(t)
                 func_tocall = t.getattribute(term.TermAttribute.FunctionName)[0]
