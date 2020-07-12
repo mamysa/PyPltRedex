@@ -261,13 +261,19 @@ def p_redex_match(t):
 # tl-pat-ele : tl_pat | tl_pat ELLPISIS 
 
 def p_assert_term_eq(t):
-    'assert-term-eq : LPAREN ASSERTTERMEQ LPAREN variable-assignment-list RPAREN term-template-top term-template-top RPAREN'
+    """
+    assert-term-eq : LPAREN ASSERTTERMEQ LPAREN variable-assignment-list RPAREN term-template-top term-template-top RPAREN
+                   | LPAREN ASSERTTERMEQ LPAREN RPAREN term-template-top term-template-top RPAREN
+    """
     variabledepths = {} 
     variableassignments = {}
-    for sym, (depth, term) in t[4].items():
-        variabledepths[sym] = depth
-        variableassignments[sym] = term
-    t[0] = tlform.AssertTermsEqual(variabledepths, variableassignments, t[6], t[7])
+    if len(t) == 8:
+        t[0] = tlform.AssertTermsEqual(variabledepths, variableassignments, t[5], t[6])
+    else:
+        for sym, (depth, term) in t[4].items():
+            variabledepths[sym] = depth
+            variableassignments[sym] = term
+        t[0] = tlform.AssertTermsEqual(variabledepths, variableassignments, t[6], t[7])
 
 def p_variable_assignment_list(t):
     """

@@ -138,7 +138,8 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
         for i, case in enumerate(form.cases):
             form.cases[i].patternsequence = self.__processpattern(case.patternsequence, form.languagename)
-            form.cases[i].termtemplate = self.__processtermtemplate(form.cases[i].termtemplate)
+            assignablesymsdepths = form.cases[i].patternsequence.getmetadata(pattern.PatAssignableSymbolDepths)
+            form.cases[i].termtemplate = self.__processtermtemplate(form.cases[i].termtemplate, assignments=assignablesymsdepths.syms)
 
         return form
 

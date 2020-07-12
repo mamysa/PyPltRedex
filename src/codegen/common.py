@@ -11,6 +11,7 @@ class TermMethodTable:
 class TermHelperFuncs:
     CopyPathAndReplaceLast = 'copy_path_and_replace_last'
     AssertTermListsEqual = 'asserttermlistsequal'
+    AreTermsEqualPairwise = 'aretermsequalpairwise'
 
 class MatchHelperFuncs:
     CombineMatches = 'combine_matches'

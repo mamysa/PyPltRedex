@@ -168,7 +168,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         assert isinstance(form, tlform.AssertTermsEqual)
 
         template = form.template
-        template = TermCodegen(self.modulebuilder, self.context).transform(template)
+        TermCodegen(self.modulebuilder, self.context).transform(template)
         templatetermfunc = template.getattribute(TERM.TermAttribute.FunctionName)[0]
 
         expectedterm = TermCodegen(self.modulebuilder, self.context).transform(form.expected)
@@ -354,18 +354,24 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         self.modulebuilder.Function(nameof_function).Block(fb)
         self.modulebuilder.AssignTo(tmp1).FunctionCall(nameof_function)
 
-    def _codegenMetafunctionCase(self, metafunction, case, caseid):
+    # metafunction case may produce multiple matches but after term plugging all terms
+    # must be the same.
+    def _codegenMetafunctionCase(self, metafunction, case, caseid, mfname):
         assert isinstance(metafunction, tlform.DefineMetafunction)
         assert isinstance(case, tlform.DefineMetafunction.MetafunctionCase)
         #def mfcase(argterm):
-        #  tmp{0} = matchfunc(argterm)
-        #  if len(tmp{0}) == 1:
-        #    tmp{1} = tmp{0}[0]
-        #    tmp{2} = termfunc(tmp{1})
-        #    return [tmp{2}]
-        #  if len(tmp{0}) == 0:
-        #    return []
-        #  raise Exception('mfcase 1 matched (term) in len(tmp{i}) ways, single match is expected')
+        #  tmp0 = matchfunc(argterm)
+        #  tmp1 = []
+        #  if len(tmp0) == 0:
+        #    return tmp1 
+        #  for tmp2 in tmp0:
+        #    tmp3 = termfunc(tmp2)
+        #    tmp4 = tmp1.append(tmp3)
+        #  tmp5 = aretermsequalpairwise(tmp1)
+        #  if tmp5 != True:
+        #    raise Exception('mfcase 1 matched (term) in len(tmp{i}) ways, single match is expected')
+        #  tmp6 = tmp1[0]
+        #  return tmp6
         if self.context.get_toplevel_function_for_pattern(metafunction.languagename, repr(case.patternsequence)) is None:
             PatternCodegen(self.modulebuilder, case.patternsequence, self.context, metafunction.languagename, self.symgen).run()
         TermCodegen(self.modulebuilder, self.context).transform(case.termtemplate)
@@ -374,24 +380,30 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
         symgen = SymGen()
         argterm = rpy.gen_pyid_for('argterm')
-        tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
+        tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6 = rpy.gen_pyid_temporaries(7, symgen)
 
         ifb1 = rpy.BlockBuilder()
-        ifb1.AssignTo(tmp1).ArrayGet(tmp0, rpy.PyInt(0))
-        ifb1.AssignTo(tmp2).FunctionCall(termfunc, tmp1)
-        ifb1.Return.PyList(tmp2)
+        ifb1.Return.PyId(tmp1)
+
+        forb = rpy.BlockBuilder()
+        forb.AssignTo(tmp3).FunctionCall(termfunc, tmp2)
+        forb.AssignTo(tmp4).MethodCall(tmp1, 'append', tmp3)
 
         ifb2 = rpy.BlockBuilder()
-        ifb2.Return.PyList()
+        ifb2.RaiseException('meta-function {}: clause {} produced multiple terms when matching term %s' \
+                           .format(metafunction.contract.name, caseid), argterm)
 
         fb = rpy.BlockBuilder()
         fb.AssignTo(tmp0).FunctionCall(matchfunc, argterm)
-        fb.If.LengthOf(tmp0).Equal( rpy.PyInt(1)).ThenBlock(ifb1)
-        fb.If.LengthOf(tmp0).Equal( rpy.PyInt(0)).ThenBlock(ifb2)
-        fb.RaiseException('meta-function {}: clause {} produced multiple matches for term %s' \
-                          .format(metafunction.contract.name, caseid), argterm)
+        fb.AssignTo(tmp1).PyList()
+        fb.If.LengthOf(tmp0).Equal(rpy.PyInt(0)).ThenBlock(ifb1)
+        fb.For(tmp2).In(tmp0).Block(forb)
+        fb.AssignTo(tmp5).FunctionCall(TermHelperFuncs.AreTermsEqualPairwise, tmp1)
+        fb.If.NotEqual(tmp5, rpy.PyBoolean(True)).ThenBlock(ifb2)
+        fb.AssignTo(tmp6).ArrayGet(tmp1, rpy.PyInt(0))
+        fb.Return.PyList(tmp6)
 
-        nameof_function = self.symgen.get('mf_{}_case'.format(metafunction.contract.name))
+        nameof_function = self.symgen.get('{}_case'.format(mfname))
         self.modulebuilder.Function(nameof_function).WithParameters(argterm).Block(fb)
         return nameof_function
 
@@ -412,7 +424,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         #  }
         #  raise Exception('no metafuncion cases matched for term')
         mfname = form.contract.name
-        nameof_function = self.symgen.get('mf_{}'.format(mfname))
+        nameof_function = self.symgen.get('metafunction')
         self.context.add_metafunction(mfname, nameof_function)
 
         if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.contract.domain)) is None:
@@ -436,7 +448,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         
         for i, mfcase in enumerate(form.cases):
             tmpi, tmpj, tmpk = rpy.gen_pyid_temporaries(3, symgen)
-            mfcasefunc = self._codegenMetafunctionCase(form, mfcase, i)
+            mfcasefunc = self._codegenMetafunctionCase(form, mfcase, i, nameof_function)
 
             ifbi1 = rpy.BlockBuilder()
             ifbi1.RaiseException('meta-function {}: term %s not in my codomain'.format(mfname), tmpj)

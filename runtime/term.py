@@ -173,3 +173,17 @@ def asserttermlistsequal(lst1, lst2):
             asserttermsequal(t, lst2[i])
         return
     assert False, 'lengths of lists do not match'
+
+
+def aretermsequalpairwise(terms):
+    if len(terms) == 1:
+        return True
+    for i in range(len(terms) - 1):
+        t1, t2 = terms[i], terms[i+1]
+        if t1 != t2:
+            return False 
+    return True
+
+
+    
+
