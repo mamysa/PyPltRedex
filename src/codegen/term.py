@@ -41,12 +41,15 @@ class TermCodegen(term.TermTransformer):
         matchreads = []
         try:
             inarg_annotations = t.getattribute(term.TermAttribute.InArg)
-            for sym, paramname, depth, frommatch in inarg_annotations:
-                if frommatch:
-                    matchreads.append((rpy.PyId(paramname), rpy.PyString(sym)))
-                else:
-                    parameters.append(rpy.PyId(paramname))
+            for paramname in inarg_annotations:
+                parameters.append(rpy.PyId(paramname))
         except KeyError:
+            pass
+        try: 
+            matchread_annotations = t.getattribute(term.TermAttribute.MatchRead)
+            for sym, paramname in matchread_annotations: 
+                matchreads.append((rpy.PyId(paramname), rpy.PyString(sym)))
+        except:
             pass
         return match, parameters, matchreads
 

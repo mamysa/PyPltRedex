@@ -86,15 +86,15 @@ class Term_EllipsisDepthChecker(term.TermTransformer):
         for t in reversed(self.path): 
             if isinstance(t, term.UnresolvedSym): 
                 if expecteddepth == 0:
-                    t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, True))
+                    t.addattribute(term.TermAttribute.MatchRead, (node.sym, param))
                     break
-                t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, False))
+                t.addattribute(term.TermAttribute.InArg, param)
             if isinstance(t, term.TermSequence) or isinstance(t, term.InHole):
                 if expecteddepth == actualdepth:
-                    t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, True))
+                    t.addattribute(term.TermAttribute.MatchRead, (node.sym, param))
                     break
                 else:
-                    t.addattribute(term.TermAttribute.InArg, (node.sym, param, actualdepth, False))
+                    t.addattribute(term.TermAttribute.InArg, param)
             if isinstance(t, term.Repeat):
                 actualdepth += 1
                 t.addattribute(term.TermAttribute.ForEach, (param, actualdepth))
