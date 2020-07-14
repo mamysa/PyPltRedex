@@ -330,22 +330,16 @@ class PatternCodegen(pattern.PatternTransformer):
             for i, pat in enumerate(seq):
                 matches = rpy.gen_pyid_temporary_with_sym('matches', symgen)
 
-                if isinstance(pat, pattern.Repeat) or isinstance(pat, pattern.PatSequence):
+                if isinstance(pat, pattern.Repeat) :
                     # matches{i} = [] # get temporary with symbol
                     # for m,h,t in matches{i-1}:
-                    #   tmp{i} = matchfn(term, m, h, t)   // if pat IS repeat
-                    #   tmp{j} = term.get(h)              // if pat IS NOT repeat
-                    #   tmp{i} = matchfn(tmp{j}, m, h, t) // if pat IS NOT repeat 
+                    #   tmp{i} = matchfn(term, m, h, t)   
                     #   matches{i} = matches{i} + tmp{i}
                     functionname = self.context.get_function_for_pattern(self.languagename, repr(pat))
 
                     tmpi, tmpj  = rpy.gen_pyid_temporaries(2, symgen)
                     forb = rpy.BlockBuilder()
-                    if isinstance(pat, pattern.Repeat):
-                        forb.AssignTo(tmpi).FunctionCall(functionname, term, m, h, t)
-                    else:
-                        forb.AssignTo(tmpj).MethodCall(term, TermMethodTable.Get, h)
-                        forb.AssignTo(tmpi).FunctionCall(functionname, tmpj, m, h, t)
+                    forb.AssignTo(tmpi).FunctionCall(functionname, term, m, h, t)
                     forb.AssignTo(matches).Add(matches, tmpi)
                     fb.AssignTo(matches).PyList()
                     fb.For(m, h, t).In(previousmatches).Block(forb)
@@ -360,26 +354,25 @@ class PatternCodegen(pattern.PatternTransformer):
                     #     tmp{j} = matches{i}.append((m, h, t))
                     # if len(matches{i}) == 0:
                     #   return matches{i} 
-                    if isinstance(pat, pattern.Repeat):
-                        num_required = seq.get_number_of_nonoptional_matches_between(i, len(seq))
-                        if num_required > 0:
-                            previousmatches = matches
-                            matches = rpy.gen_pyid_temporary_with_sym('matches', symgen)
-                            tmpi, tmpj  = rpy.gen_pyid_temporaries(2, symgen)
+                    num_required = seq.get_number_of_nonoptional_matches_between(i, len(seq))
+                    if num_required > 0:
+                        previousmatches = matches
+                        matches = rpy.gen_pyid_temporary_with_sym('matches', symgen)
+                        tmpi, tmpj  = rpy.gen_pyid_temporaries(2, symgen)
 
-                            ifb1 = rpy.BlockBuilder()
-                            ifb1.AssignTo(tmpj).MethodCall(matches, 'append', rpy.PyTuple(m, h, t))
+                        ifb1 = rpy.BlockBuilder()
+                        ifb1.AssignTo(tmpj).MethodCall(matches, 'append', rpy.PyTuple(m, h, t))
 
-                            forb = rpy.BlockBuilder()
-                            forb.AssignTo(tmpi).Subtract(t, h)
-                            forb.If.GreaterEqual(tmpi, rpy.PyInt(num_required)).ThenBlock(ifb1)
+                        forb = rpy.BlockBuilder()
+                        forb.AssignTo(tmpi).Subtract(t, h)
+                        forb.If.GreaterEqual(tmpi, rpy.PyInt(num_required)).ThenBlock(ifb1)
 
-                            ifb2 = rpy.BlockBuilder()
-                            ifb2.Return.PyId(matches)
+                        ifb2 = rpy.BlockBuilder()
+                        ifb2.Return.PyId(matches)
 
-                            fb.AssignTo(matches).PyList()
-                            fb.For(m, h, t).In(previousmatches).Block(forb)
-                            fb.If.LengthOf(matches).Equal(rpy.PyInt(0)).ThenBlock(ifb2)
+                        fb.AssignTo(matches).PyList()
+                        fb.For(m, h, t).In(previousmatches).Block(forb)
+                        fb.If.LengthOf(matches).Equal(rpy.PyInt(0)).ThenBlock(ifb2)
 
                             
                 elif isinstance(pat, pattern.CheckConstraint):
