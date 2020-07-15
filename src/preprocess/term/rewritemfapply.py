@@ -23,13 +23,8 @@ class Term_MetafunctionApplicationRewriter(term.TermTransformer):
             lit = nnode.seq[0]
             if lit.kind == term.TermLiteralKind.Variable and lit.value in self.metafunctions:
                 mfapply = term.MetafunctionApplication(lit.value, nnode) \
+                              .copyattributesfrom(node) \
+                              .removeattribute(term.TermAttribute.FunctionName) \
                               .addattribute(term.TermAttribute.FunctionName, self.symgen.get('mfapply'))
-                try:
-                    seqinargs = node.getattribute(term.TermAttribute.InArg)
-                    for (a, b, c, frommatch) in seqinargs: # should probably filter out reads from match object.
-                        if not frommatch:
-                            mfapply.addattribute(term.TermAttribute.InArg, (a,b,c,frommatch))
-                except KeyError:
-                    pass
                 return mfapply
         return nnode

@@ -28,6 +28,17 @@
 
 
 (define-metafunction A 
+  plusone2 : n -> n
+  [(plusone2 1) 2 ]
+  [(plusone2 2) 3 ]
+  [(plusone2 3) 4 ])
+
+(assert-term-eq 
+  ([n 1 (term (1 2 3))])
+  (term ((plusone2 n) ...))
+  (term (2 3 4)))
+
+(define-metafunction A 
   append-var : (x ...) (x ...) -> (x ...)
   [(append-var (x_1 ...) (x_2 ...)) (x_1 ... x_2 ...)])
 

@@ -147,8 +147,7 @@ class TermCodegen(term.TermTransformer):
                 #   ...
                 #   tmp{x} = gen_term(tmp{i}, tmp{j} ...)
                 #   seq.append(tmp{x})
-                
-                terms2codegen.append(t)
+                terms2codegen.append(t.term) ## FIXME it was term2codegen.append(t) before. Why did it work?
                 foreach = t.getattribute(term.TermAttribute.ForEach)
                 self._gen_inconsistent_ellipsis_match_counts(foreach, fb, symgen)
 
