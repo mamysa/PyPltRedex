@@ -418,15 +418,7 @@ def p_match_bind(t):
 # or literal variable)
 def p_pattern_ident(t):
     'pattern : IDENT'
-    prefix = extract_prefix(t[1])
-    # do not allow underscores for holes.
-    if prefix == 'hole': 
-        raise Exception('before underscore must be either a non-terminal or build-in pattern {}'.format(prefix))
-    try: 
-        case = pat.BuiltInPatKind(prefix).name
-        t[0] = pat.BuiltInPat(pat.BuiltInPatKind[case], prefix, t[1])
-    except ValueError:
-        t[0] = pat.UnresolvedSym(prefix, t[1])
+    t[0] = pat.UnresolvedSym(t[1])
 
 def p_pattern_sequence(t):
     """
@@ -563,16 +555,6 @@ def p_term_template_pycall_extend(t):
 def p_error(t):
     raise Exception('unexpected token {} on line {}'.format(t.value, t.lineno))
 
-def extract_prefix(token):
-        # extract prefix i.e. given symbol n_1 retrieve n.
-        # in case of no underscore return token itself
-        # So far we are not supporting patterns such as _!_ so this method may work.
-        idx = token.find('_')
-        if idx == 0:
-            raise Exception('define-language: before underscore must be either a non-terminal or build-in pattern {}'.format(tokenvalue))
-        if idx == -1:
-            return token
-        return token[:idx]
 
 def parse(filename):
     f = open(filename, 'r')

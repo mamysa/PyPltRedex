@@ -276,3 +276,5 @@ class TermCodegen(term.TermTransformer):
         fb.AssignTo(tmp1).FunctionCall(metafunctionfunc, tmp0)
         fb.Return.PyId(tmp1)
         self.modulebuilder.Function(nameof_function).WithParameters(nodematch, *nodeparameters).Block(fb)
+
+        return node

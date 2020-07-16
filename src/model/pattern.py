@@ -114,6 +114,9 @@ class PatSequence(Pat):
 class Nt(Pat):
     """
     reference to non-terminal
+    Keyword arguments:
+    prefix -- non-terminal symbol. (i.e. n in n_1)
+    sym    -- symbol as parsed. (i.e. n_1)
     """
     def __init__(self, prefix, sym):
         super().__init__()
@@ -129,14 +132,8 @@ class Nt(Pat):
         return False
 
 class UnresolvedSym(Pat):
-    def __init__(self, prefix, sym):
-        """
-        Keyword arguments:
-        prefix -- non-terminal symbol. (i.e. n in n_1)
-        sym    -- symbol as parsed. (i.e. n_1)
-        """
+    def __init__(self, sym):
         super().__init__()
-        self.prefix = prefix
         self.sym = sym
 
     def __repr__(self):
