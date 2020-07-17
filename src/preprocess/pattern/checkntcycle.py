@@ -1,20 +1,20 @@
 import src.model.pattern as pattern
 from src.util import CompilationError
+import enum
+
+class DFSState(enum.IntEnum):
+    Undiscovered = 0
+    Discovered = 1
+    Completed = 2
 
 class DefineLanguage_NtCycleChecker:
     def __init__(self, definelanguage, successors):
         self.definelanguage = definelanguage
         self.successors = successors
         self.nts = self.definelanguage.ntsyms()
+        self.color = dict((g, DFSState.Undiscovered) for g in successors.keys())
 
-        self.time = 0
-        self.d = dict((g, -1) for g in successors.keys()) # discovery time
-        self.f = dict((g, -1) for g in successors.keys()) # finish time
-
-    def gettime(self):
-        t = self.time 
-        self.time += 1
-        return t
+        self.completednts = set([])
 
     def reportcycle(self, path, v):
         idx = path.index(v)
@@ -25,16 +25,19 @@ class DefineLanguage_NtCycleChecker:
         raise CompilationError('nt cycle {}'.format(cyclepath))
 
     def visit(self, v, path):
-        if self.d[v] == -1: 
+        if self.color[v] == DFSState.Undiscovered:
             path.append(v)
-            self.d[v] = self.gettime()
+            self.color[v] = DFSState.Discovered
             for adjv in self.successors.get(v, set([])):
                 self.visit(adjv, path)
-                if self.f[adjv] == -1:
-                    self.reportcycle(path, adjv)
-            self.f[v] = self.gettime()
+            self.color[v] = DFSState.Completed
+            self.completednts.add(v)
             path.pop()
+        if self.color[v] == DFSState.Discovered:
+            self.reportcycle(path, v)
 
     def run(self):
-        for nt in self.nts:
-            self.visit(nt, [])
+        nts2visit = set(self.nts)
+        while len(nts2visit) != 0:
+            self.visit(nts2visit.pop(), [])
+            nts2visit.difference_update(self.completednts)

@@ -58,4 +58,34 @@ class TestCycleCheck(unittest.TestCase):
             self.assertIn(str(ex), [genmsg(['m', 'm'])])
 
 
+    def test_cyclecheck3(self):
+        lang = DefineLanguage('Lang', [
+            DefineLanguage.NtDefinition(Nt('m', 'm'), [
+                Nt('e', 'e'), 
+                PatSequence([Lit('-', LitKind.Variable), Nt('m', 'm_1'), Nt('m', 'm_2')]),
+            ]),
+            DefineLanguage.NtDefinition(Nt('e', 'e'), [
+                PatSequence([Lit('+', LitKind.Variable), Nt('e', 'e_1'), Nt('e', 'e_2')]),
+                Nt('n', 'n'), 
+            ]),
+            DefineLanguage.NtDefinition(Nt('n', 'n'), [
+                BuiltInPat(BuiltInPatKind.Number, 'number', 'number'), 
+                Nt('e', 'e'), 
+            ]),
 
+            DefineLanguage.NtDefinition(Nt('x', 'x'), [
+                Nt('y', 'y'),
+            ]),
+            DefineLanguage.NtDefinition(Nt('y', 'y'), [
+                Nt('x', 'x'),
+                BuiltInPat(BuiltInPatKind.Number, 'number', 'number'), 
+            ])
+        ])
+
+        successors, _ = DefineLanguage_NtClosureSolver(lang).run()
+        try:
+            DefineLanguage_NtCycleChecker(lang, successors).run()
+            self.fail('should throw')
+        except CompilationError as ex:
+            self.assertIn(str(ex), [genmsg(['e', 'n', 'e']), genmsg(['n', 'e', 'n']),
+                                    genmsg(['x', 'y', 'x']), genmsg(['y', 'x', 'y'])])
