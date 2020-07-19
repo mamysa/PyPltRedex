@@ -99,7 +99,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             PatternCodegen(self.modulebuilder, form.pat, self.context, form.languagename, self.symgen).run()
 
         TermCodegen(self.modulebuilder, self.context).transform(form.termstr)
-        termfunc = form.termstr.getattribute(TERM.TermAttribute.FunctionName)[0]
+        termfunc = self.context.get_function_for_term_template(form.termstr)
 
         matchfunc = self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat))
         symgen = SymGen()
@@ -148,7 +148,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
                 tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
 
                 TermCodegen(self.modulebuilder, self.context).transform(termx)
-                termfunc = termx.getattribute(TERM.TermAttribute.FunctionName)[0]
+                termfunc = self.context.get_function_for_term_template(termx)
 
                 fb.AssignTo(tmp1).New('Match')
                 fb.AssignTo(tmp2).FunctionCall(termfunc, tmp1)
@@ -169,10 +169,10 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
         template = form.template
         TermCodegen(self.modulebuilder, self.context).transform(template)
-        templatetermfunc = template.getattribute(TERM.TermAttribute.FunctionName)[0]
+        templatetermfunc = self.context.get_function_for_term_template(template)
 
-        expectedterm = TermCodegen(self.modulebuilder, self.context).transform(form.expected)
-        expectedtermfunc = form.expected.getattribute(TERM.TermAttribute.FunctionName)[0]
+        TermCodegen(self.modulebuilder, self.context).transform(form.expected)
+        expectedtermfunc = self.context.get_function_for_term_template(form.expected)
 
         fb = rpy.BlockBuilder()
         symgen = SymGen()
@@ -189,7 +189,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
 
             TermCodegen(self.modulebuilder, self.context).transform(term)
-            termfunc = term.getattribute(TERM.TermAttribute.FunctionName)[0]
+            termfunc = self.context.get_function_for_term_template(term)
 
             fb.AssignTo(tmp1).New('Match')
             fb.AssignTo(tmp2).FunctionCall(termfunc, tmp1) 
@@ -213,7 +213,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         TermCodegen(self.modulebuilder, self.context).transform(rc.termtemplate)
 
         nameof_matchfn = self.context.get_toplevel_function_for_pattern(languagename, repr(rc.pattern))
-        nameof_termfn  = rc.termtemplate.getattribute(TERM.TermAttribute.FunctionName)[0]
+        nameof_termfn = self.context.get_function_for_term_template(rc.termtemplate)
 
         nameof_rc = self.symgen.get('{}_{}_case'.format(languagename, reductionrelationname))
 
@@ -304,7 +304,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
     # This generates call to reduction relation. Used by multiple other tlforms.
     def _genreductionrelation(self, fb, symgen, nameof_reductionrelation, term):
         TermCodegen(self.modulebuilder, self.context).transform(term)
-        termfunc = term.getattribute(TERM.TermAttribute.FunctionName)[0]
+        termfunc = self.context.get_function_for_term_template(term)
 
         term, terms = rpy.gen_pyid_for('term', 'terms')
 
@@ -337,7 +337,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb.AssignTo(expectedterms).PyList()
         for expectedterm in form.terms:
             TermCodegen(self.modulebuilder, self.context).transform(expectedterm)
-            expectedtermfunc = expectedterm.getattribute(TERM.TermAttribute.FunctionName)[0]
+            expectedtermfunc = self.context.get_function_for_term_template(expectedterm)
 
             tmpi, tmpj, tmpk = rpy.gen_pyid_temporaries(3, symgen)
             fb.AssignTo(tmpi).New('Match')
@@ -376,7 +376,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             PatternCodegen(self.modulebuilder, case.patternsequence, self.context, metafunction.languagename, self.symgen).run()
         TermCodegen(self.modulebuilder, self.context).transform(case.termtemplate)
         matchfunc = self.context.get_toplevel_function_for_pattern(metafunction.languagename, repr(case.patternsequence))
-        termfunc = case.termtemplate.getattribute(TERM.TermAttribute.FunctionName)[0]
+        termfunc = self.context.get_function_for_term_template(case.termtemplate)
 
         symgen = SymGen()
         argterm = rpy.gen_pyid_for('argterm')

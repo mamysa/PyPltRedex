@@ -22,9 +22,5 @@ class Term_MetafunctionApplicationRewriter(term.TermTransformer):
         if len(nnode.seq) > 0 and isinstance(nnode.seq[0], term.TermLiteral):
             lit = nnode.seq[0]
             if lit.kind == term.TermLiteralKind.Variable and lit.value in self.metafunctions:
-                mfapply = term.MetafunctionApplication(lit.value, nnode) \
-                              .copyattributesfrom(node) \
-                              .removeattribute(term.TermAttribute.FunctionName) \
-                              .addattribute(term.TermAttribute.FunctionName, self.symgen.get('mfapply'))
-                return mfapply
+                return term.MetafunctionApplication(lit.value, nnode).copyattributesfrom(node)
         return nnode

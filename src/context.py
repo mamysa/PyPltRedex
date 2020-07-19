@@ -1,5 +1,7 @@
 import src.model.rpython as rpy
+import src.model.term as term
 from src.util import SymGen
+
 
 class CompilationContext:
     def __init__(self):
@@ -69,14 +71,12 @@ class CompilationContext:
             return self.__toplevel_patterns[k]
         return None
 
-    def add_function_for_term_template(self, prefix, function):
-        assert prefix not in self.__term_template_funcs, 'function for {} is present'.format(prefix)
-        self.__term_template_funcs[prefix] = function
-
-    def get_function_for_term_template(self, prefix):
-        if prefix in self.__term_template_funcs:
-            return self.__term_template_funcs[prefix]
-        return None
+    def get_function_for_term_template(self, term_template):
+        assert isinstance(term_template, term.Term)
+        if term_template not in self.__term_template_funcs:
+            name = self.symgen.get('gen_term')
+            self.__term_template_funcs[term_template] = name
+        return self.__term_template_funcs[term_template]
 
     def add_reduction_relation(self, reductionrelationname, function):
         k = reductionrelationname

@@ -8,7 +8,6 @@ class TermLiteralKind:
     List = 3
 
 class TermAttribute(enum.Enum):
-    FunctionName = 'FunctionName'
     MatchRead = 'MatchRead'
     InArg   = 'InArg'
     ForEach = 'ForEach'

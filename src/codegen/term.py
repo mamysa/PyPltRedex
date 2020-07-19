@@ -70,13 +70,14 @@ class TermCodegen(term.TermTransformer):
         fb = rpy.BlockBuilder()
         for t in pycall.termargs:
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
-            funcname = t.getattribute(term.TermAttribute.FunctionName)[0]
+            funcname = self.context.get_function_for_term_template(t)
+
             tmatch, tparameters, _ = self._gen_inputs(t)
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
             pycallarguments.append(tmpi)
             fb.AssignTo(tmpi).FunctionCall(funcname, tmatch, *tparameters)
 
-        funcname = pycall.getattribute(term.TermAttribute.FunctionName)[0]
+        funcname = self.context.get_function_for_term_template(pycall)
         tmpi = rpy.gen_pyid_temporaries(1, symgen)
 
         fb.AssignTo(tmpi).FunctionCall(pycall.functionname, *pycallarguments)
@@ -95,7 +96,7 @@ class TermCodegen(term.TermTransformer):
         self.transform(inhole.term1)
         self.transform(inhole.term2)
 
-        funcname = inhole.getattribute(term.TermAttribute.FunctionName)[0]
+        funcname = self.context.get_function_for_term_template(inhole)
         match, parameters, matchreads = self._gen_inputs(inhole)
         #FIXME not sure about this. 
         assert len(matchreads) == 0 
@@ -104,13 +105,13 @@ class TermCodegen(term.TermTransformer):
 
         plugholeargs = []
         t1 = rpy.gen_pyid_for('t1')
-        t1func = inhole.term1.getattribute(term.TermAttribute.FunctionName)[0]
+        t1func = self.context.get_function_for_term_template(inhole.term1)
         t1match, t1parameters, _ = self._gen_inputs(inhole.term1)
         fb.AssignTo(t1).FunctionCall(t1func, t1match, *t1parameters)
         plugholeargs.append(t1)
 
         t2 = rpy.gen_pyid_for('t2')
-        t2func = inhole.term2.getattribute(term.TermAttribute.FunctionName)[0]
+        t2func = self.context.get_function_for_term_template(inhole.term2)
         t2match, t2parameters, _ = self._gen_inputs(inhole.term2)
         fb.AssignTo(t2).FunctionCall(t2func, t2match, *t2parameters)
         plugholeargs.append(t2)
@@ -125,7 +126,7 @@ class TermCodegen(term.TermTransformer):
 
     def transformTermSequence(self, termsequence):
         assert isinstance(termsequence, term.TermSequence)
-        seqfuncname = termsequence.getattribute(term.TermAttribute.FunctionName)[0]
+        seqfuncname = self.context.get_function_for_term_template(termsequence)
         symgen = SymGen()
 
         match, parameters, matchreads = self._gen_inputs(termsequence)
@@ -159,7 +160,7 @@ class TermCodegen(term.TermTransformer):
                     targuments.append(tmpj)
                     forb.AssignTo(tmpj).MethodCall(param, TermMethodTable.Get, tmpi)
 
-                tfunctionname = t.term.getattribute(term.TermAttribute.FunctionName)[0]
+                tfunctionname = self.context.get_function_for_term_template(t.term)
                 tmpx, tmpy, tmpz = rpy.gen_pyid_temporaries(3, symgen)
                 forb.AssignTo(tmpx).FunctionCall(tfunctionname, match, *targuments)
                 forb.AssignTo(tmpy).MethodCall(lst, 'append', tmpx)
@@ -174,7 +175,7 @@ class TermCodegen(term.TermTransformer):
                isinstance(t, term.MetafunctionApplication):
                 terms2codegen.append(t)
                 tmatch, tparameters, _ = self._gen_inputs(t)
-                func_tocall = t.getattribute(term.TermAttribute.FunctionName)[0]
+                func_tocall = self.context.get_function_for_term_template(t)
                 tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
 
                 fb.AssignTo(tmp0).FunctionCall(func_tocall, tmatch, *tparameters)
@@ -182,7 +183,7 @@ class TermCodegen(term.TermTransformer):
 
             if isinstance(t, term.PyCall):
                 terms2codegen.append(t)
-                funcname = t.getattribute(term.TermAttribute.FunctionName)[0]
+                funcname = self.context.get_function_for_term_template(t)
                 tmatch, tparameters, _ = self._gen_inputs(t)
                 assert len(tparameters) == 0
 
@@ -226,7 +227,7 @@ class TermCodegen(term.TermTransformer):
         return termsequence
 
     def transformPatternVariable(self, node):
-        funcname = node.getattribute(term.TermAttribute.FunctionName)[0]
+        funcname = self.context.get_function_for_term_template(node)
         match, parameters, matchreads = self._gen_inputs(node)
 
         bb = rpy.BlockBuilder()
@@ -247,7 +248,7 @@ class TermCodegen(term.TermTransformer):
 
     def transformTermLiteral(self, node):
         assert isinstance(node, term.TermLiteral)
-        funcname = node.getattribute(term.TermAttribute.FunctionName)[0]
+        funcname = self.context.get_function_for_term_template(node)
         var = self.context.get_sym_for_lit_term(node)
         fb = rpy.BlockBuilder()
         fb.Return.PyId( rpy.PyId(var) )
@@ -257,14 +258,14 @@ class TermCodegen(term.TermTransformer):
 
     def transformMetafunctionApplication(self, node):
         assert isinstance(node, term.MetafunctionApplication)
-        nameof_function = node.getattribute(term.TermAttribute.FunctionName)[0]
+        nameof_function = self.context.get_function_for_term_template(node)
         nodematch, nodeparameters, nodematchreads = self._gen_inputs(node)
         assert len(nodematchreads) == 0 
 
         self.transform(node.termtemplate)
 
         ttmatch, ttparameters, _ = self._gen_inputs(node.termtemplate)
-        func_tocall = node.termtemplate.getattribute(term.TermAttribute.FunctionName)[0]
+        func_tocall = self.context.get_function_for_term_template(node.termtemplate)
 
         metafunctionfunc = self.context.get_metafunction(node.metafunctionname)
 

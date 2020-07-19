@@ -34,21 +34,17 @@ class Term_EllipsisDepthChecker(term.TermTransformer):
     def transformTermLiteral(self, literal):
         assert isinstance(literal, term.TermLiteral)
         self.context.add_lit_term(literal)
-        sym = self.symgen.get('{}_lit'.format(self.idof))
-        literal.addattribute(term.TermAttribute.FunctionName, sym)
         return literal
 
     def transformPyCall(self, pycall):
         assert isinstance(pycall, term.PyCall)
-        sym = self.symgen.get('{}_gen_term'.format(self.idof))
         terms = []
         for t in pycall.termargs:
             idof = self.symgen.get('{}_pycall_gen_term_'.format(self.idof))
             transformer = Term_EllipsisDepthChecker(self.variables, idof, self.context)
             terms.append( transformer.transform(t) )
 
-        return term.PyCall(pycall.mode, pycall.functionname, terms) \
-                   .addattribute(term.TermAttribute.FunctionName, sym)
+        return term.PyCall(pycall.mode, pycall.functionname, terms)
 
     def transformRepeat(self, repeat):
         assert isinstance(repeat, term.Repeat)
@@ -62,20 +58,16 @@ class Term_EllipsisDepthChecker(term.TermTransformer):
 
     def transformTermSequence(self, termsequence):
         ntermsequence = super().transformTermSequence(termsequence)
-        sym = self.symgen.get('{}_gen_term'.format(self.idof))
-        return ntermsequence.addattribute(term.TermAttribute.FunctionName, sym)
+        return ntermsequence
 
     def transformInHole(self, inhole):
         ninhole = super().transformInHole(inhole)
-        sym = self.symgen.get('{}_gen_term'.format(self.idof))
-        return ninhole.addattribute(term.TermAttribute.FunctionName, sym)
+        return ninhole
 
     def transformUnresolvedSym(self, node):
         assert isinstance(node, term.UnresolvedSym)
         if node.sym not in self.variables:
-            sym = self.symgen.get('{}_lit'.format(self.idof))
             t = term.TermLiteral(term.TermLiteralKind.Variable, node.sym)
-            t.addattribute(term.TermAttribute.FunctionName, sym)
             self.context.add_lit_term(t)
             return t
         expecteddepth = self.variables[node.sym] 
@@ -102,6 +94,5 @@ class Term_EllipsisDepthChecker(term.TermTransformer):
         if actualdepth != expecteddepth:
             raise Exception('inconsistent ellipsis depth for pattern variable {}: expected {} actual {}'.format(node.sym, expecteddepth, actualdepth))
 
-        sym = self.symgen.get('{}_gen_term'.format(self.idof))
-        return term.PatternVariable(node.sym).copyattributesfrom(node).addattribute(term.TermAttribute.FunctionName, sym)
+        return term.PatternVariable(node.sym).copyattributesfrom(node)
 
