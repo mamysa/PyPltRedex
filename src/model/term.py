@@ -17,10 +17,9 @@ class Term:
         self._attributes = {} 
 
     def addattribute(self, key, val):
-        assert isinstance(key, TermAttribute)
-        if key not in self._attributes:
-            self._attributes[key] = []
-        self._attributes[key].append(val)
+        if key in self._attributes:
+            raise Exception('key {} is already assigned!'.format(key))
+        self._attributes[key] = val
         return self
 
     def getattribute(self, key):
@@ -155,3 +154,5 @@ class TermTransformer:
 
     def transformMetafunctionApplication(self, node):
         return node
+
+

@@ -59,6 +59,15 @@ class CompilationContext:
         if k in self.__pattern_code:
             return self.__pattern_code[k]
         return None
+    
+    # generated and returns procedurename, boolean for given pattern. If boolean is True - the code for 
+    # pattern has already been generated.
+    def get_function_for_pattern_2(self, languagename, patrepr):
+        k = (languagename, patrepr)
+        if k in self.__pattern_code:
+            return self.__pattern_code[k], True 
+        self.__pattern_code[k] = self.symgen.get('pattern_match')
+        return self.__pattern_code[k], False 
 
     def add_toplevel_function_for_pattern(self, languagename, patrepr, functionname):
         k = (languagename, patrepr)

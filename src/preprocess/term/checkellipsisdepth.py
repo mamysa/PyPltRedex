@@ -22,12 +22,46 @@ class Term_EllipsisDepthChecker(term.TermTransformer):
         self.variables = variables
         self.symgen = SymGen()
 
+        # stores annotations that will be injected into term-template after
+        # visiting all the children.
+        self.annotations = {
+            term.TermAttribute.MatchRead: {},
+            term.TermAttribute.InArg    : {},
+            term.TermAttribute.ForEach  : {},
+        }    
+
+    def add_annotation_to(self, node, attribute, value):
+        attributedict = self.annotations[attribute]
+        if node not in attributedict:
+            attributedict[node] = []
+        attributedict[node].append(value)
+
+    def complete_annotation(self, oldnode, newnode):
+        if isinstance(oldnode, term.Repeat):
+            attributedict = self.annotations[term.TermAttribute.ForEach]
+            contents = attributedict.get(oldnode, [])
+            return newnode.addattribute(term.TermAttribute.ForEach, contents)
+
+        attributedict = self.annotations[term.TermAttribute.MatchRead]
+        contents = attributedict.get(oldnode, [])
+        newnode.addattribute(term.TermAttribute.MatchRead, contents)
+        attributedict = self.annotations[term.TermAttribute.InArg]
+        contents = attributedict.get(oldnode, [])
+        return newnode.addattribute(term.TermAttribute.InArg, contents)
+
+    def contains_nonzero_foreach_annotations(self, node):
+        assert isinstance(node, term.Repeat)
+        attributedict = self.annotations[term.TermAttribute.ForEach]
+        contents = attributedict.get(node, [])
+        return len(contents) != 0
+
     def transform(self, element):
         assert isinstance(element, term.Term)
         method_name = 'transform' + element.__class__.__name__
         method_ref = getattr(self, method_name)
         self.path.append(element)
         result = method_ref(element)
+        assert isinstance(result, term.Term)
         self.path.pop()
         return result 
 
@@ -40,29 +74,24 @@ class Term_EllipsisDepthChecker(term.TermTransformer):
         assert isinstance(pycall, term.PyCall)
         terms = []
         for t in pycall.termargs:
-            idof = self.symgen.get('{}_pycall_gen_term_'.format(self.idof))
-            transformer = Term_EllipsisDepthChecker(self.variables, idof, self.context)
+            transformer = Term_EllipsisDepthChecker(self.variables, '', self.context)
             terms.append( transformer.transform(t) )
-
-        return term.PyCall(pycall.mode, pycall.functionname, terms)
+        return self.complete_annotation(pycall, term.PyCall(pycall.mode, pycall.functionname, terms))
 
     def transformRepeat(self, repeat):
         assert isinstance(repeat, term.Repeat)
         nrepeat = term.Repeat(self.transform(repeat.term)).copyattributesfrom(repeat)
-        try:
-            if len(nrepeat.getattribute(term.TermAttribute.ForEach)) == 0:
-                raise Exception('too many ellipses in template {}'.format(repr(nrepeat)))
-        except:
+        if not self.contains_nonzero_foreach_annotations(repeat):
             raise Exception('too many ellipses in template {}'.format(repr(nrepeat)))
-        return nrepeat
+        return self.complete_annotation(repeat, nrepeat)
 
     def transformTermSequence(self, termsequence):
         ntermsequence = super().transformTermSequence(termsequence)
-        return ntermsequence
+        return self.complete_annotation(termsequence, ntermsequence)
 
     def transformInHole(self, inhole):
         ninhole = super().transformInHole(inhole)
-        return ninhole
+        return self.complete_annotation(inhole, ninhole)
 
     def transformUnresolvedSym(self, node):
         assert isinstance(node, term.UnresolvedSym)
@@ -78,21 +107,21 @@ class Term_EllipsisDepthChecker(term.TermTransformer):
         for t in reversed(self.path): 
             if isinstance(t, term.UnresolvedSym): 
                 if expecteddepth == 0:
-                    t.addattribute(term.TermAttribute.MatchRead, (node.sym, param))
+                    self.add_annotation_to(t, term.TermAttribute.MatchRead, (node.sym, param))
                     break
-                t.addattribute(term.TermAttribute.InArg, param)
+                self.add_annotation_to(t, term.TermAttribute.InArg, param)
             if isinstance(t, term.TermSequence) or isinstance(t, term.InHole):
                 if expecteddepth == actualdepth:
-                    t.addattribute(term.TermAttribute.MatchRead, (node.sym, param))
+                    self.add_annotation_to(t, term.TermAttribute.MatchRead, (node.sym, param))
                     break
                 else:
-                    t.addattribute(term.TermAttribute.InArg, param)
+                    self.add_annotation_to(t, term.TermAttribute.InArg, param)
             if isinstance(t, term.Repeat):
                 actualdepth += 1
-                t.addattribute(term.TermAttribute.ForEach, (param, actualdepth))
+                self.add_annotation_to(t, term.TermAttribute.ForEach, (param, actualdepth))
 
         if actualdepth != expecteddepth:
             raise Exception('inconsistent ellipsis depth for pattern variable {}: expected {} actual {}'.format(node.sym, expecteddepth, actualdepth))
 
-        return term.PatternVariable(node.sym).copyattributesfrom(node)
+        return self.complete_annotation(node, term.PatternVariable(node.sym))
 
