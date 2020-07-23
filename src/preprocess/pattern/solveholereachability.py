@@ -252,11 +252,14 @@ class NtGraphBuilder(pattern.PatternTransformer):
                     node = self.getleaf(kind)
                     self.nt2node[nt].append(node)
                     self.pattern2node[repr(pat)] = node
+                if isinstance(pat, pattern.Lit):
+                    node = self.getleaf(NtGraph.Node.LeafNotHole)
+                    self.nt2node[nt].append(node)
+                    self.pattern2node[repr(pat)] = node
                 if isinstance(pat, pattern.Nt):
                     self.equivalentnts[nt].append(pat.prefix)
                 if isinstance(pat, pattern.InHole):
                     raise CompilationError('in-hole pattern in define-language')
-
 
         for nt, ntdef in self.definelanguage.nts.items():
             for pat in ntdef.patterns:
@@ -324,6 +327,14 @@ class NtGraphBuilder(pattern.PatternTransformer):
         outernode.predecessor_innernodes.append(previnnernode)
         return node
 
+    def transformLit(self, node):
+        assert isinstance(node, pattern.Lit)
+        prevouternode = self.gnodestack[-1]
+        previnnernode = NtGraph.InnerNode(prevouternode)
+        prevouternode.innernodes.append(previnnernode)
+        outernode = self.getleaf(NtGraph.Node.LeafNotHole)
+        outernode.predecessor_innernodes.append(previnnernode)
+
 class DefineLanguage_HoleReachabilitySolver:
     def __init__(self, definelanguage, ntgraph):
         assert isinstance(definelanguage, tlform.DefineLanguage)
@@ -358,10 +369,12 @@ class DefineLanguage_HoleReachabilitySolver:
                     node = self.ntgraph.pattern2node[repr(pat)]
                     pmin, pmax = node.min_numberof_holes, node.max_numberof_holes
                 except KeyError:
-                    assert isinstance(pat, pattern.Nt)
-                    # we can do this because language grammar is not allowed to have non-terminal cycles.
-                    rntdef = self.definelanguage.nts[pat.prefix]
-                    pmin, pmax = calcnt(pat.prefix, rntdef)
+                    if isinstance(pat, pattern.Nt):
+                        rntdef = self.definelanguage.nts[pat.prefix]
+                        pmin, pmax = calcnt(pat.prefix, rntdef)
+                    else:
+                        assert isinstance(pat, pattern.Lit)
+                        pmin, pmax = NumberOfHoles.Zero, NumberOfHoles.Zero
                 ntmin = NumberOfHoles.min(ntmin, pmin)
                 ntmax = NumberOfHoles.max(ntmax, pmax)
 

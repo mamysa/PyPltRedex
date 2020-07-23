@@ -427,3 +427,59 @@ class TestDefineLanguageHoleReachabilitySolver(unittest.TestCase):
         DefineLanguage_HoleReachabilitySolver(lang, graph).run()
         self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
         self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
+
+
+
+    # (P ::= (E))                       (one one)
+    # (E ::= P hole)                    (one one)  
+    def test_holereachability17(self):
+        lang = DefineLanguage('Lang', [
+           DefineLanguage.NtDefinition(Nt('P', 'P'), [
+                PatSequence([Nt('E', 'E_0')]),
+            ]),
+            DefineLanguage.NtDefinition(Nt('E', 'E'), [
+                Nt('P', 'P_1'),
+                BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole'),
+            ]),
+        ])
+
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
+        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.One, NumberOfHoles.One))
+        self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.One, NumberOfHoles.One))
+
+    # (P ::= (E))                          (zero one)
+    # (E ::= 44 hole)                      (zero one)  
+    def test_holereachability18(self):
+        lang = DefineLanguage('Lang', [
+           DefineLanguage.NtDefinition(Nt('P', 'P'), [
+                PatSequence([Nt('E', 'E_0')]),
+            ]),
+            DefineLanguage.NtDefinition(Nt('E', 'E'), [
+                Lit(44, LitKind.Integer),
+                BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole'),
+            ]),
+        ])
+
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
+        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
+        self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
+
+    # (P ::= (E))                          (zero one)
+    # (E ::= (44) hole)                      (zero one)  
+    def test_holereachability19(self):
+        lang = DefineLanguage('Lang', [
+           DefineLanguage.NtDefinition(Nt('P', 'P'), [
+                PatSequence([Nt('E', 'E_0')]),
+            ]),
+            DefineLanguage.NtDefinition(Nt('E', 'E'), [
+                PatSequence([Lit(44, LitKind.Integer)]),
+                BuiltInPat(BuiltInPatKind.Hole, 'hole', 'hole'),
+            ]),
+        ])
+
+        graph = NtGraphBuilder(lang).run()
+        DefineLanguage_HoleReachabilitySolver(lang, graph).run()
+        self.assertEqual(result(lang, 'E'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
+        self.assertEqual(result(lang, 'P'), PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.One))
