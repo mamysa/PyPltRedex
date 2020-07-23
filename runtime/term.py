@@ -3,8 +3,9 @@ import copy
 class TermKind:
     Variable = 0
     Integer  = 1
-    Sequence = 2 
-    Hole = 3 
+    Decimal = 2
+    Sequence = 3 
+    Hole = 4 
 
 class Ast:
     def __init__(self, kind):
@@ -103,6 +104,18 @@ class Sequence(Ast):
                         return False
                 return True
         return False
+
+def term_is_number(term):
+    return term.kind() in [TermKind.Decimal, TermKind.Integer]
+
+def term_is_integer(term):
+    return term.kind() == TermKind.Integer
+
+def term_is_natural_number(term):
+    return term.kind() == TermKind.Integer and term.value() >= 0
+
+def term_is_hole(term):
+    return term.kind() == TermKind.Hole
 
 
 def copy_path_and_replace_last(path, withterm):

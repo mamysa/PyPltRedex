@@ -13,6 +13,11 @@ class TermHelperFuncs:
     AssertTermListsEqual = 'asserttermlistsequal'
     AreTermsEqualPairwise = 'aretermsequalpairwise'
 
+    TermIsNumber  = 'term_is_number'
+    TermIsInteger = 'term_is_integer'
+    TermIsNatural = 'term_is_natural_number'
+    TermIsHole    = 'term_is_hole'
+
 class MatchHelperFuncs:
     CombineMatches = 'combine_matches'
 
@@ -26,8 +31,10 @@ class MatchMethodTable:
     RemoveKey   = 'removebinding'
     GetBinding = 'getbinding'
 
+# FIXME this shouldnt be here, need to reference TermKind of literal terms.
 class TermKind:
     Variable = 0
     Integer  = 1
-    Sequence = 2 
-    Hole = 3
+    Decimal = 2 
+    Sequence = 3 
+    Hole = 4

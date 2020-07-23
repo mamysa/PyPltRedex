@@ -12,6 +12,8 @@ class LitKind(enum.Enum):
 
 class BuiltInPatKind(enum.Enum):
     Number = 'number'
+    Integer = 'integer'
+    Natural = 'natural'
     VariableNotOtherwiseDefined = 'variable-not-otherwise-mentioned'
     VariableExcept = 'variable-except'
     Hole = 'hole'

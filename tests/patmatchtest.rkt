@@ -90,3 +90,16 @@
 (match-equal?
   (redex-match Lc (44 ...) (term (44 44 44)))
   (match))
+
+(match-equal? 
+  (redex-match Lc number_1 (term -1))
+  (match (bind number_1 -1)))
+
+
+(match-equal? 
+  (redex-match Lc natural_1 (term -1))
+  ())
+
+(match-equal? 
+  (redex-match Lc natural_1 (term 1))
+  (match (bind natural_1 1)))

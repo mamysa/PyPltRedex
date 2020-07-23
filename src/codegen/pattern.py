@@ -589,41 +589,30 @@ class PatternCodegen(pattern.PatternTransformer):
     def transformBuiltInPat(self, pat):
         assert isinstance(pat, pattern.BuiltInPat) 
         if pat.kind == pattern.BuiltInPatKind.Number:
-            ##----- generate isA_NUMBER func ----
-            if self.context.get_isa_function_name(self.languagename, pat.prefix) is None:
-                nameof_this_func = 'lang_{}_isa_builtin_{}'.format(self.languagename, pat.prefix)
-                self.context.add_isa_function_name(self.languagename, pat.prefix, nameof_this_func)
-                # FIXME code duplication
-                # tmp0 = term.kind()
-                # if tmp0 == TermKind.Integer:
-                #  return True
-                # return False
-                symgen = SymGen()
-
-                term = rpy.gen_pyid_for('term')
-                tmp0 = rpy.gen_pyid_temporaries(1, symgen)
-                fb = rpy.BlockBuilder()
-
-                ifb = rpy.BlockBuilder()
-                ifb.Return.PyBoolean(True)
-
-                fb = rpy.BlockBuilder()
-                fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
-                fb.If.Equal(tmp0, rpy.PyInt(TermKind.Integer)).ThenBlock(ifb)
-
-                self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
-                self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
-            ##----- End isA_NUMBER func ----
-            
-            ##----- generate actual match function
             if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
                 nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
                 self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
                 isafunc = self.context.get_isa_function_name(self.languagename, pat.prefix)
-                self._gen_match_function_for_primitive(nameof_this_func, isafunc, repr(pat), sym=pat.sym)
+                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsNumber, repr(pat), sym=pat.sym)
+            return pat
+
+        if pat.kind == pattern.BuiltInPatKind.Integer:
+            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
+                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
+                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
+                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsInteger, repr(pat), sym=pat.sym)
+            return pat
+
+        if pat.kind == pattern.BuiltInPatKind.Natural:
+            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
+                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
+                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
+                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsNatural, repr(pat), sym=pat.sym)
             return pat
 
         if pat.kind == pattern.BuiltInPatKind.VariableNotOtherwiseDefined:
+            # generate isa function for variable-not-otherwise-mentioned here because we need to reference
+            # compile-time generated language-specific array 'langname_variable_mentioned'
             if self.context.get_isa_function_name(self.languagename, pat.prefix) is None:
                 nameof_this_func = 'lang_{}_isa_builtin_variable_not_othewise_mentioned'.format(self.languagename)
                 self.context.add_isa_function_name(self.languagename, pat.prefix, nameof_this_func)
