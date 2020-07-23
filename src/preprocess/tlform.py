@@ -44,7 +44,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             for nt, ntdef in form.nts.items():
                 print('{}: {}'.format(nt, repr(ntdef.nt.getmetadata(pattern.PatNumHoles))))
             print('\n') 
-        form = DefineLanguage_EllipsisMatchModeRewriter(form, closures).run()
+        #form = DefineLanguage_EllipsisMatchModeRewriter(form, closures).run()
         form = DefineLanguage_AssignableSymbolExtractor(form).run()
         self.definelanguages[form.name] = form 
         self.definelanguageclosures[form.name] = closures
@@ -57,7 +57,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         pat = Pattern_NtRewriter(pat, ntsyms).run()
         pat = Pattern_EllipsisDepthChecker(pat).run()
         Pattern_InHoleChecker(lang, pat).run()
-        pat = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
+        #pat = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         pat = Pattern_ConstraintCheckInserter(pat).run()
         pat = Pattern_AssignableSymbolExtractor(pat).run()
         return pat
@@ -69,7 +69,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         pat = Pattern_NtRewriter(pat, ntsyms).run()
         pat = Pattern_IdRewriter(pat).run()
         Pattern_InHoleChecker(lang, pat).run()
-        pat = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
+        #pat = Pattern_EllipsisMatchModeRewriter(lang, pat, closure).run()
         pat = Pattern_AssignableSymbolExtractor(pat).run()
         return pat
 

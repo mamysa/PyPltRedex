@@ -171,9 +171,11 @@ class PatternCodegen(pattern.PatternTransformer):
                 whb.For(m,h,t).In(matches).Block(forb1)
                 whb.AssignTo(matches).PyId(nmatches)
 
-                forb2 = rpy.BlockBuilder()
-                for bindable in assignable_symbols:
-                    forb2.AssignTo(tmp4).MethodCall(m, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
+
+                if len(assignable_symbols) != 0:
+                    forb2 = rpy.BlockBuilder()
+                    for bindable in assignable_symbols:
+                        forb2.AssignTo(tmp4).MethodCall(m, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
 
 
                 fb = rpy.BlockBuilder()
@@ -182,44 +184,12 @@ class PatternCodegen(pattern.PatternTransformer):
                 fb.AssignTo(outmatches).PyList()
                 fb.AssignTo(matches).PyList( rpy.PyTuple(match, head, tail) )
                 fb.While.LengthOf(matches).NotEqual(rpy.PyInt(0)).Block(whb)
-                fb.For(m,h,t).In(outmatches).Block(forb2)
+                if len(assignable_symbols) != 0:
+                    fb.For(m,h,t).In(outmatches).Block(forb2)
                 fb.Return.PyId(outmatches)
 
                 self.modulebuilder.SingleLineComment('{} deterministic'.format(repr(repeat)))
                 self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
-
-
-                """
-                ifb0 = rpy.BlockBuilder()
-                ifb0.Break
-
-                ifb1 = rpy.BlockBuilder()
-                ifb1.Break
-
-                ifb2 = rpy.BlockBuilder()
-                ifb2.RaiseException('Expected to return single match')
-
-                wb = rpy.BlockBuilder()
-                wb.If.Equal(head, tail).ThenBlock(ifb0)
-                wb.AssignTo(tmp1).MethodCall(term, TermMethodTable.Get, head)
-                wb.AssignTo(tmp2).FunctionCall(functionname, tmp1, match, head, tail)
-                wb.If.LengthOf(tmp2).Equal(rpy.PyInt(0)).ThenBlock(ifb1)
-                wb.If.LengthOf(tmp2).NotEqual(rpy.PyInt(1)).ThenBlock(ifb2)
-                wb.AssignTo(tmp3).ArrayGet(tmp2, rpy.PyInt(0))
-                wb.AssignTo(match, head, tail).PyId(tmp3)
-
-
-                fb = rpy.BlockBuilder()
-                for bindable in assignable_symbols:
-                    fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.IncreaseDepth, rpy.PyString(bindable))
-                fb.While.Equal(rpy.PyBoolean(True), rpy.PyBoolean(True)).Block(wb)
-                for bindable in assignable_symbols:
-                    fb.AssignTo(tmp4).MethodCall(match, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
-                fb.Return.PyList(rpy.PyTuple(match, head, tail))
-
-                self.modulebuilder.SingleLineComment('{} deterministic'.format(repr(repeat)))
-                self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
-                """
 
             if repeat.matchmode == pattern.RepeatMatchMode.NonDetermininstic:
                 matches, queue = rpy.gen_pyid_for('matches', 'queue')
@@ -254,9 +224,10 @@ class PatternCodegen(pattern.PatternTransformer):
                 wb.AssignTo(matches).Add(matches, tmp3)
                 wb.AssignTo(queue).Add(queue, tmp3)
 
-                forb = rpy.BlockBuilder()
-                for bindable in assignable_symbols:
-                    forb.AssignTo(tmp4).MethodCall(m, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
+                if len(assignable_symbols) != 0:
+                    forb = rpy.BlockBuilder()
+                    for bindable in assignable_symbols:
+                        forb.AssignTo(tmp4).MethodCall(m, MatchMethodTable.DecreaseDepth, rpy.PyString(bindable))
 
                 fb = rpy.BlockBuilder()
                 for bindable in assignable_symbols:
@@ -265,7 +236,8 @@ class PatternCodegen(pattern.PatternTransformer):
                 fb.AssignTo(matches).PyList(tmp1)
                 fb.AssignTo(queue).PyList(tmp1)
                 fb.While.LengthOf(queue).NotEqual(rpy.PyInt(0)).Block(wb)
-                fb.For(m, h, t).In(matches).Block(forb)
+                if len(assignable_symbols) != 0:
+                    fb.For(m, h, t).In(matches).Block(forb)
                 fb.Return.PyId(matches)
 
                 self.modulebuilder.SingleLineComment('{} non-deterministic'.format(repr(repeat)))

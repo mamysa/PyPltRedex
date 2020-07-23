@@ -87,3 +87,6 @@
   (redex-match Lc (n_1 ... hole n_2 ...) (term ( 1 2 hole 3)))
   (match (bind n_1 (1 2)) (bind n_2 (3))))
 
+(match-equal?
+  (redex-match Lc (44 ...) (term (44 44 44)))
+  (match))
