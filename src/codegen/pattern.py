@@ -610,6 +610,14 @@ class PatternCodegen(pattern.PatternTransformer):
                 self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsNatural, repr(pat), sym=pat.sym)
             return pat
 
+        if pat.kind == pattern.BuiltInPatKind.Decimal:
+            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
+                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
+                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
+                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsDecimal, repr(pat), sym=pat.sym)
+            return pat
+
+
         if pat.kind == pattern.BuiltInPatKind.VariableNotOtherwiseDefined:
             # generate isa function for variable-not-otherwise-mentioned here because we need to reference
             # compile-time generated language-specific array 'langname_variable_mentioned'
@@ -655,104 +663,41 @@ class PatternCodegen(pattern.PatternTransformer):
             return pat
 
         if pat.kind == pattern.BuiltInPatKind.Hole:
-            if self.context.get_isa_function_name(self.languagename, pat.prefix) is None:
-                nameof_this_func = 'lang_{}_isa_builtin_{}'.format(self.languagename, pat.prefix)
-                self.context.add_isa_function_name(self.languagename, pat.prefix, nameof_this_func)
-
-                # tmp0 = term.kind()
-                # if tmp0 == TermKind.Hole
-                #   return True
-                # return False
-                symgen = SymGen()
-
-                term = rpy.gen_pyid_for('term')
-                tmp0 = rpy.gen_pyid_temporaries(1, symgen)
-
-                ifb = rpy.BlockBuilder()
-                ifb.Return.PyBoolean(True)
-
-                fb = rpy.BlockBuilder()
-                fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
-                fb.If.Equal(tmp0, rpy.PyInt(TermKind.Hole)).ThenBlock(ifb)
-                fb.Return.PyBoolean(False)
-
-                self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
-                self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
-
-            ##----- generate actual match function
             if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
                 nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
                 self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
                 isafunc = self.context.get_isa_function_name(self.languagename, pat.prefix)
-                self._gen_match_function_for_primitive(nameof_this_func, isafunc, repr(pat))
+                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsHole, repr(pat))
             return pat
         assert False, 'unsupported pattern' 
+
+
+    def gen_procedure_for_lit(self, lit, consumeprocedure, exactvalue):
+        if self.context.get_function_for_pattern(self.languagename, repr(lit)) is not None:
+            return lit
+
+        nameof_this_func = 'lang_{}_consume_lit{}'.format(self.languagename, self.symgen.get())
+        self.context.add_function_for_pattern(self.languagename, repr(lit), nameof_this_func)
+
+        symgen = SymGen()
+        term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
+        tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(tmp0).FunctionCall(consumeprocedure, term, match, head, tail, exactvalue)
+        fb.Return.PyId(tmp0)
+
+        self.modulebuilder.SingleLineComment('#{}'.format(repr(lit)))
+        self.modulebuilder.Function(nameof_this_func).WithParameters(term, match, head, tail).Block(fb)
+        return lit
 
     def transformLit(self, lit):
         assert isinstance(lit, pattern.Lit)
         if lit.kind == pattern.LitKind.Variable:
-            if self.context.get_function_for_pattern(self.languagename, repr(lit)) is None:
-                match_fn = 'lang_{}_consume_lit{}'.format(self.languagename, self.symgen.get())
-                self.context.add_function_for_pattern(self.languagename, repr(lit), match_fn)
-                symgen = SymGen()
-                term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
-                tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
-
-                # tmp0 = term.kind()
-                # if tmp0 == TermKind.Variable:
-                #   tmp1 = term.value()
-                #   if tmp1 == sym:
-                #     head = head + 1
-                #     return [ (match, head, tail) ] 
-                # return [] 
-                ifb2 = rpy.BlockBuilder()
-                ifb2.AssignTo(head).Add(head, rpy.PyInt(1))
-                ifb2.Return.PyList( rpy.PyTuple(match, head, tail) )
-
-                ifb1 = rpy.BlockBuilder()
-                ifb1.AssignTo(tmp1).MethodCall(term, TermMethodTable.Value)
-                ifb1.If.Equal(tmp1, rpy.PyString(lit.lit)).ThenBlock(ifb2)
-
-                fb = rpy.BlockBuilder()
-                fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
-                fb.If.Equal(tmp0, rpy.PyInt(TermKind.Variable)).ThenBlock(ifb1)
-                fb.Return.PyList()
-
-                self.modulebuilder.SingleLineComment('#{}'.format(repr(lit)))
-                self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
-            return lit
-
-
+            return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeVariable, rpy.PyString(lit.lit))
         if lit.kind == pattern.LitKind.Integer:
-            if self.context.get_function_for_pattern(self.languagename, repr(lit)) is None:
-                match_fn = 'lang_{}_consume_lit{}'.format(self.languagename, self.symgen.get())
-                self.context.add_function_for_pattern(self.languagename, repr(lit), match_fn)
-                symgen = SymGen()
-                term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
-                tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
-
-                # tmp0 = term.kind()
-                # if tmp0 == TermKind.Integer:
-                #   tmp1 = term.value()
-                #   if tmp1 == sym:
-                #     head = head + 1
-                #     return [ (match, head, tail) ] 
-                # return [] 
-                ifb2 = rpy.BlockBuilder()
-                ifb2.AssignTo(head).Add(head, rpy.PyInt(1))
-                ifb2.Return.PyList( rpy.PyTuple(match, head, tail) )
-
-                ifb1 = rpy.BlockBuilder()
-                ifb1.AssignTo(tmp1).MethodCall(term, TermMethodTable.Value)
-                ifb1.If.Equal(tmp1, rpy.PyInt(int(lit.lit))).ThenBlock(ifb2)
-
-                fb = rpy.BlockBuilder()
-                fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
-                fb.If.Equal(tmp0, rpy.PyInt(TermKind.Integer)).ThenBlock(ifb1)
-                fb.Return.PyList()
-
-                self.modulebuilder.SingleLineComment('#{}'.format(repr(lit)))
-                self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
-            return lit
+            return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeInteger, rpy.PyInt(int(lit.lit)))
+        if lit.kind == pattern.LitKind.Decimal:
+            return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeDecimal, rpy.PyFloat(float(lit.lit)))
 
         assert False, 'unknown literal kind ' + str(lit.kind)

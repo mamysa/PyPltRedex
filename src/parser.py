@@ -34,6 +34,7 @@ reserved = {
 tokens = [
     'IDENT',
     'INTEGER',
+    'DECIMAL',
     'BOOLEAN',
     'LPAREN',
     'RPAREN',
@@ -67,6 +68,10 @@ def t_NEWLINE(t):
 
 def t_STRING(t):
     r'\"([^\"]|\\")*\"'
+    return t
+
+def t_DECIMAL(t):
+    r'[0-9]+\.[0-9]+'
     return t
 
 def t_IDENT(t):
@@ -438,10 +443,13 @@ def p_pattern_inhole(t):
     'pattern : LPAREN INHOLE pattern pattern RPAREN'
     t[0] = pat.InHole(t[3], t[4])
 
+def p_pattern_literal_decimal(t):
+    'pattern : DECIMAL'
+    t[0] = pat.Lit(t[1], pat.LitKind.Decimal)
+
 def p_pattern_literal_int(t):
     'pattern : INTEGER'
     t[0] = pat.Lit(t[1], pat.LitKind.Integer)
-
 
 def p_pattern_sequence_contents(t):
     """
@@ -492,6 +500,10 @@ def p_term_template(t):
 def p_term_template_inhole(t):
     'term-template : LPAREN INHOLE term-template term-template RPAREN'
     t[0] = term.InHole(t[3], t[4])
+
+def p_term_template_decimal(t):
+    'term-template : DECIMAL'
+    t[0] = term.TermLiteral(term.TermLiteralKind.Decimal, t[1])
 
 def p_term_template_integer(t):
     'term-template : INTEGER'

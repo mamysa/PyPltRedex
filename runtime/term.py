@@ -35,6 +35,26 @@ class Integer(Ast):
     def copy(self):
         return Integer(self.__value)
 
+class Decimal(Ast):
+    def __init__(self, value):
+        super().__init__(TermKind.Decimal)
+        self.__value = value
+        
+    def __repr__(self):
+        return '{}'.format(self.__value)
+
+    def value(self):
+        return self.__value
+
+    def __eq__(self, other):
+        if other == None:
+            return False
+        if self.kind() == other.kind():
+            return abs(self.value() - other.value()) <= 0.001
+        return False
+
+    def copy(self):
+        return Decimal(self.__value)
 
 class Variable(Ast):
     def __init__(self, value):
@@ -111,12 +131,30 @@ def term_is_number(term):
 def term_is_integer(term):
     return term.kind() == TermKind.Integer
 
+def term_is_decimal(term):
+    return term.kind() == TermKind.Decimal
+
+
 def term_is_natural_number(term):
     return term.kind() == TermKind.Integer and term.value() >= 0
 
 def term_is_hole(term):
     return term.kind() == TermKind.Hole
 
+def consume_literal_integer(term, match, head, tail, literal):
+    if term.kind() == TermKind.Integer and term.value() == literal:
+        return [ (match, head+1, tail) ]
+    return []
+
+def consume_literal_decimal(term, match, head, tail, literal):
+    if term.kind() == TermKind.Decimal and abs(literal - term.value()) < 0.001:
+        return [ (match, head+1, tail) ]
+    return []
+
+def consume_variable(term, match, head, tail, literal):
+    if term.kind() == TermKind.Variable and term.value() == literal:
+        return [ (match, head+1, tail) ]
+    return []
 
 def copy_path_and_replace_last(path, withterm):
     """

@@ -2,10 +2,11 @@ import enum
 import copy
 
 class TermLiteralKind:
-    Integer = 0
-    Variable = 1
-    Hole = 2
+    Variable = 0
+    Integer = 1
+    Decimal = 2
     List = 3
+    Hole = 4
 
 class TermAttribute(enum.Enum):
     MatchRead = 'MatchRead'
@@ -50,10 +51,9 @@ class TermLiteral(Term):
         self.value = value
 
     def __repr__(self):
-        if self.kind in [TermLiteralKind.Integer, TermLiteralKind.Variable, TermLiteralKind.Hole]: 
-            return '{}'.format(self.value)
-        # is a list, 
-        return '({})'.format(' '.join(map(repr, self.value)))
+        if self.kind == TermLiteralKind.List: 
+            return '({})'.format(' '.join(map(repr, self.value)))
+        return '{}'.format(self.value)
 
 class TermSequence(Term):
     def __init__(self, seq):

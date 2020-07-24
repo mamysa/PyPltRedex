@@ -103,3 +103,25 @@
 (match-equal? 
   (redex-match Lc natural_1 (term 1))
   (match (bind natural_1 1)))
+
+(match-equal? 
+  (redex-match Lc (decimal_1 ...) (term (1.012 1337.0 1.2 4.0)))
+  (match (bind decimal_1 (1.012 1337.0 1.2 4.0))))
+
+
+(match-equal? 
+  (redex-match Lc (number_1  ...) (term (1.012 1337 1 4.0)))
+  (match (bind number_1  (1.012 1337 1 4.0))))
+
+
+(match-equal? 
+  (redex-match Lc (a b c) (term (a b c)))
+  (match))
+
+(match-equal? 
+  (redex-match Lc ((1337 number_1) ...) (term ((1337 3.0) (1337 2))))
+  (match (bind number_1 (3.0 2))))
+
+(match-equal?
+  (redex-match Lc (1.25 3.45 6.3) (term (1.25 3.45 6.3)))
+  (match))

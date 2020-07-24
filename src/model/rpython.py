@@ -770,6 +770,9 @@ class RPythonWriter:
         assert isinstance(pyint, PyInt)
         self.emit(str(pyint.value))
 
+    def visitPyFloat(self, pyfloat):
+        self.emit(str(pyfloat.value))
+
     def visitPyBoolean(self, pybool):
         assert isinstance(pybool, PyBoolean)
         self.emit(str(pybool.value))

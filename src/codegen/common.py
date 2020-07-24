@@ -16,7 +16,12 @@ class TermHelperFuncs:
     TermIsNumber  = 'term_is_number'
     TermIsInteger = 'term_is_integer'
     TermIsNatural = 'term_is_natural_number'
+    TermIsDecimal = 'term_is_decimal'
     TermIsHole    = 'term_is_hole'
+
+    ConsumeInteger = 'consume_literal_integer'
+    ConsumeDecimal = 'consume_literal_decimal'
+    ConsumeVariable = 'consume_variable'
 
 class MatchHelperFuncs:
     CombineMatches = 'combine_matches'
