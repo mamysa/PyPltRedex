@@ -3,7 +3,7 @@ import re
 
 class TokenKind(enum.Enum):
     Integer = 0
-    Decimal = 1
+    Float   = 1
     String  = 2
     Boolean = 3
     Ident   = 4
@@ -34,7 +34,7 @@ class Tokenizer:
         # ( ) [ ] { } " , ' ` ; # | \
         self.matchers = {
             TokenKind.Integer : re.compile('^-?[0-9]+$'),
-            TokenKind.Decimal : re.compile('^-?[0-9]*\.[0-9]+$'),
+            TokenKind.Float   : re.compile('^-?[0-9]*\.[0-9]+$'),
             #TokenKind.Boolean : re.compile('^(#t|#f)$'),
             TokenKind.Ident   : re.compile('^([^\(\)\[\]{}\"\'`;#|\\\])+$'),
         }
@@ -162,8 +162,8 @@ class Parser:
     def parse_atom(self):
         if self.peek() == TokenKind.Integer:
             return Integer(int(self.expect(TokenKind.Integer)))
-        if self.peek() == TokenKind.Decimal:
-            return Decimal(float(self.expect(TokenKind.Decimal)))
+        if self.peek() == TokenKind.Float:
+            return Float(float(self.expect(TokenKind.Float)))
         if self.peek() == TokenKind.Ident:
             tokkind, tokval = self.peekv() 
             if tokval == 'hole':

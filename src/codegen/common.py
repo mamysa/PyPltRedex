@@ -16,11 +16,11 @@ class TermHelperFuncs:
     TermIsNumber  = 'term_is_number'
     TermIsInteger = 'term_is_integer'
     TermIsNatural = 'term_is_natural_number'
-    TermIsDecimal = 'term_is_decimal'
+    TermIsFloat   = 'term_is_float'
     TermIsHole    = 'term_is_hole'
 
     ConsumeInteger = 'consume_literal_integer'
-    ConsumeDecimal = 'consume_literal_decimal'
+    ConsumeFloat = 'consume_literal_float'
     ConsumeVariable = 'consume_variable'
 
 class MatchHelperFuncs:

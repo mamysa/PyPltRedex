@@ -3,7 +3,7 @@ import copy
 class TermKind:
     Variable = 0
     Integer  = 1
-    Decimal = 2
+    Float = 2
     Sequence = 3 
     Hole = 4 
 
@@ -35,9 +35,9 @@ class Integer(Ast):
     def copy(self):
         return Integer(self.__value)
 
-class Decimal(Ast):
+class Float(Ast):
     def __init__(self, value):
-        super().__init__(TermKind.Decimal)
+        super().__init__(TermKind.Float)
         self.__value = value
         
     def __repr__(self):
@@ -54,7 +54,7 @@ class Decimal(Ast):
         return False
 
     def copy(self):
-        return Decimal(self.__value)
+        return Float(self.__value)
 
 class Variable(Ast):
     def __init__(self, value):
@@ -126,14 +126,13 @@ class Sequence(Ast):
         return False
 
 def term_is_number(term):
-    return term.kind() in [TermKind.Decimal, TermKind.Integer]
+    return term.kind() in [TermKind.Float, TermKind.Integer]
 
 def term_is_integer(term):
     return term.kind() == TermKind.Integer
 
-def term_is_decimal(term):
-    return term.kind() == TermKind.Decimal
-
+def term_is_float(term):
+    return term.kind() == TermKind.Float
 
 def term_is_natural_number(term):
     return term.kind() == TermKind.Integer and term.value() >= 0
@@ -146,8 +145,8 @@ def consume_literal_integer(term, match, head, tail, literal):
         return [ (match, head+1, tail) ]
     return []
 
-def consume_literal_decimal(term, match, head, tail, literal):
-    if term.kind() == TermKind.Decimal and abs(literal - term.value()) < 0.001:
+def consume_literal_float(term, match, head, tail, literal):
+    if term.kind() == TermKind.Float and abs(literal - term.value()) < 0.001:
         return [ (match, head+1, tail) ]
     return []
 

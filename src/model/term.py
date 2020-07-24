@@ -4,7 +4,7 @@ import copy
 class TermLiteralKind:
     Variable = 0
     Integer = 1
-    Decimal = 2
+    Float = 2
     List = 3
     Hole = 4
 

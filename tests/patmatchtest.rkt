@@ -105,8 +105,8 @@
   (match (bind natural_1 1)))
 
 (match-equal? 
-  (redex-match Lc (decimal_1 ...) (term (1.012 1337.0 1.2 4.0)))
-  (match (bind decimal_1 (1.012 1337.0 1.2 4.0))))
+  (redex-match Lc (real_1 ...) (term (1.012 1337.0 1.2 4.0)))
+  (match (bind real_1 (1.012 1337.0 1.2 4.0))))
 
 
 (match-equal? 

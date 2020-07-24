@@ -5,7 +5,7 @@ import operator
 
 class LitKind(enum.Enum):
     Integer = 0
-    Decimal = 1
+    Float = 1
     String  = 2
     Boolean = 3
     Variable = 4
@@ -14,7 +14,7 @@ class BuiltInPatKind(enum.Enum):
     Number = 'number'
     Integer = 'integer'
     Natural = 'natural'
-    Decimal = 'decimal'
+    Float = 'real'
     VariableNotOtherwiseDefined = 'variable-not-otherwise-mentioned'
     VariableExcept = 'variable-except'
     Hole = 'hole'

@@ -610,11 +610,11 @@ class PatternCodegen(pattern.PatternTransformer):
                 self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsNatural, repr(pat), sym=pat.sym)
             return pat
 
-        if pat.kind == pattern.BuiltInPatKind.Decimal:
+        if pat.kind == pattern.BuiltInPatKind.Float:
             if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
                 nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
                 self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
-                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsDecimal, repr(pat), sym=pat.sym)
+                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsFloat, repr(pat), sym=pat.sym)
             return pat
 
 
@@ -697,7 +697,7 @@ class PatternCodegen(pattern.PatternTransformer):
             return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeVariable, rpy.PyString(lit.lit))
         if lit.kind == pattern.LitKind.Integer:
             return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeInteger, rpy.PyInt(int(lit.lit)))
-        if lit.kind == pattern.LitKind.Decimal:
-            return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeDecimal, rpy.PyFloat(float(lit.lit)))
+        if lit.kind == pattern.LitKind.Float:
+            return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeFloat, rpy.PyFloat(float(lit.lit)))
 
         assert False, 'unknown literal kind ' + str(lit.kind)
