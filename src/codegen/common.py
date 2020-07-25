@@ -19,9 +19,11 @@ class TermHelperFuncs:
     TermIsFloat   = 'term_is_float'
     TermIsHole    = 'term_is_hole'
     TermIsString  = 'term_is_string'
+    TermIsBoolean = 'term_is_boolean'
 
     ConsumeInteger = 'consume_literal_integer'
     ConsumeFloat = 'consume_literal_float'
+    ConsumeBoolean = 'consume_literal_boolean'
     ConsumeVariable = 'consume_variable'
     ConsumeString = 'consume_literal_string'
 
@@ -46,3 +48,4 @@ class TermKind:
     Sequence = 3 
     Hole = 4
     String = 5
+    Boolean = 6

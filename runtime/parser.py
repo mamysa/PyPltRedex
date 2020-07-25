@@ -18,8 +18,10 @@ def is_whitespace(c):
 def is_newline(c):
     return c == '\n'
 
-def is_reserved(c): 
-    return c in ['(', ')', '[', ']', '{', '}', '\"', '\'', '`', ';', '#', '|', '\\']
+#def is_reserved(c): 
+#    return c in ['(', ')', '[', ']', '{', '}', '\"', '\'', '`', ';', '#', '|', '\\']
+
+reserved_variables = ['in-hole']
 
 class Tokenizer:
     def __init__(self, string):
@@ -35,7 +37,7 @@ class Tokenizer:
         self.matchers = {
             TokenKind.Integer : re.compile('^(\+|\-)?[0-9]+$'),
             TokenKind.Float   : re.compile('^(\+|\-)?[0-9]*\.[0-9]+$'),
-            #TokenKind.Boolean : re.compile('^(#t|#f)$'),
+            TokenKind.Boolean : re.compile('^(#true|#false|#t|#f)$'),
             TokenKind.Ident   : re.compile('^([^\(\)\[\]{}\"\'`;#|\\\])+$'),
         }
 
@@ -105,14 +107,10 @@ class Tokenizer:
                 self.advance()
                 return (TokenKind.String, self.extract())
 
-            # handle boolean as a separate thing for now
-            if self.extract_if_contains('#t'): return (TokenKind.Boolean, '#t')
-            if self.extract_if_contains('#f'): return (TokenKind.Boolean, '#f')
-
             # otherwise, read until the next whitespace and identify the token 
             # can be a number, identifier, etc.
             # TODO confused as to what #lang is. 
-            while not (is_whitespace(self.peek()) or is_reserved(self.peek())) :
+            while not is_whitespace(self.peek()): 
                 self.advance()
                 if self.peek() == '\0':
                     break
@@ -167,11 +165,15 @@ class Parser:
         if self.peek() == TokenKind.String:
             string = self.expect(TokenKind.String)
             return String(string)
+        if self.peek() == TokenKind.Boolean:
+            return Boolean(self.expect(TokenKind.Boolean))
         if self.peek() == TokenKind.Ident:
             tokkind, tokval = self.peekv() 
             if tokval == 'hole':
                 self.expect(TokenKind.Ident)
                 return Hole()
+            if tokval in reserved_variables:
+                raise Exception('usage of reserved variable ' + tokval)
             return Variable(self.expect(TokenKind.Ident))
         assert False, 'unreachable'
 

@@ -52,13 +52,13 @@ def t_comment(t):
 t_ignore = ' \t'
 t_LPAREN = r'\(|\{|\['
 t_RPAREN = r'\)|\}|\]'
-t_BOOLEAN = r'\#t|\#f'
+# #true and #false have to be before #t #f otherwise it will be tokenized as (#t, rue) and (#f alse)
+t_BOOLEAN = r'\#true|\#false|\#t|\#f' 
 t_REDDOMAIN = '\#:domain' 
 
 def t_NEWLINE(t):
     r'\n+'
     t.lexer.lineno += len(t.value)
-
 
 # From http://www.dabeaz.com/ply/ply.html#ply_nn6
 # All tokens defined by functions are added in the same order as they appear in the lexer file. 
@@ -456,6 +456,10 @@ def p_pattern_literal_string(p):
     escaped = p[1].replace('"', '\\"')
     p[0] = pat.Lit(escaped, pat.LitKind.String)
 
+def p_pattern_literal_boolean(p):
+    'pattern : BOOLEAN'
+    p[0] = pat.Lit(p[1], pat.LitKind.Boolean)
+
 def p_pattern_sequence_contents(t):
     """
     pattern-sequence : pattern-sequence pattern-under-ellipsis 
@@ -518,6 +522,10 @@ def p_term_template_string(p):
     'term-template : STRING'
     escaped = p[1].replace('"', '\\"')
     p[0] = term.TermLiteral(term.TermLiteralKind.String, escaped)
+
+def p_term_template_boolean(p):
+    'term-template : BOOLEAN'
+    p[0] = term.TermLiteral(term.TermLiteralKind.Boolean, p[1])
 
 def p_term_template_hole(t):
     'term-template : HOLE'

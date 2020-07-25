@@ -624,6 +624,13 @@ class PatternCodegen(pattern.PatternTransformer):
                 self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsString, repr(pat), sym=pat.sym)
             return pat
 
+        if pat.kind == pattern.BuiltInPatKind.Boolean:
+            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
+                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
+                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
+                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsBoolean, repr(pat), sym=pat.sym)
+            return pat
+
         if pat.kind == pattern.BuiltInPatKind.VariableNotOtherwiseDefined:
             # generate isa function for variable-not-otherwise-mentioned here because we need to reference
             # compile-time generated language-specific array 'langname_variable_mentioned'
@@ -707,5 +714,7 @@ class PatternCodegen(pattern.PatternTransformer):
             return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeFloat, rpy.PyFloat(float(lit.lit)))
         if lit.kind == pattern.LitKind.String:
             return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeString, rpy.PyString(lit.lit))
+        if lit.kind == pattern.LitKind.Boolean:
+            return self.gen_procedure_for_lit(lit, TermHelperFuncs.ConsumeBoolean, rpy.PyString(lit.lit))
 
         assert False, 'unknown literal kind ' + str(lit.kind)

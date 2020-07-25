@@ -161,3 +161,20 @@
 (match-equal? 
    (redex-match Lc ("oh no!" ...) (term ("oh no!" "oh yes!" "oh no!")))
    ())
+
+; booleans
+(match-equal?
+  (redex-match Lc (boolean_1 ...) (term (#t #true #false)))
+  (match (bind boolean_1 (#t #t #f))))
+
+(match-equal? 
+  (redex-match Lc #t (term #t))
+  (match))
+
+(match-equal? 
+  (redex-match Lc #t (term #true))
+  (match))
+
+(match-equal? 
+  (redex-match Lc #t (term #f))
+  ())

@@ -1,5 +1,13 @@
 import copy 
 
+
+BooleanTable = {
+    '#t'     : True,
+    '#true'  : True,
+    '#f'     : False, 
+    '#false' : False,
+}
+
 class TermKind:
     Variable = 0
     Integer  = 1
@@ -7,6 +15,7 @@ class TermKind:
     Sequence = 3 
     Hole = 4 
     String = 5
+    Boolean = 6
 
 class Ast:
     def __init__(self, kind):
@@ -77,6 +86,27 @@ class String(Ast):
 
     def copy(self):
         return String(self.__value)
+
+class Boolean(Ast):
+    def __init__(self, value):
+        super().__init__(TermKind.Boolean)
+        self.__value = value
+
+    def value(self):
+        return self.__value
+
+    def __repr__(self):
+        return '{}'.format(self.__value)
+
+    def __eq__(self, other):
+        if other == None:
+            return False
+        if self.kind() == other.kind():
+            return BooleanTable[self.value()] == BooleanTable[other.value()]
+        return False
+
+    def copy(self):
+        return Boolean(self.__value)
 
 class Variable(Ast):
     def __init__(self, value):
@@ -165,6 +195,9 @@ def term_is_hole(term):
 def term_is_string(term):
     return term.kind() == TermKind.String
 
+def term_is_boolean(term):
+    return term.kind() == TermKind.Boolean
+
 def consume_literal_integer(term, match, head, tail, literal):
     if term.kind() == TermKind.Integer and term.value() == literal:
         return [ (match, head+1, tail) ]
@@ -177,6 +210,11 @@ def consume_literal_float(term, match, head, tail, literal):
 
 def consume_literal_string(term, match, head, tail, literal):
     if term.kind() == TermKind.String and term.value() == literal:
+        return [ (match, head+1, tail) ]
+    return []
+
+def consume_literal_boolean(term, match, head, tail, literal):
+    if term.kind() == TermKind.Boolean and BooleanTable[term.value()] == BooleanTable[literal]:
         return [ (match, head+1, tail) ]
     return []
 
