@@ -19,7 +19,7 @@ and then
 `make test`
 
 ## What works 
-* Built-in patterns: `number` (that act like integers for now), `variable-not-othewise-mentioned`, literal variables.
+* Built-in patterns: `number`, `integer`, `natural`, `real`, `boolean`, `string` and handling of exact matches of terms of mentioned kinds.
 * `define-language` and `redex-match` forms. 
 * Arbitrary patterns involving non-terminals and built-in patterns mentioned above.
 * Constraint checking (e.g in pattern `(e_1 ... e_1 ...)` both `e_1` bindings are checked for equality).
@@ -32,17 +32,20 @@ and then
 
 ## TODOs
 From most to least important.
-* Fix bug in `EllipsisMatchModeRewriter`. [See here](https://github.com/mamysa/PyPltRedex/issues/1#issuecomment-656267262). Aside from general `PatSequence` structural checking logic being incorrect, I also suspect `NtClosure` computation is not sufficient.
-* More reasonable copying in `in-hole` pattern. 
+* `any` pattern. Should be pretty straightforward.
 * Term level non-terminal / built-in pattern membership caching. For example, when asking if a given term is `e`, store `e` symbol in the set. Thus, next time we try to determine if the term is `e`, we just look it up in the set.
 * RPython compatibility.
+* `(interpret-from-string language-name reduction-relation-name metafunction-name input)`  that parses `input`, optionally applies metafunction and then continuously applies reduction relation.
 * More testing.
 * Sample languages as examples (and evaluation).
+* Ability to trace application of reduction relation and output series of reductions as `graphviz` digraph.
 * Feature freeze.
+* Saner error reporting.
+* More reasonable copying in `in-hole` pattern. Edit 25.07.2020 : actually I think current implementation is pretty sane.
+* Fix bug in `EllipsisMatchModeRewriter`. [See here](https://github.com/mamysa/PyPltRedex/issues/1#issuecomment-656267262). Aside from general `PatSequence` structural checking logic being incorrect, I also suspect `NtClosure` computation is not sufficient.
 * Compile `reduction-relation` in smarter way - instead of pattern matching rule-by-rule, find common subpatterns  and run for a set of rules with said subpattern matcher only once. Also want to merge multiple in-hole into one. `(in-hole V (+ n_1 n_2)` and `(in-hole V (- n_1 n_2))` --> `(in-hole V [(+ n_1 n_2) (- n_1 n_2)]) to traverse term only once while looking for redexes.
-* Start outlining the written thesis.
+* ~~Start outlining the written thesis~~. Things are happening!
 * Start testing if generated code complies with RPython requirements.
-* Make specification handling more Racket-like - i.e. instead of hardcoding certain form to expect a certain form as an argument (for example, `assert-term-lists-equal` expects its first argument to be `apply-reduction-relation`), we reason in terms of a return type of the form.
 * Add `assert-term-throws` to test term plugging that is supposed to fail due to wrong ellipsis match counts.
 
 ## References
