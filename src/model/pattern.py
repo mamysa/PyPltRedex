@@ -15,6 +15,7 @@ class BuiltInPatKind(enum.Enum):
     Integer = 'integer'
     Natural = 'natural'
     Float = 'real'
+    String = 'string'
     VariableNotOtherwiseDefined = 'variable-not-otherwise-mentioned'
     VariableExcept = 'variable-except'
     Hole = 'hole'

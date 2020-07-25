@@ -18,10 +18,12 @@ class TermHelperFuncs:
     TermIsNatural = 'term_is_natural_number'
     TermIsFloat   = 'term_is_float'
     TermIsHole    = 'term_is_hole'
+    TermIsString  = 'term_is_string'
 
     ConsumeInteger = 'consume_literal_integer'
     ConsumeFloat = 'consume_literal_float'
     ConsumeVariable = 'consume_variable'
+    ConsumeString = 'consume_literal_string'
 
 class MatchHelperFuncs:
     CombineMatches = 'combine_matches'
@@ -43,3 +45,4 @@ class TermKind:
     Decimal = 2 
     Sequence = 3 
     Hole = 4
+    String = 5

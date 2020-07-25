@@ -6,6 +6,7 @@ class TermKind:
     Float = 2
     Sequence = 3 
     Hole = 4 
+    String = 5
 
 class Ast:
     def __init__(self, kind):
@@ -55,6 +56,27 @@ class Float(Ast):
 
     def copy(self):
         return Float(self.__value)
+
+class String(Ast):
+    def __init__(self, value):
+        super().__init__(TermKind.String)
+        self.__value = value
+
+    def value(self):
+        return self.__value
+
+    def __repr__(self):
+        return '{}'.format(self.__value)
+
+    def __eq__(self, other):
+        if other == None:
+            return False
+        if self.kind() == other.kind():
+            return self.value() == other.value()
+        return False
+
+    def copy(self):
+        return String(self.__value)
 
 class Variable(Ast):
     def __init__(self, value):
@@ -140,6 +162,9 @@ def term_is_natural_number(term):
 def term_is_hole(term):
     return term.kind() == TermKind.Hole
 
+def term_is_string(term):
+    return term.kind() == TermKind.String
+
 def consume_literal_integer(term, match, head, tail, literal):
     if term.kind() == TermKind.Integer and term.value() == literal:
         return [ (match, head+1, tail) ]
@@ -147,6 +172,11 @@ def consume_literal_integer(term, match, head, tail, literal):
 
 def consume_literal_float(term, match, head, tail, literal):
     if term.kind() == TermKind.Float and abs(literal - term.value()) < 0.001:
+        return [ (match, head+1, tail) ]
+    return []
+
+def consume_literal_string(term, match, head, tail, literal):
+    if term.kind() == TermKind.String and term.value() == literal:
         return [ (match, head+1, tail) ]
     return []
 

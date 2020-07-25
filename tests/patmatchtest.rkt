@@ -87,10 +87,12 @@
   (redex-match Lc (n_1 ... hole n_2 ...) (term ( 1 2 hole 3)))
   (match (bind n_1 (1 2)) (bind n_2 (3))))
 
+; handle literals under ellipsis correctly 
 (match-equal?
   (redex-match Lc (44 ...) (term (44 44 44)))
   (match))
 
+; number, real, natural, integer tests.
 (match-equal? 
   (redex-match Lc number_1 (term -1))
   (match (bind number_1 -1)))
@@ -103,6 +105,10 @@
 (match-equal? 
   (redex-match Lc natural_1 (term 1))
   (match (bind natural_1 1)))
+
+(match-equal? 
+  (redex-match Lc natural_1 (term -1))
+  ())
 
 (match-equal? 
   (redex-match Lc (real_1 ...) (term (1.012 1337.0 1.2 4.0)))
@@ -125,3 +131,33 @@
 (match-equal?
   (redex-match Lc (1.25 3.45 6.3) (term (1.25 3.45 6.3)))
   (match))
+
+(match-equal?
+  (redex-match Lc (+12.12) (term (-12.12)))
+  ())
+
+(match-equal?
+  (redex-match Lc (+12.12) (term (12.12)))
+  (match))
+
+(match-equal?
+  (redex-match Lc (+12) (term (-12)))
+  ())
+
+(match-equal?
+  (redex-match Lc (+12) (term (12)))
+  (match))
+
+; matching strings
+(match-equal? 
+   (redex-match Lc (string_1 ...) (term ("hello" "world!")))
+   (match (bind string_1 ("hello" "world!"))))
+
+; matching literal strings.
+(match-equal? 
+   (redex-match Lc ("oh no!" ...) (term ("oh no!" "oh no!")))
+   (match))
+
+(match-equal? 
+   (redex-match Lc ("oh no!" ...) (term ("oh no!" "oh yes!" "oh no!")))
+   ())

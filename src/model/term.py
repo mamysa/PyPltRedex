@@ -7,6 +7,7 @@ class TermLiteralKind:
     Float = 2
     List = 3
     Hole = 4
+    String = 5
 
 class TermAttribute(enum.Enum):
     MatchRead = 'MatchRead'

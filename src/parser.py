@@ -65,13 +65,16 @@ def t_NEWLINE(t):
 # Need to match idents first.
 # Also come up with better regex than this - [A-Z][a-z] matching does not include unicode characters.
 # TODO (match any symbol except reserved)* (match any symbol except reserved AND digit)+ 
-
 def t_STRING(t):
-    r'\"([^\"]|\\")*\"'
+    r'\"([^\"\\]|(\\\"))*\"'
     return t
 
 def t_FLOAT(t):
-    r'[0-9]+\.[0-9]+'
+    r'(\-|\+)?[0-9]+\.[0-9]+'
+    return t
+
+def t_INTEGER(t):
+    r'(\-|\+)?[0-9]+'
     return t
 
 def t_IDENT(t):
@@ -79,11 +82,8 @@ def t_IDENT(t):
     t.type = reserved.get(t.value, 'IDENT')
     return t
 
-def t_INTEGER(t):
-    r'[0-9]+'
-    return t
-
 def t_error(t):
+    print(t.value)
     raise Exception('illegal character {}'.format(t.value[0]))
 
 def trimstringlit(lit):
@@ -451,6 +451,11 @@ def p_pattern_literal_int(t):
     'pattern : INTEGER'
     t[0] = pat.Lit(t[1], pat.LitKind.Integer)
 
+def p_pattern_literal_string(p):
+    'pattern : STRING'
+    escaped = p[1].replace('"', '\\"')
+    p[0] = pat.Lit(escaped, pat.LitKind.String)
+
 def p_pattern_sequence_contents(t):
     """
     pattern-sequence : pattern-sequence pattern-under-ellipsis 
@@ -509,6 +514,11 @@ def p_term_template_integer(t):
     'term-template : INTEGER'
     t[0] = term.TermLiteral(term.TermLiteralKind.Integer, t[1])
 
+def p_term_template_string(p):
+    'term-template : STRING'
+    escaped = p[1].replace('"', '\\"')
+    p[0] = term.TermLiteral(term.TermLiteralKind.String, escaped)
+
 def p_term_template_hole(t):
     'term-template : HOLE'
     t[0] = term.TermLiteral(term.TermLiteralKind.Hole, t[1])
@@ -565,8 +575,8 @@ def p_term_template_pycall_extend(t):
 #    raise Exception('blah', t[2], t[2].lineno)
 
 def p_error(t):
+    print(t)
     raise Exception('unexpected token {} on line {}'.format(t.value, t.lineno))
-
 
 def parse(filename):
     f = open(filename, 'r')

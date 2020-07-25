@@ -33,8 +33,8 @@ class Tokenizer:
         # Identifiers must not contain the following reserved characters:
         # ( ) [ ] { } " , ' ` ; # | \
         self.matchers = {
-            TokenKind.Integer : re.compile('^-?[0-9]+$'),
-            TokenKind.Float   : re.compile('^-?[0-9]*\.[0-9]+$'),
+            TokenKind.Integer : re.compile('^(\+|\-)?[0-9]+$'),
+            TokenKind.Float   : re.compile('^(\+|\-)?[0-9]*\.[0-9]+$'),
             #TokenKind.Boolean : re.compile('^(#t|#f)$'),
             TokenKind.Ident   : re.compile('^([^\(\)\[\]{}\"\'`;#|\\\])+$'),
         }
@@ -164,6 +164,9 @@ class Parser:
             return Integer(int(self.expect(TokenKind.Integer)))
         if self.peek() == TokenKind.Float:
             return Float(float(self.expect(TokenKind.Float)))
+        if self.peek() == TokenKind.String:
+            string = self.expect(TokenKind.String)
+            return String(string)
         if self.peek() == TokenKind.Ident:
             tokkind, tokval = self.peekv() 
             if tokval == 'hole':
