@@ -166,7 +166,8 @@ class Parser:
             string = self.expect(TokenKind.String)
             return String(string)
         if self.peek() == TokenKind.Boolean:
-            return Boolean(self.expect(TokenKind.Boolean))
+            boolean = self.expect(TokenKind.Boolean)[0:2]
+            return Boolean(boolean)
         if self.peek() == TokenKind.Ident:
             tokkind, tokval = self.peekv() 
             if tokval == 'hole':

@@ -91,6 +91,10 @@ def trimstringlit(lit):
     assert lit[0] == '"' and lit[-1] == '"' 
     return lit[1:-1]#.encode('unicode-escape')
 
+# strip #t out of #true and #f out of #false
+def normalizeboolean(b): 
+    return b[0:2] 
+
 # --------------------- TOP-LEVEL -----------------------
 # module ::= define-language (redex-match match-equals)...
 
@@ -458,7 +462,7 @@ def p_pattern_literal_string(p):
 
 def p_pattern_literal_boolean(p):
     'pattern : BOOLEAN'
-    p[0] = pat.Lit(p[1], pat.LitKind.Boolean)
+    p[0] = pat.Lit(normalizeboolean(p[1]), pat.LitKind.Boolean)
 
 def p_pattern_sequence_contents(t):
     """
@@ -525,7 +529,7 @@ def p_term_template_string(p):
 
 def p_term_template_boolean(p):
     'term-template : BOOLEAN'
-    p[0] = term.TermLiteral(term.TermLiteralKind.Boolean, p[1])
+    p[0] = term.TermLiteral(term.TermLiteralKind.Boolean, normalizeboolean(p[1]))
 
 def p_term_template_hole(t):
     'term-template : HOLE'

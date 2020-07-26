@@ -1,13 +1,5 @@
 import copy 
 
-
-BooleanTable = {
-    '#t'     : True,
-    '#true'  : True,
-    '#f'     : False, 
-    '#false' : False,
-}
-
 class TermKind:
     Variable = 0
     Integer  = 1
@@ -102,7 +94,7 @@ class Boolean(Ast):
         if other == None:
             return False
         if self.kind() == other.kind():
-            return BooleanTable[self.value()] == BooleanTable[other.value()]
+            return self.value() == other.value()
         return False
 
     def copy(self):
@@ -214,7 +206,7 @@ def consume_literal_string(term, match, head, tail, literal):
     return []
 
 def consume_literal_boolean(term, match, head, tail, literal):
-    if term.kind() == TermKind.Boolean and BooleanTable[term.value()] == BooleanTable[literal]:
+    if term.kind() == TermKind.Boolean and term.value() == literal:
         return [ (match, head+1, tail) ]
     return []
 
