@@ -11,6 +11,7 @@ class LitKind(enum.Enum):
     Variable = 4
 
 class BuiltInPatKind(enum.Enum):
+    Any = 'any'
     Number = 'number'
     Integer = 'integer'
     Natural = 'natural'

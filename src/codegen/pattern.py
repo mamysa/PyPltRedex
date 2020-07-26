@@ -631,6 +631,27 @@ class PatternCodegen(pattern.PatternTransformer):
                 self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsBoolean, repr(pat), sym=pat.sym)
             return pat
 
+        if pat.kind == pattern.BuiltInPatKind.Any:
+            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
+                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
+                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
+
+                # tmp0 = match.addtobinding(sym, term) 
+                # head = head + 1
+                # return [(match, head, tail)]
+                symgen = SymGen()
+                term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
+                tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+
+                fb = rpy.BlockBuilder()
+                fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.AddToBinding, rpy.PyString(pat.sym), term)
+                fb.AssignTo(head).Add(head, rpy.PyInt(1))
+                fb.Return.PyList( rpy.PyTuple(match, head, tail) )
+
+                self.modulebuilder.SingleLineComment(repr(pat))
+                self.modulebuilder.Function(nameof_this_func).WithParameters(term, match, head, tail).Block(fb)
+            return pat
+
         if pat.kind == pattern.BuiltInPatKind.VariableNotOtherwiseDefined:
             # generate isa function for variable-not-otherwise-mentioned here because we need to reference
             # compile-time generated language-specific array 'langname_variable_mentioned'

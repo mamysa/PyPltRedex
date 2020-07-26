@@ -166,6 +166,7 @@
 (match-equal?
   (redex-match Lc (boolean_1 ...) (term (#t #true #false)))
   (match (bind boolean_1 (#t #t #f))))
+;
 
 (match-equal? 
   (redex-match Lc #t (term #t))
@@ -178,3 +179,8 @@
 (match-equal? 
   (redex-match Lc #t (term #f))
   ())
+
+; any pattern
+(match-equal? 
+  (redex-match Lc (any_1 ...) (term (1 #false "hello world!" 12.44 (1337) ())))
+  (match (bind any_1 (1 #false "hello world!" 12.44 (1337) ()))))
