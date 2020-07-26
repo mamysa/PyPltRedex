@@ -144,3 +144,26 @@
 (assert-term-eq ()
 (term (fv (lambda y (x (lambda x (x y)))))) 
 (term (x)))
+
+(define-metafunction A 
+  return-if-contains : (x ...) x -> (x ...) 
+  [(return-if-contains (x_0 ... x x_1 ...) x) (x) ]
+  [(return-if-contains (x_0 ...) x) () ])
+
+(assert-term-eq () (term (return-if-contains () a)) (term ()))
+(assert-term-eq () (term (return-if-contains (a) a)) (term (a)))
+(assert-term-eq () (term (return-if-contains (a) b)) (term ()))
+(assert-term-eq () (term (return-if-contains (a b c) x)) (term ()))
+(assert-term-eq () (term (return-if-contains (a b c) b)) (term (b)))
+
+(define-metafunction A 
+  set-intersection : (x ...) (x ...) -> (x ...)
+  [(set-intersection (x_0 x_1 ...) (x_2 ...))
+   (union-sets (return-if-contains (x_2 ...) x_0) (set-intersection (x_1 ...) (x_2 ...)))]
+  [(set-intersection () (x_2 ...)) ()])
+
+(assert-term-eq () (term (set-intersection (b) (     ))) (term ( )))
+(assert-term-eq () (term (set-intersection (b) (a b c))) (term (b)))
+(assert-term-eq () (term (set-intersection (x y z) (a b c))) (term ( )))
+(assert-term-eq () (term (set-intersection (m x y p z q) (m a p q b c))) (term (m p q)))
+(assert-term-eq () (term (set-intersection ( ) (a b c))) (term ( )))
