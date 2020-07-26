@@ -67,7 +67,7 @@ class Term_EllipsisDepthChecker(term.TermTransformer):
 
     def transformTermLiteral(self, literal):
         assert isinstance(literal, term.TermLiteral)
-        self.context.add_lit_term(literal)
+        #self.context.add_lit_term(literal)
         return literal
 
     def transformPyCall(self, pycall):
@@ -97,7 +97,7 @@ class Term_EllipsisDepthChecker(term.TermTransformer):
         assert isinstance(node, term.UnresolvedSym)
         if node.sym not in self.variables:
             t = term.TermLiteral(term.TermLiteralKind.Variable, node.sym)
-            self.context.add_lit_term(t)
+            #self.context.add_lit_term(t)
             return t
         expecteddepth = self.variables[node.sym] 
         actualdepth = 0

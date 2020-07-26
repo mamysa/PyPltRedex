@@ -31,11 +31,15 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         self.modulebuilder.IncludeFromPythonSource('runtime/match.py')
 
         # parse all term literals. 
+        # ~~ 26.07.2020 disable lit terms for now, need to implement
+        # nt caching acceleration technique first.
+        """
         tmp0, tmp1 = rpy.gen_pyid_temporaries(2, self.symgen)
         for trm, sym1 in self.context._litterms.items():
             sym1 = rpy.gen_pyid_for(sym1)
             self.modulebuilder.AssignTo(tmp0).New('Parser', rpy.PyString(repr(trm)))
             self.modulebuilder.AssignTo(sym1).MethodCall(tmp0, 'parse')
+        """
 
         # variable-not-otherwise-mentioned of given define language
         for ident, variables in self.context.get_variables_mentioned_all():

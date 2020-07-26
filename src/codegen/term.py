@@ -249,10 +249,26 @@ class TermCodegen(term.TermTransformer):
     def transformTermLiteral(self, node):
         assert isinstance(node, term.TermLiteral)
         funcname = self.context.get_function_for_term_template(node)
-        var = self.context.get_sym_for_lit_term(node)
-        fb = rpy.BlockBuilder()
-        fb.Return.PyId( rpy.PyId(var) )
         match, parameters, matchreads = self._gen_inputs(node)
+
+        symgen = SymGen()
+        fb = rpy.BlockBuilder()
+        tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+        if node.kind == term.TermLiteralKind.Variable:
+            fb.AssignTo(tmp0).New('Variable', rpy.PyString(node.value))
+        if node.kind == term.TermLiteralKind.Integer:
+            fb.AssignTo(tmp0).New('Integer', rpy.PyInt(int(node.value)))
+        if node.kind == term.TermLiteralKind.Float:
+            fb.AssignTo(tmp0).New('Float', rpy.PyFloat(float(node.value)))
+        if node.kind == term.TermLiteralKind.Hole:
+            fb.AssignTo(tmp0).New('Hole')
+        if node.kind == term.TermLiteralKind.String:
+            fb.AssignTo(tmp0).New('String', rpy.PyString(node.value))
+        if node.kind == term.TermLiteralKind.Boolean:
+            fb.AssignTo(tmp0).New('Boolean', rpy.PyString(node.value))
+
+        fb.Return.PyId(tmp0)
+
         self.modulebuilder.Function(funcname).WithParameters(match).Block(fb)
         return node
 
