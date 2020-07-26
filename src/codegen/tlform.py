@@ -28,6 +28,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
     def run(self):
         self.modulebuilder.IncludeFromPythonSource('runtime/term.py')
         self.modulebuilder.IncludeFromPythonSource('runtime/parser.py')
+        self.modulebuilder.IncludeFromPythonSource('runtime/fresh.py')
         self.modulebuilder.IncludeFromPythonSource('runtime/match.py')
 
         # parse all term literals. 

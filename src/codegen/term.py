@@ -269,6 +269,7 @@ class TermCodegen(term.TermTransformer):
 
         fb.Return.PyId(tmp0)
 
+        self.modulebuilder.SingleLineComment(repr(node))
         self.modulebuilder.Function(funcname).WithParameters(match).Block(fb)
         return node
 
