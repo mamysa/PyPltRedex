@@ -115,9 +115,7 @@ class RedexMatch(TopLevelForm):
     def __repr__(self):
         return 'RedexMatch({}, {}, {})'.format(self.languagename, repr(self.pat), self.termstr)
 
-# asserts that matches produced by redex-matches are equal to predefined list
-# only used for testing.
-class MatchEqual(TopLevelForm):
+class RedexMatchAssertEqual(TopLevelForm):
     # Creates Match object with specified string-term bindings.
     class Match:
         def __init__(self, bindings):
@@ -126,12 +124,14 @@ class MatchEqual(TopLevelForm):
         def __repr__(self):
             return 'Match({})'.format(repr(self.bindings))
 
-    def __init__(self, redexmatch, list_of_matches, equality=True):
-        self.redexmatch = redexmatch
-        self.list_of_matches = list_of_matches
+    def __init__(self, languagename, pat, termtemplate, expectedmatches):
+        self.languagename = languagename
+        self.pat = pat
+        self.termtemplate = termtemplate
+        self.expectedmatches = expectedmatches
 
     def __repr__(self):
-        return 'MatchEqual({} {})'.format(self.redexmatch, self.list_of_matches)
+        return 'RedexMatchAssertEqual({}, {}, {}, {})'.format(self.languagename, repr(self.pat), self.termtemplate, self.expectedmatches)
 
 class AssertTermsEqual(TopLevelForm):
     def __init__(self, variabledepths, variableassignments, template, expected):
@@ -179,8 +179,8 @@ class TopLevelFormVisitor:
     def _visitRedexMatch(self, form):
         return form 
 
-    def _visitMatchEqual(self, form):
-        return MatchEqual(self._visit(form.redexmatch), form.list_of_matches)
+    def _visitRedexMatchAssertEqual(self, form):
+        return form
 
     def _visitAssertTermsEqual(self, form):
         return form 

@@ -10,7 +10,7 @@ import os
 reserved = {
     'define-language': 'DEFINELANGUAGE',
     'redex-match'    : 'REDEXMATCH',
-    'match-equal?'   : 'MATCHEQUAL',
+    'redex-match-assert-equal' : 'REDEXMATCHASSERTEQUAL',
     'hole'           : 'HOLE',
     'in-hole'        : 'INHOLE',
     '...'            : 'ELLIPSIS',
@@ -119,7 +119,7 @@ def p_top_level_form(t):
     """
     top-level-form : define-language
                    | redex-match
-                   | match-equal
+                   | redex-match-assert-equal 
                    | assert-term-eq
                    | require-python-source
                    | define-reduction-relation
@@ -328,20 +328,16 @@ def p_tl_pat_ele(t):
         t[0] = pat.Repeat(t[1])
 
 
-# --------------------- MATCH-EQUAL? FORM -----------------------
-# This form compares output of redex-match with a list of match objects. Not part of PltRedex and 
-# used exclusively for testing pattern matching functionality.
-# match-equal ::= (match-equal? redex-match match ...) | (match-equal? redex-match () )
-def p_match_equal(t):
+# --------------------- REDEX-MATCH-ASSERT-EQUAL ----------------------
+def p_redex_match_assert_equal(t):
     """
-    match-equal : LPAREN MATCHEQUAL redex-match match-list RPAREN
-                | LPAREN MATCHEQUAL redex-match LPAREN RPAREN RPAREN
+    redex-match-assert-equal : LPAREN REDEXMATCHASSERTEQUAL IDENT pattern term-template-top LPAREN match-list RPAREN RPAREN
+                             | LPAREN REDEXMATCHASSERTEQUAL IDENT pattern term-template-top LPAREN RPAREN RPAREN
     """
-    if len(t) == 6:
-        t[0] = tlform.MatchEqual(t[3], t[4])
+    if len(t) == 10:
+        t[0] = tlform.RedexMatchAssertEqual(t[3], t[4], t[5], t[7])
     else:
-        t[0] = tlform.MatchEqual(t[3], [])
-
+        t[0] = tlform.RedexMatchAssertEqual(t[3], t[4], t[5], [])
 
 def p_match_list(t):
     """
@@ -393,9 +389,9 @@ def p_match(t):
           | LPAREN MATCH match-bind-list RPAREN
     """
     if len(t) == 4:
-        t[0] = tlform.MatchEqual.Match([])
+        t[0] = tlform.RedexMatchAssertEqual.Match([])
     else:
-        t[0] = tlform.MatchEqual.Match(t[3])
+        t[0] = tlform.RedexMatchAssertEqual.Match(t[3])
 
 def p_match_bind_list(t):
     """

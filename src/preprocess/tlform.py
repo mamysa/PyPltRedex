@@ -85,17 +85,17 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         form.termstr = self.__processtermtemplate(form.termstr)
         return form
 
-    def _visitMatchEqual(self, form):
-        assert isinstance(form, tlform.MatchEqual)
-        for i, match in enumerate(form.list_of_matches):
-            assert isinstance(match, tlform.MatchEqual.Match)
+    def _visitRedexMatchAssertEqual(self, form):
+        assert isinstance(form, tlform.RedexMatchAssertEqual)
+        form.pat = self.__processpattern(form.pat, form.languagename)
+        form.termtemplate = self.__processtermtemplate(form.termtemplate)
+        for i, match in enumerate(form.expectedmatches):
+            assert isinstance(match, tlform.RedexMatchAssertEqual.Match)
             nbindings = []
             for (ident, term) in match.bindings:
                 nterm = self.__processtermtemplate(term)
                 nbindings.append((ident, nterm))
             match.bindings = nbindings
-            
-        form.redexmatch = self._visit(form.redexmatch)
         return form
 
     def _visitAssertTermsEqual(self, form):
@@ -120,7 +120,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         for rc in form.reductioncases:
             self.processReductionCase(rc, form.languagename)
         if form.domain != None:
-            form.domain = self.__processpattern(form.domain, form.languagename)
+            form.domain = self.__processdomaincheck(form.domain, form.languagename)
         return form
 
     def _visitApplyReductionRelation(self, form):

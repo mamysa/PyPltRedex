@@ -126,46 +126,52 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
             self.modulebuilder.AssignTo(tmp0).FunctionCall(nameof_this_func)
 
+    def _visitRedexMatchAssertEqual(self, form):
+        def gen_matches(expectedmatches, fb, symgen):
+            processedmatches = []
+            for m in expectedmatches:
+                tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+                fb.AssignTo(tmp0).New('Match')
+                processedmatches.append(tmp0) 
+                for sym, termx in m.bindings:
+                    tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
+                    TermCodegen(self.modulebuilder, self.context).transform(termx)
+                    termfunc = self.context.get_function_for_term_template(termx)
+                    fb.AssignTo(tmp1).New('Match')
+                    fb.AssignTo(tmp2).FunctionCall(termfunc, tmp1)
+                    fb.AssignTo(tmp3).MethodCall(tmp0, MatchMethodTable.AddKey, rpy.PyString(sym))
+                    fb.AssignTo(tmp4).MethodCall(tmp0, MatchMethodTable.AddToBinding, rpy.PyString(sym), tmp2)
+            tmpi = rpy.gen_pyid_temporaries(1, symgen)
+            fb.AssignTo(tmpi).PyList(*processedmatches)
+            return tmpi
 
-    def _visitMatchEqual(self, form):
-        assert isinstance(form, tlform.MatchEqual)
-        if self.context.get_toplevel_function_for_pattern(form.redexmatch.languagename, repr(form.redexmatch.pat)) is None:
-            PatternCodegen(self.modulebuilder, form.redexmatch.pat, self.context, form.redexmatch.languagename, self.symgen).run()
-
-        self._visitRedexMatch(form.redexmatch,callself=False)
-        redexmatchfunc = self.context.get_redexmatch_for(form.redexmatch)
-
-
-        fb = rpy.BlockBuilder()
+        assert isinstance(form, tlform.RedexMatchAssertEqual)
+        if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat)) is None:
+            PatternCodegen(self.modulebuilder, form.pat, self.context, form.languagename, self.symgen).run()
+        TermCodegen(self.modulebuilder, self.context).transform(form.termtemplate)
+        matchfunc = self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat))
+        termfunc  = self.context.get_function_for_term_template(form.termtemplate)
         symgen = SymGen()
 
-        matches = rpy.gen_pyid_for('matches') 
-        fb.AssignTo(matches).FunctionCall(redexmatchfunc)
-        
-        processedmatches = []
-        for m in form.list_of_matches:
-            tmp0 = rpy.gen_pyid_temporaries(1, symgen)
-            fb.AssignTo(tmp0).New('Match')
-            processedmatches.append(tmp0) 
 
-            for sym, termx in m.bindings:
-                tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(4, symgen)
+        matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
+        fb = rpy.BlockBuilder()
+        expectedmatches = gen_matches(form.expectedmatches, fb, symgen)
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+        fb.AssignTo(tmp0).New('Match')
+        fb.AssignTo(term).FunctionCall(termfunc, tmp0)
+        fb.AssignTo(matches).FunctionCall(matchfunc, term)
+        fb.Print(matches)
+        fb.AssignTo(tmp1).FunctionCall('assert_compare_match_lists', matches, expectedmatches)
+        fb.Return.PyId(matches)
 
-                TermCodegen(self.modulebuilder, self.context).transform(termx)
-                termfunc = self.context.get_function_for_term_template(termx)
-
-                fb.AssignTo(tmp1).New('Match')
-                fb.AssignTo(tmp2).FunctionCall(termfunc, tmp1)
-                fb.AssignTo(tmp3).MethodCall(tmp0, MatchMethodTable.AddKey, rpy.PyString(sym))
-                fb.AssignTo(tmp4).MethodCall(tmp0, MatchMethodTable.AddToBinding, rpy.PyString(sym), tmp2)
-
-        tmp5, tmp6 = rpy.gen_pyid_temporaries(2, symgen)
-        fb.AssignTo(tmp5).PyList(*processedmatches)
-        fb.AssignTo(tmp6).FunctionCall('assert_compare_match_lists', matches, tmp5)
-
-        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
-        nameof_this_func = self.symgen.get('assertmatchequals')
+        nameof_this_func = self.symgen.get('redexmatchassertequal')
+        self.context.add_redexmatch_for(form, nameof_this_func)
         self.modulebuilder.Function(nameof_this_func).Block(fb)
+
+
+        # call redex-match itself.
+        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
         self.modulebuilder.AssignTo(tmp0).FunctionCall(nameof_this_func)
 
     def _visitAssertTermsEqual(self, form):
