@@ -18,7 +18,7 @@ reserved = {
     'term'           : 'TERM',
     'match'          : 'MATCH',
     'bind'           : 'BIND',
-    'assert-term-eq' : 'ASSERTTERMEQ',
+    'term-let-assert-equal' : 'TERMLETASSERTEQUAL',
     ','              : 'COMMA',
     ',@'             : 'COMMAATSIGN',
     '->'             : 'LEFTARROW',
@@ -120,7 +120,7 @@ def p_top_level_form(t):
     top-level-form : define-language
                    | redex-match
                    | redex-match-assert-equal 
-                   | assert-term-eq
+                   | term-let-assert-equal
                    | require-python-source
                    | define-reduction-relation
                    | apply-reduction-relation
@@ -271,18 +271,18 @@ def p_redex_match(t):
 
 def p_assert_term_eq(t):
     """
-    assert-term-eq : LPAREN ASSERTTERMEQ LPAREN variable-assignment-list RPAREN term-template-top term-template-top RPAREN
-                   | LPAREN ASSERTTERMEQ LPAREN RPAREN term-template-top term-template-top RPAREN
+    term-let-assert-equal : LPAREN TERMLETASSERTEQUAL LPAREN variable-assignment-list RPAREN term-template-top term-template-top RPAREN
+                          | LPAREN TERMLETASSERTEQUAL LPAREN RPAREN term-template-top term-template-top RPAREN
     """
     variabledepths = {} 
     variableassignments = {}
     if len(t) == 8:
-        t[0] = tlform.AssertTermsEqual(variabledepths, variableassignments, t[5], t[6])
+        t[0] = tlform.TermLetAssertEqual(variabledepths, variableassignments, t[5], t[6])
     else:
         for sym, (depth, term) in t[4].items():
             variabledepths[sym] = depth
             variableassignments[sym] = term
-        t[0] = tlform.AssertTermsEqual(variabledepths, variableassignments, t[6], t[7])
+        t[0] = tlform.TermLetAssertEqual(variabledepths, variableassignments, t[6], t[7])
 
 def p_variable_assignment_list(t):
     """

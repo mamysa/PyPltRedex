@@ -174,8 +174,8 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
         self.modulebuilder.AssignTo(tmp0).FunctionCall(nameof_this_func)
 
-    def _visitAssertTermsEqual(self, form):
-        assert isinstance(form, tlform.AssertTermsEqual)
+    def _visitTermLetAssertEqual(self, form):
+        assert isinstance(form, tlform.TermLetAssertEqual)
 
         template = form.template
         TermCodegen(self.modulebuilder, self.context).transform(template)

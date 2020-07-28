@@ -133,7 +133,7 @@ class RedexMatchAssertEqual(TopLevelForm):
     def __repr__(self):
         return 'RedexMatchAssertEqual({}, {}, {}, {})'.format(self.languagename, repr(self.pat), self.termtemplate, self.expectedmatches)
 
-class AssertTermsEqual(TopLevelForm):
+class TermLetAssertEqual(TopLevelForm):
     def __init__(self, variabledepths, variableassignments, template, expected):
         self.variabledepths = variabledepths # ellipsis depth
         self.variableassignments = variableassignments
@@ -141,7 +141,7 @@ class AssertTermsEqual(TopLevelForm):
         self.expected = expected 
 
     def __repr__(self):
-        return 'AssertTermsEqual({}, {}, {}, {})'.format(repr(self.variabledepths), repr(self.variableassignments), repr(self.template), repr(self.expected))
+        return 'TermLetAssertEqual({}, {}, {}, {})'.format(repr(self.variabledepths), repr(self.variableassignments), repr(self.template), repr(self.expected))
 
 class AssertTermListsEqual(TopLevelForm):
     def __init__(self, applyreductionrelation, terms):
@@ -182,7 +182,7 @@ class TopLevelFormVisitor:
     def _visitRedexMatchAssertEqual(self, form):
         return form
 
-    def _visitAssertTermsEqual(self, form):
+    def _visitTermLetAssertEqual(self, form):
         return form 
 
     def _visitDefineReductionRelation(self, form):

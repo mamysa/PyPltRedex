@@ -98,8 +98,8 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             match.bindings = nbindings
         return form
 
-    def _visitAssertTermsEqual(self, form):
-        assert isinstance(form, tlform.AssertTermsEqual)
+    def _visitTermLetAssertEqual(self, form):
+        assert isinstance(form, tlform.TermLetAssertEqual)
         variable_assignments = {}
         for ident, term in form.variableassignments.items(): 
             form.variableassignments[ident] = self.__processtermtemplate(term)
