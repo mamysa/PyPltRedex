@@ -140,15 +140,13 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             form.cases[i].patternsequence = self.__processpattern(case.patternsequence, form.languagename)
             assignablesymsdepths = form.cases[i].patternsequence.getmetadata(pattern.PatAssignableSymbolDepths)
             form.cases[i].termtemplate = self.__processtermtemplate(form.cases[i].termtemplate, assignments=assignablesymsdepths.syms)
-
         return form
 
-    def _visitAssertTermListsEqual(self, form):
-        assert isinstance(form, tlform.AssertTermListsEqual)
-        form.applyreductionrelation = self._visitApplyReductionRelation(form.applyreductionrelation)
-        for i, termtemplate in enumerate(form.terms):
+    def _visitApplyReductionRelationAssertEqual(self, form):
+        assert isinstance(form, tlform.ApplyReductionRelationAssertEqual)
+        reductionrelation = self.reductionrelations[form.reductionrelationname]
+        form.term = self.__processtermtemplate(form.term)
+        for i, termtemplate in enumerate(form.expected_termtemplates):
             idof = self.symgen.get('term_assert_term_lists_equal')
-            form.terms[i] = Term_EllipsisDepthChecker({}, idof, self.context).transform(termtemplate) 
+            form.expected_termtemplates[i] = Term_EllipsisDepthChecker({}, idof, self.context).transform(termtemplate) 
         return form
-
-

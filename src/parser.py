@@ -28,7 +28,7 @@ reserved = {
     'define-metafunction' : 'DEFINEMETAFUNCTION',
     'require-python-source' : 'REQUIREPYTHONSOURCE',
     'apply-reduction-relation' : 'APPLYREDUCTIONRELATION',
-    'assert-term-lists-equal' : 'ASSERTTERMLISTSEQUAL',
+    'apply-reduction-relation-assert-equal': 'APPLYREDUCTIONRELATIONASSERTEQUAL',
 }
 
 tokens = [
@@ -123,8 +123,7 @@ def p_top_level_form(t):
                    | term-let-assert-equal
                    | require-python-source
                    | define-reduction-relation
-                   | apply-reduction-relation
-                   | assert-term-lists-equal
+                   | apply-reduction-relation-assert-equal
                    | define-metafunction
     """
     t[0] = t[1]
@@ -251,11 +250,10 @@ def p_reduction_case(t):
 
 
 # --------------------- APPLY-REDUCTION-RELATION FORM -----------------------
-# apply-reduction-relation : (apply-reduction-relation IDENT term-template-top)
-def p_apply_reduction_relation(p):
-    'apply-reduction-relation : LPAREN APPLYREDUCTIONRELATION IDENT term-template-top RPAREN'
-    p[0] = tlform.ApplyReductionRelation(p[3], p[4])
-
+# apply-reduction-relation-assert-equal : (apply-reduction-relation IDENT term-template-top listof_terms)
+def p_apply_reduction_relation_assert_equal(p):
+    'apply-reduction-relation-assert-equal : LPAREN APPLYREDUCTIONRELATIONASSERTEQUAL IDENT term-template-top listof-terms RPAREN'
+    p[0] = tlform.ApplyReductionRelationAssertEqual(p[3], p[4], p[5])
 
 # --------------------- REDEX-MATCH FORM -----------------------
 # redex-match ::= (redex-match lang-name pattern term)
@@ -350,12 +348,6 @@ def p_match_list(t):
     else:
         t[0] = [t[1]]
 
-# --------------------- ASSERT-TERM-LISTS-EQUAL FORM -----------------------
-# assert-term-lists-equal ::= ( apply-reduction-relation literal-term-list )
-# literal'
-def p_assert_term_lists_equal(p):
-    'assert-term-lists-equal : LPAREN ASSERTTERMLISTSEQUAL apply-reduction-relation listof-terms RPAREN'
-    p[0] = tlform.AssertTermListsEqual(p[3], p[4])
 
 def p_listof_literal_terms(t):
     """
