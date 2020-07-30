@@ -25,6 +25,8 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         self.symgen = SymGen()
         self.modulebuilder = rpy.BlockBuilder() 
 
+        self.main_procedurecalls = []
+
     def run(self):
         self.modulebuilder.IncludeFromPythonSource('runtime/term.py')
         self.modulebuilder.IncludeFromPythonSource('runtime/parser.py')
@@ -48,11 +50,31 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             variables = map(lambda v: rpy.PyString(v), variables)
             self.modulebuilder.AssignTo(ident).PySet(*variables)
 
-        hole = rpy.gen_pyid_for('hole')
-        self.modulebuilder.AssignTo(hole).New('Hole')
         
         for form in self.module.tlforms:
             self._visit(form)
+
+
+        # generate main
+        fb = rpy.BlockBuilder()
+        symgen = SymGen()
+        for procedure in self.main_procedurecalls:
+            tmpi = rpy.gen_pyid_temporaries(1, symgen)
+            fb.AssignTo(tmpi).FunctionCall(procedure)
+        fb.Return.PyInt(0)
+        self.modulebuilder.Function('entrypoint').Block(fb)
+
+        #required entry procedure for Rpython.
+        fb = rpy.BlockBuilder()
+        fb.Return.PyTuple(rpy.PyId('entrypoint'), rpy.PyNone())
+        self.modulebuilder.Function('target').WithParameters(rpy.PyVarArg('args')).Block(fb)
+
+        # if __name__ == '__main__': entrypoint() 
+        # for python2.7 compatibility.
+        ifb = rpy.BlockBuilder()
+        tmp = rpy.gen_pyid_temporaries(1, self.symgen)
+        ifb.AssignTo(tmp).FunctionCall('entrypoint')
+        self.modulebuilder.If.Equal(rpy.PyId('__name__'), rpy.PyString('__main__')).ThenBlock(ifb)
 
         return rpy.Module(self.modulebuilder.build())
 
@@ -85,6 +107,10 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
     
     def _visitDefineLanguage(self, form):
         assert isinstance(form, tlform.DefineLanguage)
+        # generate hole for each language.  Need this for term annotation.
+        hole = rpy.gen_pyid_for('{}_hole'.format(form.name))
+        self.modulebuilder.AssignTo(hole).New('Hole')
+
         # first insert isa_nt functions intocontext
         for ntsym, ntdef in form.nts.items():
             nameof_this_func = 'lang_{}_isa_nt_{}'.format(form.name, ntsym)
@@ -99,6 +125,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
     def _visitRedexMatch(self, form, callself=True):
         assert isinstance(form, tlform.RedexMatch)
+        assert False
         if self.context.get_toplevel_function_for_pattern(form.languagename, repr(form.pat)) is None:
             PatternCodegen(self.modulebuilder, form.pat, self.context, form.languagename, self.symgen).run()
 
@@ -122,6 +149,8 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         nameof_this_func = self.symgen.get('redexmatch')
         self.context.add_redexmatch_for(form, nameof_this_func)
         self.modulebuilder.Function(nameof_this_func).Block(fb)
+
+
         if callself:
             tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
             self.modulebuilder.AssignTo(tmp0).FunctionCall(nameof_this_func)
@@ -153,7 +182,6 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         termfunc  = self.context.get_function_for_term_template(form.termtemplate)
         symgen = SymGen()
 
-
         matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
         fb = rpy.BlockBuilder()
         expectedmatches = gen_matches(form.expectedmatches, fb, symgen)
@@ -169,10 +197,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         self.context.add_redexmatch_for(form, nameof_this_func)
         self.modulebuilder.Function(nameof_this_func).Block(fb)
 
-
-        # call redex-match itself.
-        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
-        self.modulebuilder.AssignTo(tmp0).FunctionCall(nameof_this_func)
+        self.main_procedurecalls.append(nameof_this_func)
 
     def _visitTermLetAssertEqual(self, form):
         assert isinstance(form, tlform.TermLetAssertEqual)
@@ -213,7 +238,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
         nameof_this_func = self.symgen.get('asserttermequal')
         self.modulebuilder.Function(nameof_this_func).Block(fb)
-        self.modulebuilder.AssignTo(tmp1).FunctionCall(nameof_this_func)
+        self.main_procedurecalls.append(nameof_this_func)
 
     def _codegenReductionCase(self, rc, languagename, reductionrelationname, nameof_domaincheck=None):
         assert isinstance(rc, tlform.DefineReductionRelation.ReductionCase)
@@ -351,9 +376,8 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
         nameof_function = self.symgen.get('applyreductionrelationassertequal')
         self.modulebuilder.Function(nameof_function).Block(fb)
+        self.main_procedurecalls.append(nameof_function)
 
-        tmp0 = rpy.gen_pyid_temporaries(1, self.symgen)
-        self.modulebuilder.AssignTo(tmp0).FunctionCall(nameof_function)
 
     def _visitApplyReductionRelation(self, form):
         assert isinstance(form, tlform.ApplyReductionRelation)

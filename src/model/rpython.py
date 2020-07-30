@@ -17,6 +17,14 @@ class  PyValue(PyAst):
     def typeof(self):
         raise Exception('unimplemented')
 
+class PyNone(PyValue): 
+    pass
+
+class PyVarArg(PyValue):
+    def __init__(self, name):
+        assert isinstance(name, str)
+        self.name = name 
+
 class PyId(PyValue):
     def __init__(self, name):
         assert isinstance(name, str)
@@ -270,6 +278,10 @@ class BlockBuilder:
                 stmt = ReturnStmt(pyid)
                 self.parent.statements.append(stmt) 
 
+            def PyInt(self, val):
+                stmt = ReturnStmt(PyInt(val))
+                self.parent.statements.append(stmt) 
+
         return ReturnPhase1(parent=self)
 
 
@@ -409,7 +421,7 @@ class FunctionBuilderStage1:
         class FunctionBuilderStage2:
             def __init__(self, name, parameters, statements):
                 for p in parameters:
-                    assert isinstance(p, PyId)
+                    assert isinstance(p, (PyId, PyVarArg))
                 self.name = name 
                 self.parameters = parameters 
                 self.statements = statements
@@ -420,8 +432,6 @@ class FunctionBuilderStage1:
                 self.statements.append(stmt)
 
         return FunctionBuilderStage2(self.name, list(parameters), self.statements)
-    
-
 
 # If/While statements use same condition writing logic. The only bit that differs is that 
 # for While statements we need to write Begin() and for If we need to write Then().
@@ -766,6 +776,11 @@ class RPythonWriter:
         assert isinstance(ident, PyId)
         self.emit(ident.name)
 
+    def visitPyVarArg(self, ident):
+        assert isinstance(ident, PyVarArg)
+        self.emit('*')
+        self.emit(ident.name)
+    
     def visitPyInt(self, pyint):
         assert isinstance(pyint, PyInt)
         self.emit(str(pyint.value))
@@ -804,3 +819,6 @@ class RPythonWriter:
         self.emit_comma_separated_list(pytuple.values)
         self.emit(',')
         self.emit(')')
+
+    def visitPyNone(self, pynone):
+        self.emit('None')

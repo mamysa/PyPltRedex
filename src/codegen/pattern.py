@@ -495,7 +495,7 @@ class PatternCodegen(pattern.PatternTransformer):
             symgen = SymGen()
             lookupfuncname = 'lang_{}_inhole_{}_impl'.format(self.languagename, self.symgen.get())
 
-            matches, hole = rpy.gen_pyid_for('matches', 'hole')
+            matches, hole = rpy.gen_pyid_for('matches', '{}_hole'.format(self.languagename))
 
             term, match, head, tail, path = rpy.gen_pyid_for('term', 'match', 'head', 'tail', 'path')
             m1, h1, t1 = rpy.gen_pyid_for('m1', 'h1', 't1')
