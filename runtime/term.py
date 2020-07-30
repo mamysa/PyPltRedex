@@ -9,16 +9,16 @@ class TermKind:
     String = 5
     Boolean = 6
 
-class Ast:
+class Term:
     def __init__(self, kind):
         self.__kind = kind
 
     def kind(self):
         return self.__kind
 
-class Integer(Ast):
+class Integer(Term):
     def __init__(self, value):
-        super().__init__(TermKind.Integer)
+        Term.__init__(self, TermKind.Integer)
         self.__value = value
 
     def __repr__(self):
@@ -34,12 +34,15 @@ class Integer(Ast):
             return self.value() == other.value()
         return False
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def copy(self):
         return Integer(self.__value)
 
-class Float(Ast):
+class Float(Term):
     def __init__(self, value):
-        super().__init__(TermKind.Float)
+        Term.__init__(self, TermKind.Float)
         self.__value = value
         
     def __repr__(self):
@@ -55,12 +58,15 @@ class Float(Ast):
             return abs(self.value() - other.value()) <= 0.001
         return False
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def copy(self):
         return Float(self.__value)
 
-class String(Ast):
+class String(Term):
     def __init__(self, value):
-        super().__init__(TermKind.String)
+        Term.__init__(self, TermKind.String)
         self.__value = value
 
     def value(self):
@@ -75,13 +81,16 @@ class String(Ast):
         if self.kind() == other.kind():
             return self.value() == other.value()
         return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def copy(self):
         return String(self.__value)
 
-class Boolean(Ast):
+class Boolean(Term):
     def __init__(self, value):
-        super().__init__(TermKind.Boolean)
+        Term.__init__(self, TermKind.Boolean)
         self.__value = value
 
     def value(self):
@@ -97,12 +106,15 @@ class Boolean(Ast):
             return self.value() == other.value()
         return False
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    
     def copy(self):
         return Boolean(self.__value)
 
-class Variable(Ast):
+class Variable(Term):
     def __init__(self, value):
-        super().__init__(TermKind.Variable)
+        Term.__init__(self, TermKind.Variable)
         self.__value = value
 
     def value(self):
@@ -117,13 +129,16 @@ class Variable(Ast):
         if self.kind() == other.kind():
             return self.value() == other.value()
         return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def copy(self):
         return Variable(self.__value)
 
-class Hole(Ast):
+class Hole(Term):
     def __init__(self):
-        super().__init__(TermKind.Hole)
+        Term.__init__(self, TermKind.Hole)
 
     def __repr__(self):
         return 'hole'
@@ -133,12 +148,15 @@ class Hole(Ast):
             return False
         return self.kind() == other.kind()
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def copy(self):
         return Hole()
 
-class Sequence(Ast):
+class Sequence(Term):
     def __init__(self, seq):
-        super().__init__(TermKind.Sequence)
+        Term.__init__(self, TermKind.Sequence)
         self.seq = seq
 
     def get(self, key):
@@ -168,6 +186,9 @@ class Sequence(Ast):
                         return False
                 return True
         return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 def term_is_number(term):
     return term.kind() in [TermKind.Float, TermKind.Integer]
@@ -253,7 +274,7 @@ def locatehole(term, path):
     Traverses the term and locates the hole.
     returns: path to the hole.
     """
-    assert isinstance(term, Ast)
+    assert isinstance(term, Term)
     if term.kind() == TermKind.Hole:
         path.append(term)
         return True
@@ -273,8 +294,8 @@ def plughole(into, term):
     return into
 
 def asserttermsequal(t1, t2):
-    assert isinstance(t1, Ast)
-    assert isinstance(t2, Ast)
+    assert isinstance(t1, Term)
+    assert isinstance(t2, Term)
     assert t1 == t2, 'term {} not equal to {}'.format(t1, t2)
 
 def asserttermlistsequal(lst1, lst2):
@@ -293,7 +314,3 @@ def aretermsequalpairwise(terms):
         if t1 != t2:
             return False 
     return True
-
-
-    
-

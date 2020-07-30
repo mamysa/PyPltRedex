@@ -45,6 +45,9 @@ class Binding:
 
     def __eq__(self, other):
         return self.getbinding() == other.getbinding()
+    
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 class Match:
     def __init__(self, identifiers=[]): 
@@ -89,6 +92,9 @@ class Match:
                 return True
         return False
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def copy(self):
         a = copy.deepcopy(self.bindings)
         m = Match([])
@@ -114,7 +120,8 @@ def combine_matches(match1, match2):
     m2k = set(match2.bindings.keys())
     intersection = m1k.intersection(m2k)
     assert len(intersection) == 0, 'combine_matches: contains duplicate bindings {}'.format(intersection)
-    nbindings = {**match1.bindings, **match2.bindings}
+    nbindings = match1.bindings.copy()   
+    nbindings.update(match2.bindings)    
     match = Match([])
     match.bindings = nbindings
     return match

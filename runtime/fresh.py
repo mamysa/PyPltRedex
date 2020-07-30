@@ -3,7 +3,8 @@
 # store group1 : [ int(group2) ] in the the dictionary (create key as necessary)
 # If variable_prefix is not in dictionary, return variable_prefix
 # Otherwise, retrieve array of numbers and sort them.
-fresh_var_regex = re.compile('^(.*[^0-9])([0-9]+)$')
+fresh_var_regex = compile_regex('(.*[^0-9])([0-9]+)')
+
 def variable_not_in(term, variable):
     if variable.kind() != TermKind.Variable:
         raise Exception('variable_not_in: contract violation - expected variable')
@@ -24,8 +25,17 @@ def variable_not_in(term, variable):
             j += 1
     return Variable(variable_prefix + str(i))
 
+# Rpython's regex implementation doesn't match groups unlike cpythons re library. Extract 
+# numerical part manually instead.
+def decompose_variable(var):
+    i = len(var) - 1
+    while ord(var[i]) >= 48 and ord(var[i]) <= 57:
+        i -= 1
+    i = i + 1
+    return var[:i], var[i:]
+
 def find_variables(term):
-    assert isinstance(term, Ast)
+    assert isinstance(term, Term)
     prefixes = {}
     stack = []
     stack.append(term)
@@ -33,9 +43,8 @@ def find_variables(term):
         term = stack.pop()
         if term.kind() == TermKind.Variable:
             variable_name = term.value()
-            match = fresh_var_regex.match(variable_name)
-            if match:
-                prefix, number =  match.group(1), match.group(2)
+            if fresh_var_regex.recognize(variable_name):
+                prefix, number = decompose_variable(variable_name)
                 if prefix not in prefixes:
                     prefixes[prefix] = []
                 prefixes[prefix].append( int(number) )

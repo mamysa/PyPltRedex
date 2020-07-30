@@ -1,7 +1,6 @@
-import enum
-import re 
+from rpython.rlib.parsing.regexparse import make_runner as compile_regex
 
-class TokenKind(enum.Enum):
+class TokenKind:
     Integer = 0
     Float   = 1
     String  = 2
@@ -21,6 +20,7 @@ def is_newline(c):
 #def is_reserved(c): 
 #    return c in ['(', ')', '[', ']', '{', '}', '\"', '\'', '`', ';', '#', '|', '\\']
 
+
 reserved_variables = ['in-hole']
 
 class Tokenizer:
@@ -35,10 +35,10 @@ class Tokenizer:
         # Identifiers must not contain the following reserved characters:
         # ( ) [ ] { } " , ' ` ; # | \
         self.matchers = {
-            TokenKind.Integer : re.compile('^(\+|\-)?[0-9]+$'),
-            TokenKind.Float   : re.compile('^(\+|\-)?[0-9]*\.[0-9]+$'),
-            TokenKind.Boolean : re.compile('^(#true|#false|#t|#f)$'),
-            TokenKind.Ident   : re.compile('^([^\(\)\[\]{}\"\'`;#|\\\])+$'),
+            TokenKind.Integer : compile_regex('(\+|\-)?[0-9]+'),
+            TokenKind.Float   : compile_regex('(\+|\-)?[0-9]*\.[0-9]+'),
+            TokenKind.Boolean : compile_regex('(#true|#false|#t|#f)'),
+            TokenKind.Ident   : compile_regex('([^ \(\)\[\]\{\}\"\'`;\#\n])*([^ \(\)\[\]\{\}\"\'`;\#0123456789\n])+([^ \(\)\[\]\{\}\"\'`;\#\n])*')
         }
 
     def advance(self):
@@ -116,7 +116,7 @@ class Tokenizer:
                     break
             tok = self.extract()
             for kind, matcher in self.matchers.items():
-                if matcher.match(tok): 
+                if matcher.recognize(tok): 
                     return (kind, tok)
             assert False, 'unknown token ' + tok
         return None

@@ -14,7 +14,7 @@ testcases = [
 ]
 
 def runpython(filename):
-    py = subprocess.Popen(['python3', filename])
+    py = subprocess.Popen(['python2.7', filename])
     return py.wait() 
 
 
