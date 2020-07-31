@@ -21,21 +21,16 @@ class Integer(Term):
         Term.__init__(self, TermKind.Integer)
         self.__value = value
 
-    def __repr__(self):
-        return '{}'.format(self.__value)
+    def tostring(self):
+        return '%d' % self.__value
 
     def value(self):
         return self.__value
 
-    def __eq__(self, other):
-        if other == None:
-            return False
-        if self.kind() == other.kind():
+    def equals(self, other):
+        if isinstance(other, Integer):
             return self.value() == other.value()
         return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def copy(self):
         return Integer(self.__value)
@@ -45,21 +40,16 @@ class Float(Term):
         Term.__init__(self, TermKind.Float)
         self.__value = value
         
-    def __repr__(self):
-        return '{}'.format(self.__value)
+    def tostring(self):
+        return '%f' % self.__value
 
     def value(self):
         return self.__value
 
-    def __eq__(self, other):
-        if other == None:
-            return False
-        if self.kind() == other.kind():
+    def equals(self, other):
+        if isinstance(other, Float):
             return abs(self.value() - other.value()) <= 0.001
         return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def copy(self):
         return Float(self.__value)
@@ -72,18 +62,13 @@ class String(Term):
     def value(self):
         return self.__value
 
-    def __repr__(self):
-        return '{}'.format(self.__value)
+    def tostring(self):
+        return self.__value
 
-    def __eq__(self, other):
-        if other == None:
-            return False
-        if self.kind() == other.kind():
+    def equals(self, other):
+        if isinstance(other, String):
             return self.value() == other.value()
         return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def copy(self):
         return String(self.__value)
@@ -96,19 +81,14 @@ class Boolean(Term):
     def value(self):
         return self.__value
 
-    def __repr__(self):
-        return '{}'.format(self.__value)
+    def tostring(self):
+        return self.__value
 
-    def __eq__(self, other):
-        if other == None:
-            return False
-        if self.kind() == other.kind():
+    def equals(self, other):
+        if isinstance(other, Boolean):
             return self.value() == other.value()
         return False
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
-    
     def copy(self):
         return Boolean(self.__value)
 
@@ -120,18 +100,13 @@ class Variable(Term):
     def value(self):
         return self.__value
 
-    def __repr__(self):
-        return '{}'.format(self.__value)
+    def tostring(self):
+        return self.__value
 
-    def __eq__(self, other):
-        if other == None:
-            return False
-        if self.kind() == other.kind():
+    def equals(self, other):
+        if isinstance(other, Variable):
             return self.value() == other.value()
         return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def copy(self):
         return Variable(self.__value)
@@ -140,16 +115,12 @@ class Hole(Term):
     def __init__(self):
         Term.__init__(self, TermKind.Hole)
 
-    def __repr__(self):
+    def tostring(self):
         return 'hole'
 
-    def __eq__(self, other):
-        if other == None:
-            return False
-        return self.kind() == other.kind()
+    def equals(self, other):
+        return isinstance(other, Hole)
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def copy(self):
         return Hole()
@@ -168,27 +139,28 @@ class Sequence(Term):
     def length(self):
         return len(self.seq)
 
-    def __repr__(self):
-        seq = ' '.join(map(repr, self.seq))
-        return '({})'.format(seq)
-
+    def tostring(self):
+        string = ''
+        if len(self.seq) > 0:
+            string = ''
+            for i in range(len(self.seq) - 1):
+                elem = self.seq[i]
+                string = string + elem.tostring() + ' '
+            string = string + self.seq[len(self.seq)-1].tostring()
+        return '(%s)' % string
+    
     def copy(self):
         seq = copy.copy(self.seq)
         return Sequence(seq)
 
-    def __eq__(self, other):
-        if other == None:
-            return False
-        if self.kind() == other.kind():
+    def equals(self, other):
+        if isinstance(other, Sequence):
             if self.length() == other.length():
                 for i in range(self.length()):
-                    if not (self.get(i) == other.get(i)):
+                    if not self.get(i).equals(other.get(i)):
                         return False
                 return True
         return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
 def term_is_number(term):
     return term.kind() in [TermKind.Float, TermKind.Integer]
@@ -296,7 +268,7 @@ def plughole(into, term):
 def asserttermsequal(t1, t2):
     assert isinstance(t1, Term)
     assert isinstance(t2, Term)
-    assert t1 == t2, 'term {} not equal to {}'.format(t1, t2)
+    assert t1.equals(t2), 'term %s not equal to %s' % (t1.tostring(), t2.tostring())
 
 def asserttermlistsequal(lst1, lst2):
     if len(lst1) == len(lst2):
@@ -305,12 +277,25 @@ def asserttermlistsequal(lst1, lst2):
         return
     assert False, 'lengths of lists do not match'
 
-
 def aretermsequalpairwise(terms):
     if len(terms) == 1:
         return True
     for i in range(len(terms) - 1):
         t1, t2 = terms[i], terms[i+1]
-        if t1 != t2:
+        if not t1.equals(t2):
             return False 
     return True
+
+def print_term(term):
+    print( term.tostring() )
+
+def print_term_list(terms):
+    string = '['
+    if len(terms) > 0:
+        for i in range(len(terms) - 1):
+            term = terms[i]
+            string = string + term.tostring() + ', '
+        string = string + terms[-1].tostring()
+    string = string + ']'
+    print(string)
+

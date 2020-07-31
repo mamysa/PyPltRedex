@@ -7,6 +7,7 @@ class TermMethodTable:
     Get = 'get'
     ReplaceWith = 'replacewith'
     CopyToRoot  = 'copy'
+    ToString = 'tostring'
 
 class TermHelperFuncs:
     CopyPathAndReplaceLast = 'copy_path_and_replace_last'
@@ -27,8 +28,13 @@ class TermHelperFuncs:
     ConsumeVariable = 'consume_variable'
     ConsumeString = 'consume_literal_string'
 
+    PrintTerm = 'print_term'
+    PrintTermList = 'print_term_list'
+
+
 class MatchHelperFuncs:
     CombineMatches = 'combine_matches'
+    PrintMatchList = 'print_match_list'
 
 class MatchMethodTable:
     AddToBinding ='addtobinding'

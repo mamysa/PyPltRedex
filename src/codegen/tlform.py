@@ -185,12 +185,12 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         matches, match, term = rpy.gen_pyid_for('matches', 'match', 'term') 
         fb = rpy.BlockBuilder()
         expectedmatches = gen_matches(form.expectedmatches, fb, symgen)
-        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+        tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
         fb.AssignTo(tmp0).New('Match')
         fb.AssignTo(term).FunctionCall(termfunc, tmp0)
         fb.AssignTo(matches).FunctionCall(matchfunc, term)
-        fb.Print(matches)
         fb.AssignTo(tmp1).FunctionCall('assert_compare_match_lists', matches, expectedmatches)
+        fb.AssignTo(tmp2).FunctionCall(MatchHelperFuncs.PrintMatchList, matches)
         fb.Return.PyId(matches)
 
         nameof_this_func = self.symgen.get('redexmatchassertequal')
@@ -231,10 +231,10 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             fb.AssignTo(tmp3).MethodCall(match, MatchMethodTable.AddKey, rpy.PyString(variable))
             fb.AssignTo(tmp4).MethodCall(match, MatchMethodTable.AddToBinding, rpy.PyString(variable), tmp2)
 
-        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
+        tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
         fb.AssignTo(tmp0).FunctionCall(templatetermfunc, match)
-        fb.Print(tmp0)
         fb.AssignTo(tmp1).FunctionCall('asserttermsequal', tmp0, expected)
+        fb.AssignTo(tmp2).FunctionCall(TermHelperFuncs.PrintTerm, tmp0)
 
         nameof_this_func = self.symgen.get('asserttermequal')
         self.modulebuilder.Function(nameof_this_func).Block(fb)
@@ -343,11 +343,11 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
         term, terms = rpy.gen_pyid_for('term', 'terms')
 
-        tmp0 = rpy.gen_pyid_temporaries(1, symgen)
+        tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
         fb.AssignTo(tmp0).New('Match')
         fb.AssignTo(term).FunctionCall(termfunc, tmp0)
         fb.AssignTo(terms).FunctionCall(nameof_reductionrelation, term)
-        fb.Print(terms)
+        fb.AssignTo(tmp1).FunctionCall(TermHelperFuncs.PrintTermList, terms)
         return terms
 
     def _visitApplyReductionRelationAssertEqual(self, form):

@@ -9,7 +9,7 @@ def zzip(nxseq):
     for elem in nxseq.seq:
         n = elem.get(0)
         x = elem.get(1)
-        seq.append(Variable('{}_{}'.format(x, n)))
+        seq.append(Variable('{}_{}'.format(x.value(), n.value())))
     return Sequence(seq)
 
 def mmap3mul2(n_1, n_2, n_3):

@@ -43,12 +43,9 @@ class Binding:
         assert len(self.buf) == 1, 'incomplete match!'
         return self.buf[0]
 
-    def __eq__(self, other):
-        return self.getbinding() == other.getbinding()
+    def equals(self, other):
+        return self.getbinding().equals(other.getbinding())
     
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
 class Match:
     def __init__(self, identifiers=[]): 
         self.bindings = {} 
@@ -76,24 +73,21 @@ class Match:
         binding2 = self.bindings[var2]
         assert len(binding1.buf) > 0
         assert len(binding2.buf) > 0
-        return binding1.buf[-1] == binding2.buf[-1]
+        return binding1.buf[-1].equals(binding2.buf[-1])
 
     def getbinding(self, sym):
         return self.bindings[sym].getbinding()
 
-    def __eq__(self, other):
+    def equals(self, other):
         if isinstance(other, Match):
             lkeys = set(self.bindings.keys())
             rkeys = set(other.bindings.keys())
             if lkeys == rkeys:
                 for key in lkeys:
-                    if self.bindings[key] != other.bindings[key]:
+                    if not self.bindings[key].equals(other.bindings[key]):
                         return False
                 return True
         return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def copy(self):
         a = copy.deepcopy(self.bindings)
@@ -101,10 +95,11 @@ class Match:
         m.bindings = a
         return m
 
-    def __repr__(self):
+    def tostring(self):
+        ## FIXME won't compile under RPython
         b = []
         for key, val in self.bindings.items():
-            b.append('{}={}'.format(key, repr(val.getbinding())))
+            b.append('{}={}'.format(key, val.getbinding().tostring()))
         return 'Match({})'.format(', '.join(b))
 
     def combine_with(self, other):
@@ -129,7 +124,20 @@ def combine_matches(match1, match2):
 def assert_compare_match_lists(m1, m2):
     if len(m1) == len(m2):
         for i, m in enumerate(m1):
-            if m != m2[i]:
+            if not m.equals(m2[i]):
                 assert False, 'assertion error: {} and {} do not match'.format(m1, m2)
         return
     assert False, 'assertion error: {} and {} do not match'.format(m1, m2)
+
+def print_match_list(matches):
+    string = '['
+    if len(matches) > 0:
+        for i in range(len(matches) - 1):
+            match = matches[i]
+            string = string + match.tostring() + ', '
+        string = string + matches[-1].tostring()
+    string = string + ']'
+    print(string)
+
+
+

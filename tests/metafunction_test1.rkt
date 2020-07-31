@@ -167,3 +167,16 @@
 (term-let-assert-equal () (term (set-intersection (x y z) (a b c))) (term ( )))
 (term-let-assert-equal () (term (set-intersection (m x y p z q) (m a p q b c))) (term (m p q)))
 (term-let-assert-equal () (term (set-intersection ( ) (a b c))) (term ( )))
+
+(define-metafunction A
+  nums2vars_2 : n ... -> (x ...) 
+  [(nums2vars_2 2 1337) (p q)])
+
+(define-metafunction A
+  var2int_2 : x -> n
+  [(var2int_2 a) 2]
+  [(var2int_2 b) 1337])
+
+(term-let-assert-equal ()
+  (term (nums2vars_2 (var2int_2 a) (var2int_2 b)))
+  (term (p q)))
