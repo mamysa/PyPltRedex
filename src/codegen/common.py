@@ -41,7 +41,7 @@ class MatchMethodTable:
     AddKey = 'create_binding'
     IncreaseDepth = 'increasedepth'
     DecreaseDepth = 'decreasedepth'
-    Copy = 'copy'
+    DeepCopy = 'deepcopy'
     CompareKeys = 'comparekeys'
     RemoveKey   = 'removebinding'
     GetBinding = 'getbinding'

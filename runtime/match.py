@@ -1,5 +1,3 @@
-import copy
-
 class Binding:
     def __init__(self, var):
         self.var = var
@@ -45,6 +43,12 @@ class Binding:
 
     def equals(self, other):
         return self.getbinding().equals(other.getbinding())
+
+    def deepcopy(self):
+        copyof = Binding(self.var)
+        for elem in self.buf:
+            copyof.buf.append( elem.deepcopy() )
+        return copyof
     
 class Match:
     def __init__(self, identifiers=[]): 
@@ -89,11 +93,15 @@ class Match:
                 return True
         return False
 
-    def copy(self):
-        a = copy.deepcopy(self.bindings)
-        m = Match([])
-        m.bindings = a
-        return m
+    def deepcopy(self):
+        # import copy
+        #a = copy.deepcopy(self.bindings)
+        #m = Match([])
+        #m.bindings = a
+        copyof = Match() 
+        for name, binding in self.bindings.items():
+            copyof.bindings[name] = binding.deepcopy()
+        return copyof
 
     def tostring(self):
         ## FIXME won't compile under RPython

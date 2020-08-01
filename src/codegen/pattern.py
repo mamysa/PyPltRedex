@@ -218,7 +218,7 @@ class PatternCodegen(pattern.PatternTransformer):
                 wb = rpy.BlockBuilder()
                 wb.AssignTo(m, h, t).MethodCall(queue, 'pop', rpy.PyInt(0))
                 wb.If.Equal(h, t).ThenBlock(ifb)
-                wb.AssignTo(m).MethodCall(m, MatchMethodTable.Copy)
+                wb.AssignTo(m).MethodCall(m, MatchMethodTable.DeepCopy)
                 wb.AssignTo(tmp2).MethodCall(term, TermMethodTable.Get, h)
                 wb.AssignTo(tmp3).FunctionCall(functionname, tmp2, m, h, t)
                 wb.AssignTo(matches).Add(matches, tmp3)
@@ -512,7 +512,7 @@ class PatternCodegen(pattern.PatternTransformer):
 
             forb2 = rpy.BlockBuilder()
             forb2.AssignTo(tmp2).FunctionCall(MatchHelperFuncs.CombineMatches, m1, m2) 
-            forb2.AssignTo(tmpm).MethodCall(match, MatchMethodTable.Copy)
+            forb2.AssignTo(tmpm).MethodCall(match, MatchMethodTable.DeepCopy)
             for sym in assignable_syms_all:
                 tmpi, tmpj = rpy.gen_pyid_temporaries(2, symgen)
                 forb2.AssignTo(tmpi).MethodCall(tmp2, MatchMethodTable.GetBinding, rpy.PyString(sym))

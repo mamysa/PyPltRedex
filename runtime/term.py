@@ -35,6 +35,9 @@ class Integer(Term):
     def copy(self):
         return Integer(self.__value)
 
+    def deepcopy(self):
+        return Integer(self.__value)
+
 class Float(Term):
     def __init__(self, value):
         Term.__init__(self, TermKind.Float)
@@ -52,6 +55,9 @@ class Float(Term):
         return False
 
     def copy(self):
+        return Float(self.__value)
+
+    def deepcopy(self):
         return Float(self.__value)
 
 class String(Term):
@@ -73,6 +79,9 @@ class String(Term):
     def copy(self):
         return String(self.__value)
 
+    def deepcopy(self):
+        return String(self.__value)
+
 class Boolean(Term):
     def __init__(self, value):
         Term.__init__(self, TermKind.Boolean)
@@ -90,6 +99,9 @@ class Boolean(Term):
         return False
 
     def copy(self):
+        return Boolean(self.__value)
+
+    def deepcopy(self):
         return Boolean(self.__value)
 
 class Variable(Term):
@@ -111,6 +123,9 @@ class Variable(Term):
     def copy(self):
         return Variable(self.__value)
 
+    def deepcopy(self):
+        return Variable(self.__value)
+
 class Hole(Term):
     def __init__(self):
         Term.__init__(self, TermKind.Hole)
@@ -121,8 +136,10 @@ class Hole(Term):
     def equals(self, other):
         return isinstance(other, Hole)
 
-
     def copy(self):
+        return Hole()
+
+    def deepcopy(self):
         return Hole()
 
 class Sequence(Term):
@@ -152,6 +169,12 @@ class Sequence(Term):
     def copy(self):
         seq = copy.copy(self.seq)
         return Sequence(seq)
+
+    def deepcopy(self):
+        nseq = [] * len(self.seq)
+        for i, elem in enumerate(self.seq):
+            nseq.append( elem.deepcopy() )
+        return Sequence(nseq)
 
     def equals(self, other):
         if isinstance(other, Sequence):
