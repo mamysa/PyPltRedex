@@ -30,3 +30,15 @@
 (term-let-assert-equal () 
   (term ,(variable_not_in (term (a a0)) (term a)))
   (term a1))
+
+(term-let-assert-equal () 
+  (term ,(variable_not_in (term (a a0)) (term a0)))
+  (term a1))
+
+(term-let-assert-equal () 
+  (term ,(variable_not_in (term (a a0)) (term a00)))
+  (term a00))
+
+(term-let-assert-equal () 
+  (term ,(variable_not_in (term (a a00)) (term a00)))
+  (term a1))

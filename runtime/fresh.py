@@ -18,15 +18,36 @@
 # s == suffixes[j]: increment j and s by 1.
 # Iterate until the end of the list.
 # Return string prefix + s.
+def decompose_variable(var):
+    i = len(var) - 1
+    if not (ord(var[i]) >= 48 and ord(var[i]) <= 57):
+        return False, None, None
+    while ord(var[i]) >= 48 and ord(var[i]) <= 57:
+        i -= 1
+    i = i + 1
+    return True, var[:i], var[i:]
 
 def variable_not_in(term, variable):
     if variable.kind() != TermKind.Variable:
         raise Exception('variable_not_in: contract violation - expected variable')
-    variable_prefix = variable.value()
+
     prefixes = find_variables(term) 
-    if variable_prefix not in prefixes:
-        return Variable(variable_prefix)
-    numbers = sorted(prefixes[variable_prefix])
+    variable_prefix = variable.value()
+    success, prefix, number = decompose_variable(variable_prefix)
+    if success:
+        variable_prefix = prefix
+        if variable_prefix not in prefixes:
+            return Variable(variable_prefix+number)
+        if number not in prefixes[variable_prefix]:
+            return Variable(variable_prefix+number)
+    else:
+        if variable_prefix not in prefixes:
+            return Variable(variable_prefix)
+
+    numbers = [0] * len(prefixes[variable_prefix])
+    for i, n in enumerate(prefixes[variable_prefix]):
+        numbers[i] = int(n)
+    numbers = sorted(numbers)
     if numbers[0] != -1:
         return Variable(variable_prefix)
     i, j = 1, 1
@@ -41,14 +62,6 @@ def variable_not_in(term, variable):
             j += 1
     return Variable(variable_prefix + str(i))
 
-def decompose_variable(var):
-    i = len(var) - 1
-    if not (ord(var[i]) >= 48 and ord(var[i]) <= 57):
-        return False, None, None
-    while ord(var[i]) >= 48 and ord(var[i]) <= 57:
-        i -= 1
-    i = i + 1
-    return True, var[:i], var[i:]
 
 def find_variables(term):
     assert isinstance(term, Term)
@@ -63,11 +76,11 @@ def find_variables(term):
             if success:
                 if prefix not in prefixes:
                     prefixes[prefix] = []
-                prefixes[prefix].append( int(number) )
+                prefixes[prefix].append(number)
             else: # doesn't end with number
                 if variable_name not in prefixes:
                     prefixes[variable_name] = []
-                prefixes[variable_name].append(-1)
+                prefixes[variable_name].append('-1')
         if term.kind() == TermKind.Sequence:
             for i in range(term.length()):
                 childterm = term.get(i)
