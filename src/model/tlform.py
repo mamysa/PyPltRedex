@@ -152,6 +152,14 @@ class ApplyReductionRelationAssertEqual(TopLevelForm):
     def __repr__(self):
         return 'ApplyReductionRelationAssertEqual({}, {}, {})'.format(self.reductionrelationname, self.term, self.expected_termtemplates)
 
+class ParseAssertEqual(TopLevelForm):
+    def __init__(self, string2parse, expected_termtemplate):
+        self.string2parse = string2parse
+        self.expected_termtemplate = expected_termtemplate
+
+    def __repr__(self):
+        return 'ParseAssertEqual({}, {})'.format(self.string2parse, self.expected_termtemplate)
+
 class TopLevelFormVisitor:
     def _visit(self, element):
         assert isinstance(element, TopLevelForm)
@@ -181,4 +189,7 @@ class TopLevelFormVisitor:
         return form
 
     def _visitApplyReductionRelationAssertEqual(self, form):
+        return form
+
+    def _visitParseAssertEqual(self, form):
         return form

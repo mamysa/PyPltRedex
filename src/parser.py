@@ -29,6 +29,7 @@ reserved = {
     'require-python-source' : 'REQUIREPYTHONSOURCE',
     'apply-reduction-relation' : 'APPLYREDUCTIONRELATION',
     'apply-reduction-relation-assert-equal': 'APPLYREDUCTIONRELATIONASSERTEQUAL',
+    'parse-assert-equal' : 'PARSEASSERTEQUAL',
 }
 
 tokens = [
@@ -124,6 +125,7 @@ def p_top_level_form(t):
                    | require-python-source
                    | define-reduction-relation
                    | apply-reduction-relation-assert-equal
+                   | parse-assert-equal
                    | define-metafunction
     """
     t[0] = t[1]
@@ -170,6 +172,11 @@ def p_pattern_list(t):
     else:
         t[0] = t[1] 
         t[0].append(t[2])
+
+# --------------------- PARSE-ASSERT-EQUAL-----------------
+def p_parse_assert_equal(p):
+    'parse-assert-equal : LPAREN PARSEASSERTEQUAL STRING term-template-top RPAREN'
+    p[0] = tlform.ParseAssertEqual(trimstringlit(p[3]), p[4])
 
 # --------------------- DEFINE-METAFUNCTION-----------------
 # define-metafunction ::=  ( define-metafunction IDENT metafunction-contract metafunction-case ... )

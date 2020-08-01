@@ -504,3 +504,25 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
 
         self.modulebuilder.Function(nameof_function).WithParameters(argterm).Block(fb)
         return nameof_function
+
+    def _visitParseAssertEqual(self, form):
+        assert isinstance(form, tlform.ParseAssertEqual)
+
+        TermCodegen(self.modulebuilder, self.context).transform(form.expected_termtemplate)
+        termfunc = self.context.get_function_for_term_template(form.expected_termtemplate)
+
+        symgen = SymGen()
+        argterm = rpy.gen_pyid_for('argterm')
+        tmp0, tmp1, tmp2, tmp3, tmp4, tmp5 = rpy.gen_pyid_temporaries(6, symgen)
+
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(tmp0).New('Parser', rpy.PyString(form.string2parse))
+        fb.AssignTo(tmp1).MethodCall(tmp0, 'parse')
+        fb.AssignTo(tmp2).New('Match')
+        fb.AssignTo(tmp3).FunctionCall(termfunc, tmp2)
+        fb.AssignTo(tmp4).FunctionCall('asserttermsequal', tmp1, tmp3)
+        fb.AssignTo(tmp5).FunctionCall(TermHelperFuncs.PrintTerm, tmp1)
+
+        nameof_this_func = self.symgen.get('parseassertequal')
+        self.modulebuilder.Function(nameof_this_func).Block(fb)
+        self.main_procedurecalls.append(nameof_this_func)

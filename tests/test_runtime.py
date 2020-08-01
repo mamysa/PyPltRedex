@@ -11,6 +11,7 @@ testcases = [
     'tests/applyreductionrelationtest.rkt',
     'tests/metafunction_test1.rkt',
     'tests/freshtest.rkt',
+    'tests/parsetest.rkt',
 ]
 
 def runpython(filename):

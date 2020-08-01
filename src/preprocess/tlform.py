@@ -150,3 +150,9 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             idof = self.symgen.get('term_assert_term_lists_equal')
             form.expected_termtemplates[i] = Term_EllipsisDepthChecker({}, idof, self.context).transform(termtemplate) 
         return form
+
+    def _visitParseAssertEqual(self, form):
+        assert isinstance(form, tlform.ParseAssertEqual)
+        form.expected_termtemplate = self.__processtermtemplate(form.expected_termtemplate)
+        return form
+

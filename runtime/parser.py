@@ -17,11 +17,28 @@ def is_whitespace(c):
 def is_newline(c):
     return c == '\n'
 
-#def is_reserved(c): 
-#    return c in ['(', ')', '[', ']', '{', '}', '\"', '\'', '`', ';', '#', '|', '\\']
+def is_reserved(c): 
+    return c in ['(', ')', '[', ']', '{', '}', '\"', '\'', '`', ';', '#', '|', '\\']
+
+# Initialize Regexes lazily - they REALLY increase time taken to run all test cases - goes from 1 second to 8!
+class RegexInitializer:
+    def __init__(self):
+        self.initialized = False
+        self.IntegerRegex = None
+        self.FloatRegex   = None
+        self.IdentRegex   = None
+
+    def initialize(self):
+        if not self.initialized:
+            self.initialized = True
+            self.IntegerRegex = compile_regex('(\+|\-)?[0-9]+')
+            self.FloatRegex   = compile_regex('(\+|\-)?[0-9]*\.[0-9]+')
+            self.IdentRegex   = compile_regex('([^ \(\)\[\]\{\}\"\'`;\#\n])*([^ \(\)\[\]\{\}\"\'`;\#0123456789\n])+([^ \(\)\[\]\{\}\"\'`;\#\n])*')
 
 
 reserved_variables = ['in-hole']
+regex_initializer = RegexInitializer()
+
 
 class Tokenizer:
     def __init__(self, string):
@@ -34,11 +51,11 @@ class Tokenizer:
         # ^ and $ anchor to the beginning and end. 
         # Identifiers must not contain the following reserved characters:
         # ( ) [ ] { } " , ' ` ; # | \
+        regex_initializer.initialize()
         self.matchers = {
-            TokenKind.Integer : compile_regex('(\+|\-)?[0-9]+'),
-            TokenKind.Float   : compile_regex('(\+|\-)?[0-9]*\.[0-9]+'),
-            TokenKind.Boolean : compile_regex('(#true|#false|#t|#f)'),
-            TokenKind.Ident   : compile_regex('([^ \(\)\[\]\{\}\"\'`;\#\n])*([^ \(\)\[\]\{\}\"\'`;\#0123456789\n])+([^ \(\)\[\]\{\}\"\'`;\#\n])*')
+            TokenKind.Integer : regex_initializer.IntegerRegex,
+            TokenKind.Float   : regex_initializer.FloatRegex,
+            TokenKind.Ident   : regex_initializer.IdentRegex,
         }
 
     def advance(self):
@@ -107,10 +124,16 @@ class Tokenizer:
                 self.advance()
                 return (TokenKind.String, self.extract())
 
+            if char == '#':
+                if self.extract_if_contains('#true') : return (TokenKind.Boolean, '#t')
+                if self.extract_if_contains('#t')    : return (TokenKind.Boolean, '#t')
+                if self.extract_if_contains('#false'): return (TokenKind.Boolean, '#f')
+                if self.extract_if_contains('#f')    : return (TokenKind.Boolean, '#f')
+                assert False, 'using reserved symbol #'
+
             # otherwise, read until the next whitespace and identify the token 
             # can be a number, identifier, etc.
-            # TODO confused as to what #lang is. 
-            while not is_whitespace(self.peek()): 
+            while not (is_whitespace(self.peek()) or is_reserved(self.peek())): 
                 self.advance()
                 if self.peek() == '\0':
                     break
