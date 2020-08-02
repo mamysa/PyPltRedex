@@ -794,9 +794,9 @@ class RPythonWriter:
 
     def visitPyString(self, pystr):
         assert isinstance(pystr, PyString)
-        self.emit('"')
+        self.emit('\'')
         self.emit(pystr.value)
-        self.emit('"')
+        self.emit('\'')
 
     def visitPySet(self, pyset):
         assert isinstance(pyset, PySet)

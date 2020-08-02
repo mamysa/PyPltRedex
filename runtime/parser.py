@@ -10,7 +10,6 @@ class TokenKind:
     RParen  = 6
     Hole    = 7
 
-
 def is_whitespace(c):
     return c == ' ' or c == '\t' or c == '\n' or c == '\r'
 
@@ -115,9 +114,10 @@ class Tokenizer:
             if char == '\"': 
                 self.advance()
                 while self.peek() != '\"':
-                    self.advance()
                     if self.peek() == '\\':
                         self.advance()
+                        self.advance()
+                    else:
                         self.advance()
                     if self.peek() == '\0':
                         assert False, 'reached EOF while tokenizing a string'

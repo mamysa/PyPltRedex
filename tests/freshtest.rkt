@@ -16,6 +16,10 @@
   (term b))
 
 (term-let-assert-equal () 
+  (term ,(variable_not_in (term (a1 a2 (a3 a a4))) (term b000)))
+  (term b000))
+
+(term-let-assert-equal () 
   (term ,(variable_not_in (term ()) (term a)))
   (term a))
 

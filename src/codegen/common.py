@@ -6,7 +6,6 @@ class TermMethodTable:
     Length = 'length'
     Get = 'get'
     ReplaceWith = 'replacewith'
-    CopyToRoot  = 'copy'
     ToString = 'tostring'
 
 class TermHelperFuncs:

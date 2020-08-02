@@ -32,7 +32,7 @@ class Integer(Term):
             return self.value() == other.value()
         return False
 
-    def copy(self):
+    def shallowcopy(self):
         return Integer(self.__value)
 
     def deepcopy(self):
@@ -54,7 +54,7 @@ class Float(Term):
             return abs(self.value() - other.value()) <= 0.001
         return False
 
-    def copy(self):
+    def shallowcopy(self):
         return Float(self.__value)
 
     def deepcopy(self):
@@ -76,7 +76,7 @@ class String(Term):
             return self.value() == other.value()
         return False
 
-    def copy(self):
+    def shallowcopy(self):
         return String(self.__value)
 
     def deepcopy(self):
@@ -98,7 +98,7 @@ class Boolean(Term):
             return self.value() == other.value()
         return False
 
-    def copy(self):
+    def shallowcopy(self):
         return Boolean(self.__value)
 
     def deepcopy(self):
@@ -120,7 +120,7 @@ class Variable(Term):
             return self.value() == other.value()
         return False
 
-    def copy(self):
+    def shallowcopy(self):
         return Variable(self.__value)
 
     def deepcopy(self):
@@ -136,7 +136,7 @@ class Hole(Term):
     def equals(self, other):
         return isinstance(other, Hole)
 
-    def copy(self):
+    def shallowcopy(self):
         return Hole()
 
     def deepcopy(self):
@@ -166,9 +166,11 @@ class Sequence(Term):
             string = string + self.seq[len(self.seq)-1].tostring()
         return '(%s)' % string
     
-    def copy(self):
-        seq = copy.copy(self.seq)
-        return Sequence(seq)
+    def shallowcopy(self):
+        nseq = [] * len(self.seq)
+        for i, elem in enumerate(self.seq):
+            nseq.append(elem)
+        return Sequence(nseq)
 
     def deepcopy(self):
         nseq = [] * len(self.seq)
@@ -248,7 +250,7 @@ def copy_path_and_replace_last(path, withterm):
     child = withterm
     while i >= 0:
         parent = path[i]
-        parentcopy = parent.copy()
+        parentcopy = parent.shallowcopy()
         assert isinstance(parentcopy, Sequence)
 
         childfound = False 
