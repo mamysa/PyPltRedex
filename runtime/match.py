@@ -133,11 +133,11 @@ def assert_compare_match_lists(m1, m2):
     if len(m1) == len(m2):
         for i, m in enumerate(m1):
             if not m.equals(m2[i]):
-                assert False, 'assertion error: {} and {} do not match'.format(m1, m2)
+                assert False, 'assertion error: %s and %s do not match' % (match_list_to_string(m1),  match_list_to_string(m2))
         return
-    assert False, 'assertion error: {} and {} do not match'.format(m1, m2)
+    assert False, 'assertion error: %s and %s do not match' % (match_list_to_string(m1),  match_list_to_string(m2))
 
-def print_match_list(matches):
+def match_list_to_string(matches):
     string = '['
     if len(matches) > 0:
         for i in range(len(matches) - 1):
@@ -145,7 +145,7 @@ def print_match_list(matches):
             string = string + match.tostring() + ', '
         string = string + matches[-1].tostring()
     string = string + ']'
-    print(string)
+    return string 
 
-
-
+def print_match_list(matches):
+    print(match_list_to_string(matches))

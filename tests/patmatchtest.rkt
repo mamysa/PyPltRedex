@@ -53,6 +53,21 @@
    (match (bind n_2 ((   ) (  4))) (bind n_1 ((1 2) (3  ))))
    (match (bind n_2 ((   ) (   ))) (bind n_1 ((1 2) (3 4))))))
 
+(redex-match-assert-equal Lc ((n_1 ... n_2 ...) ... (n_3 ... n_4 ...) ...)
+  (term ((1)(3)))
+  ((match (bind n_1 ()) (bind n_2 ()) (bind n_3 (() ())) (bind n_4 ((1) (3))))
+   (match (bind n_1 ()) (bind n_2 ()) (bind n_3 (() (3))) (bind n_4 ((1) ())))
+   (match (bind n_1 ()) (bind n_2 ()) (bind n_3 ((1) ())) (bind n_4 (() (3))))
+   (match (bind n_1 ()) (bind n_2 ()) (bind n_3 ((1) (3))) (bind n_4 (() ())))
+   (match (bind n_1 (())) (bind n_2 ((1))) (bind n_3 (())) (bind n_4 ((3))))
+   (match (bind n_1 (())) (bind n_2 ((1))) (bind n_3 ((3))) (bind n_4 (())))
+   (match (bind n_1 ((1))) (bind n_2 (())) (bind n_3 (())) (bind n_4 ((3))))
+   (match (bind n_1 ((1))) (bind n_2 (())) (bind n_3 ((3))) (bind n_4 (()))) 
+   (match (bind n_1 (() ())) (bind n_2 ((1) (3))) (bind n_3 ()) (bind n_4 ()))
+   (match (bind n_1 (() (3))) (bind n_2 ((1) ())) (bind n_3 ()) (bind n_4 ()))
+   (match (bind n_1 ((1) ())) (bind n_2 (() (3))) (bind n_3 ()) (bind n_4 ()))
+   (match (bind n_1 ((1) (3))) (bind n_2 (() ())) (bind n_3 ()) (bind n_4 ()))))
+
 (redex-match-assert-equal Lc (+ e_1 e_1)  (term (+ (+ 3 4) (+ 3 4)))
   ((match (bind e_1 (+ 3 4)))))
 
