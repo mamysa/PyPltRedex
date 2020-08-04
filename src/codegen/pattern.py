@@ -54,7 +54,7 @@ class PatternCodegen(pattern.PatternTransformer):
             fb.AssignTo(matches).FunctionCall(func2call, term, match, rpy.PyInt(0), rpy.PyInt(1))
             fb.AssignTo(ret).PyList()
             fb.For(m, h, t).In(matches).Block(forb)
-            fb.Return.PyId(ret)
+            fb.Return(ret)
             
             self.modulebuilder.SingleLineComment('toplevel {}'.format(repr(self.pattern)))
             self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
@@ -78,12 +78,12 @@ class PatternCodegen(pattern.PatternTransformer):
         if sym is not None:
             ifb1.AssignTo(tmp0).MethodCall(match, MatchMethodTable.AddToBinding, rpy.PyString(sym), term)
         ifb1.AssignTo(head).Add(head, rpy.PyInt(1))
-        ifb1.Return.PyList( rpy.PyTuple(match, head, tail) )
+        ifb1.Return(rpy.PyList( rpy.PyTuple(match, head, tail) ))
 
         fb = rpy.BlockBuilder()
         fb.AssignTo(tmp0).FunctionCall(isafunction, term)
         fb.If.Equal(tmp0, rpy.PyBoolean(True)).ThenBlock(ifb1)
-        fb.Return.PyList()
+        fb.Return(rpy.PyList())
 
         self.modulebuilder.SingleLineComment(patstr)
         self.modulebuilder.Function(functionname).WithParameters(term, match, head, tail).Block(fb)
@@ -186,7 +186,7 @@ class PatternCodegen(pattern.PatternTransformer):
                 fb.While.LengthOf(matches).NotEqual(rpy.PyInt(0)).Block(whb)
                 if len(assignable_symbols) != 0:
                     fb.For(m,h,t).In(outmatches).Block(forb2)
-                fb.Return.PyId(outmatches)
+                fb.Return(outmatches)
 
                 self.modulebuilder.SingleLineComment('{} deterministic'.format(repr(repeat)))
                 self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
@@ -238,7 +238,7 @@ class PatternCodegen(pattern.PatternTransformer):
                 fb.While.LengthOf(queue).NotEqual(rpy.PyInt(0)).Block(wb)
                 if len(assignable_symbols) != 0:
                     fb.For(m, h, t).In(matches).Block(forb)
-                fb.Return.PyId(matches)
+                fb.Return(matches)
 
                 self.modulebuilder.SingleLineComment('{} non-deterministic'.format(repr(repeat)))
                 self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
@@ -270,7 +270,7 @@ class PatternCodegen(pattern.PatternTransformer):
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
 
             ifb = rpy.BlockBuilder()
-            ifb.Return.PyList()
+            ifb.Return(rpy.PyList())
             
             fb.AssignTo(tmpi).MethodCall(term, TermMethodTable.Kind)
             fb.If.NotEqual(tmpi, rpy.PyInt(TermKind.Sequence)).ThenBlock(ifb)
@@ -290,7 +290,7 @@ class PatternCodegen(pattern.PatternTransformer):
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
 
             ifb = rpy.BlockBuilder()
-            ifb.Return.PyList()
+            ifb.Return(rpy.PyList())
 
             fb.AssignTo(tmpi).Subtract(subtail, subhead)
             fb.If.LessThan(tmpi, rpy.PyInt(num_required)).ThenBlock(ifb)
@@ -340,7 +340,7 @@ class PatternCodegen(pattern.PatternTransformer):
                         forb.If.GreaterEqual(tmpi, rpy.PyInt(num_required)).ThenBlock(ifb1)
 
                         ifb2 = rpy.BlockBuilder()
-                        ifb2.Return.PyId(matches)
+                        ifb2.Return(matches)
 
                         fb.AssignTo(matches).PyList()
                         fb.For(m, h, t).In(previousmatches).Block(forb)
@@ -365,7 +365,7 @@ class PatternCodegen(pattern.PatternTransformer):
                     forb.If.Equal(tmpi, rpy.PyBoolean(True)).ThenBlock(ifb1)
 
                     ifb2 = rpy.BlockBuilder()
-                    ifb2.Return.PyId(matches)
+                    ifb2.Return(matches)
 
                     fb.AssignTo(matches).PyList()
                     fb.For(m, h, t).In(previousmatches).Block(forb)
@@ -389,7 +389,7 @@ class PatternCodegen(pattern.PatternTransformer):
                     forb.AssignTo(matches).Add(matches, tmpi)
 
                     ifb1 = rpy.BlockBuilder()
-                    ifb1.Return.PyId(matches)
+                    ifb1.Return(matches)
 
                     fb.AssignTo(matches).PyList()
                     fb.For(m, h, t).In(previousmatches).Block(forb)
@@ -419,7 +419,7 @@ class PatternCodegen(pattern.PatternTransformer):
 
             fb.AssignTo(matches).PyList()
             fb.For(m, h, t).In(previousmatches).Block(forb)
-            fb.Return.PyId(matches)
+            fb.Return(matches)
 
             self.modulebuilder.SingleLineComment(repr(seq))
             self.modulebuilder.Function(match_fn).WithParameters(term, match, head, tail).Block(fb)
@@ -555,7 +555,7 @@ class PatternCodegen(pattern.PatternTransformer):
             fb.If.LengthOf(pat2matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb1)
             fb.AssignTo(tmp4).MethodCall(term, TermMethodTable.Kind)
             fb.If.Equal(tmp4, rpy.PyInt(TermKind.Sequence)).ThenBlock(ifb3)
-            fb.Return.PyId(matches)
+            fb.Return(matches)
 
             self.modulebuilder.SingleLineComment('{}'.format(repr(pat)))
             self.modulebuilder.Function(lookupfuncname).WithParameters(term, match, head, tail, path).Block(fb)
@@ -582,7 +582,7 @@ class PatternCodegen(pattern.PatternTransformer):
             fb.AssignTo(matches).PyList()
             fb.AssignTo(tmp0).FunctionCall(lookupfuncname, term, match, head, tail, rpy.PyList())
             fb.For(m, h, t).In(tmp0).Block(forb)
-            fb.Return.PyId(matches)
+            fb.Return(matches)
 
             self.modulebuilder.Function(functionname).WithParameters(term, match, head, tail).Block(fb)
 
@@ -646,7 +646,7 @@ class PatternCodegen(pattern.PatternTransformer):
                 fb = rpy.BlockBuilder()
                 fb.AssignTo(tmp0).MethodCall(match, MatchMethodTable.AddToBinding, rpy.PyString(pat.sym), term)
                 fb.AssignTo(head).Add(head, rpy.PyInt(1))
-                fb.Return.PyList( rpy.PyTuple(match, head, tail) )
+                fb.Return(rpy.PyList( rpy.PyTuple(match, head, tail) ))
 
                 self.modulebuilder.SingleLineComment(repr(pat))
                 self.modulebuilder.Function(nameof_this_func).WithParameters(term, match, head, tail).Block(fb)
@@ -674,7 +674,7 @@ class PatternCodegen(pattern.PatternTransformer):
                 # return False
                 # This one is different from other built-in isa funcs because we do set membership test here.
                 ifb2 = rpy.BlockBuilder()
-                ifb2.Return.PyBoolean(True)
+                ifb2.Return(rpy.PyBoolean(True))
 
                 ifb1 = rpy.BlockBuilder()
                 ifb1.AssignTo(tmp1).MethodCall(term, TermMethodTable.Value)
@@ -683,7 +683,7 @@ class PatternCodegen(pattern.PatternTransformer):
                 fb = rpy.BlockBuilder()
                 fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
                 fb.If.Equal(tmp0, rpy.PyInt(TermKind.Variable)).ThenBlock(ifb1)
-                fb.Return.PyBoolean(False)
+                fb.Return(rpy.PyBoolean(False))
 
                 self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
                 self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
@@ -719,7 +719,7 @@ class PatternCodegen(pattern.PatternTransformer):
 
         fb = rpy.BlockBuilder()
         fb.AssignTo(tmp0).FunctionCall(consumeprocedure, term, match, head, tail, exactvalue)
-        fb.Return.PyId(tmp0)
+        fb.Return(tmp0)
 
         self.modulebuilder.SingleLineComment('#{}'.format(repr(lit)))
         self.modulebuilder.Function(nameof_this_func).WithParameters(term, match, head, tail).Block(fb)

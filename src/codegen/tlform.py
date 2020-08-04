@@ -61,12 +61,12 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         for procedure in self.main_procedurecalls:
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
             fb.AssignTo(tmpi).FunctionCall(procedure)
-        fb.Return.PyInt(0)
+        fb.Return(rpy.PyInt(0))
         self.modulebuilder.Function('entrypoint').Block(fb)
 
         #required entry procedure for Rpython.
         fb = rpy.BlockBuilder()
-        fb.Return.PyTuple(rpy.PyId('entrypoint'), rpy.PyNone())
+        fb.Return(rpy.PyTuple(rpy.PyId('entrypoint'), rpy.PyNone()))
         self.modulebuilder.Function('target').WithParameters(rpy.PyVarArg('args')).Block(fb)
 
         # if __name__ == '__main__': entrypoint() 
@@ -97,11 +97,11 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             func2call = self.context.get_toplevel_function_for_pattern(languagename, repr(pat))
 
             ifb = rpy.BlockBuilder()
-            ifb.Return.PyBoolean(True)
+            ifb.Return(rpy.PyBoolean(True))
 
             fb.AssignTo(matches).FunctionCall(func2call, term)
             fb.If.LengthOf(matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb)
-        fb.Return.PyBoolean(False)
+        fb.Return(rpy.PyBoolean(False))
 
         self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
     
@@ -143,7 +143,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb.AssignTo(term).FunctionCall(termfunc, tmp0)
         fb.AssignTo(matches).FunctionCall(matchfunc, term)
         fb.Print(matches)
-        fb.Return.PyId(matches)
+        fb.Return(matches)
 
         # call redex-match itself.
         nameof_this_func = self.symgen.get('redexmatch')
@@ -191,7 +191,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb.AssignTo(matches).FunctionCall(matchfunc, term)
         fb.AssignTo(tmp1).FunctionCall('assert_compare_match_lists', matches, expectedmatches)
         fb.AssignTo(tmp2).FunctionCall(MatchHelperFuncs.PrintMatchList, matches)
-        fb.Return.PyId(matches)
+        fb.Return(matches)
 
         nameof_this_func = self.symgen.get('redexmatchassertequal')
         self.context.add_redexmatch_for(form, nameof_this_func)
@@ -285,7 +285,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb.AssignTo(terms).PyList()
         fb.AssignTo(matches).FunctionCall(nameof_matchfn, term)
         fb.If.LengthOf(matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb)
-        fb.Return.PyId(terms)
+        fb.Return(terms)
 
         self.modulebuilder.Function(nameof_rc).WithParameters(term).Block(fb)
         return nameof_rc
@@ -329,7 +329,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
             fb.AssignTo(tmpi).FunctionCall(rcfunc, term)
             fb.AssignTo(terms).Add(terms, tmpi)
-        fb.Return.PyId(terms)
+        fb.Return(terms)
 
         nameof_function = '{}_{}'.format(form.languagename, form.name)
         self.context.add_reduction_relation(form.name, nameof_function)
@@ -421,7 +421,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6 = rpy.gen_pyid_temporaries(7, symgen)
 
         ifb1 = rpy.BlockBuilder()
-        ifb1.Return.PyId(tmp1)
+        ifb1.Return(tmp1)
 
         forb = rpy.BlockBuilder()
         forb.AssignTo(tmp3).FunctionCall(termfunc, tmp2)
@@ -439,7 +439,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb.AssignTo(tmp5).FunctionCall(TermHelperFuncs.AreTermsEqualPairwise, tmp1)
         fb.If.NotEqual(tmp5, rpy.PyBoolean(True)).ThenBlock(ifb2)
         fb.AssignTo(tmp6).ArrayGet(tmp1, rpy.PyInt(0))
-        fb.Return.PyList(tmp6)
+        fb.Return(rpy.PyList(tmp6))
 
         nameof_function = self.symgen.get('{}_case'.format(mfname))
         self.modulebuilder.Function(nameof_function).WithParameters(argterm).Block(fb)
@@ -495,7 +495,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             ifbi2.AssignTo(tmpj).ArrayGet(tmpi, rpy.PyInt(0))
             ifbi2.AssignTo(tmpk).FunctionCall(codomainmatchfunc, tmpj)
             ifbi2.If.LengthOf(tmpk).Equal(rpy.PyInt(0)).ThenBlock(ifbi1)
-            ifbi2.Return.PyId(tmpj)
+            ifbi2.Return(tmpj)
 
             fb.AssignTo(tmpi).FunctionCall(mfcasefunc, argterm)
             fb.If.LengthOf(tmpi).Equal(rpy.PyInt(1)).ThenBlock(ifbi2)

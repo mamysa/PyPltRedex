@@ -250,41 +250,11 @@ class BlockBuilder:
     def RaiseException(self, message, *args):
         self.statements.append(RaiseExceptionStmt(message, list(args)))
 
-    @property
     @ensure_not_previously_built
-    def Return(self):
-        class ReturnPhase1:
-            def __init__(self, parent):
-                self.parent = parent
-
-            def PyList(self, *initializer):
-                stmt = ReturnStmt(PyList(*initializer))
-                self.parent.statements.append(stmt) 
-
-            def PyTuple(self, *initializer):
-                stmt = ReturnStmt(PyTuple(*initializer))
-                self.parent.statements.append(stmt) 
-
-            def PyBoolean(self, value):
-                stmt = ReturnStmt(PyBoolean(value))
-                self.parent.statements.append(stmt) 
-
-            def Equal(self, lhs, rhs):
-                stmt = ReturnStmt(BinaryExpr(BinaryOp.Eq, lhs, rhs))
-                self.parent.statements.append(stmt) 
-
-            def PyId(self, pyid):
-                assert isinstance(pyid, PyId)
-                stmt = ReturnStmt(pyid)
-                self.parent.statements.append(stmt) 
-
-            def PyInt(self, val):
-                stmt = ReturnStmt(PyInt(val))
-                self.parent.statements.append(stmt) 
-
-        return ReturnPhase1(parent=self)
-
-
+    def Return(self, value):
+        assert isinstance(value, PyValue)
+        stmt = ReturnStmt(value)
+        self.statements.append(stmt) 
 
     @ensure_not_previously_built
     def AssignTo(self, *args):

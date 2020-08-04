@@ -81,7 +81,7 @@ class TermCodegen(term.TermTransformer):
         tmpi = rpy.gen_pyid_temporaries(1, symgen)
 
         fb.AssignTo(tmpi).FunctionCall(pycall.functionname, *pycallarguments)
-        fb.Return.PyId(tmpi)
+        fb.Return(tmpi)
 
         self.modulebuilder.SingleLineComment(repr(pycall))
         self.modulebuilder.Function(funcname).WithParameters(match, *parameters).Block(fb)
@@ -118,7 +118,7 @@ class TermCodegen(term.TermTransformer):
 
         ret = rpy.gen_pyid_for('ret')
         fb.AssignTo(ret).FunctionCall('plughole', *plugholeargs)
-        fb.Return.PyId(ret)
+        fb.Return(ret)
 
         self.modulebuilder.SingleLineComment(repr(inhole))
         self.modulebuilder.Function(funcname).WithParameters(match, *parameters).Block(fb)
@@ -217,7 +217,7 @@ class TermCodegen(term.TermTransformer):
 
         tmpi = rpy.gen_pyid_temporaries(1, symgen)
         fb.AssignTo(tmpi).New('Sequence', lst)
-        fb.Return.PyId(tmpi)
+        fb.Return(tmpi)
 
         self.modulebuilder.SingleLineComment(repr(termsequence))
         self.modulebuilder.Function(seqfuncname).WithParameters(match, *parameters).Block(fb)
@@ -237,10 +237,10 @@ class TermCodegen(term.TermTransformer):
             assert len(matchreads) == 1
             ident, sym = matchreads[0]
             bb.AssignTo(ident).MethodCall(match, MatchMethodTable.GetBinding, sym)
-            bb.Return.PyId(ident)
+            bb.Return(ident)
         else:
             assert len(parameters) == 1
-            bb.Return.PyId(parameters[0])
+            bb.Return(parameters[0])
 
         self.modulebuilder.SingleLineComment(repr(node))
         self.modulebuilder.Function(funcname).WithParameters(match, *parameters).Block(bb)
@@ -267,7 +267,7 @@ class TermCodegen(term.TermTransformer):
         if node.kind == term.TermLiteralKind.Boolean:
             fb.AssignTo(tmp0).New('Boolean', rpy.PyString(node.value))
 
-        fb.Return.PyId(tmp0)
+        fb.Return(tmp0)
 
         self.modulebuilder.SingleLineComment(repr(node))
         self.modulebuilder.Function(funcname).WithParameters(match).Block(fb)
@@ -292,7 +292,7 @@ class TermCodegen(term.TermTransformer):
         fb = rpy.BlockBuilder()
         fb.AssignTo(tmp0).FunctionCall(func_tocall, ttmatch, *ttparameters)
         fb.AssignTo(tmp1).FunctionCall(metafunctionfunc, tmp0)
-        fb.Return.PyId(tmp1)
+        fb.Return(tmp1)
         self.modulebuilder.Function(nameof_function).WithParameters(nodematch, *nodeparameters).Block(fb)
 
         return node
