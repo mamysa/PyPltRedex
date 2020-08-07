@@ -216,6 +216,9 @@ def term_is_string(term):
 def term_is_boolean(term):
     return isinstance(term, Boolean) 
 
+def term_is_variable_not_otherwise_mentioned(term, variableset):
+    return isinstance(term, Variable) and term.value() not in variableset
+
 def consume_literal_integer(term, match, head, tail, literal):
     if isinstance(term, Integer) and term.value() == literal:
         return [ (match, head+1, tail) ]

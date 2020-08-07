@@ -659,12 +659,18 @@ class PatternCodegen(pattern.PatternTransformer):
                 self.context.add_isa_function_name(self.languagename, pat.prefix, nameof_this_func)
 
                 symgen = SymGen()
-
                 var, _ = self.context.get_variables_mentioned(self.languagename)
                 var = rpy.gen_pyid_for(var)
                 term = rpy.gen_pyid_for('term')
                 tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
 
+                fb = rpy.BlockBuilder()
+                fb.AssignTo(tmp0).FunctionCall(TermHelperFuncs.TermIsVariableNotOtherwiseMentioned, term, var)
+                fb.Return(tmp0)
+
+                self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
+                self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
+                """
                 # tmp0 = term.kind()
                 # if tmp0 == TermKind.Variable:
                 #   tmp1 = term.value()
@@ -685,6 +691,7 @@ class PatternCodegen(pattern.PatternTransformer):
 
                 self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
                 self.modulebuilder.Function(nameof_this_func).WithParameters(term).Block(fb)
+                """
 
             ##----- generate actual match function
             if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:

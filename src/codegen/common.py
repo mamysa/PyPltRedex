@@ -19,6 +19,7 @@ class TermHelperFuncs:
     TermIsHole    = 'term_is_hole'
     TermIsString  = 'term_is_string'
     TermIsBoolean = 'term_is_boolean'
+    TermIsVariableNotOtherwiseMentioned = 'term_is_variable_not_otherwise_mentioned'
 
     ConsumeInteger = 'consume_literal_integer'
     ConsumeFloat = 'consume_literal_float'
