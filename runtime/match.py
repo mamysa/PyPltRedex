@@ -1,3 +1,17 @@
+# needed for implementing Match.equals method. RPython doesn't support sets. 
+def string_set_intersection(dict_a, dict_b):
+    intersection = {}
+    for key in dict_a.keys():
+        if key in dict_b:
+            intersection[key] = None
+    return intersection
+
+def make_string_set(keys):
+    stringset = {}
+    for k in keys:
+        stringset[k] = None
+    return stringset
+
 class Binding:
     def __init__(self, var):
         self.var = var
@@ -84,13 +98,15 @@ class Match:
 
     def equals(self, other):
         if isinstance(other, Match):
-            lkeys = set(self.bindings.keys())
-            rkeys = set(other.bindings.keys())
-            if lkeys == rkeys:
-                for key in lkeys:
-                    if not self.bindings[key].equals(other.bindings[key]):
-                        return False
-                return True
+            if len(self.bindings) == len(other.bindings):
+                lkeys = make_string_set(self.bindings.keys())
+                rkeys = make_string_set(other.bindings.keys())
+                intersection = string_set_intersection(lkeys, rkeys)
+                if len(lkeys) == len(intersection):
+                    for key in lkeys:
+                        if not self.bindings[key].equals(other.bindings[key]):
+                            return False
+                    return True
         return False
 
     def deepcopy(self):
@@ -105,23 +121,26 @@ class Match:
 
     def tostring(self):
         ## FIXME won't compile under RPython
-        b = []
-        for key, val in self.bindings.items():
-            b.append('{}={}'.format(key, val.getbinding().tostring()))
-        return 'Match({})'.format(', '.join(b))
+        string = ''
+        if len(self.bindings) > 0:
+            for key in self.bindings:
+                value = self.bindings[key]
+                s = '%s=%s, ' % (key, value.getbinding().tostring())
+                string = string + s
+        return 'Match(%s)' % string
 
     def combine_with(self, other):
         assert isinstance(other, Match)
-        selfkeys  = set(self.bindings.keys())
-        otherkeys = set(other.bindings.keys())
-        intersection = selfkeys.intersection(otherkeys)
+        lkeys = make_string_set(self.bindings.keys())
+        rkeys = make_string_set(other.bindings.keys())
+        intersection = string_set_intersection(lkeys, rkeys)
         assert len(intersection) == 0, 'match_combine: contains duplicate bindings {}'.format(intersection)
         self.bindings.update(other.bindings)
 
 def combine_matches(match1, match2):
-    m1k = set(match1.bindings.keys())
-    m2k = set(match2.bindings.keys())
-    intersection = m1k.intersection(m2k)
+    m1k = make_string_set(match1.bindings.keys())
+    m2k = make_string_set(match2.bindings.keys())
+    intersection = string_set_intersection(m1k, m2k)
     assert len(intersection) == 0, 'combine_matches: contains duplicate bindings {}'.format(intersection)
     nbindings = match1.bindings.copy()   
     nbindings.update(match2.bindings)    
@@ -133,9 +152,11 @@ def assert_compare_match_lists(m1, m2):
     if len(m1) == len(m2):
         for i, m in enumerate(m1):
             if not m.equals(m2[i]):
-                assert False, 'assertion error: %s and %s do not match' % (match_list_to_string(m1),  match_list_to_string(m2))
+                print('assertion error: %s and %s do not match' % (match_list_to_string(m1),  match_list_to_string(m2)))
+                assert False 
         return
-    assert False, 'assertion error: %s and %s do not match' % (match_list_to_string(m1),  match_list_to_string(m2))
+    print('assertion error: %s and %s do not match' % (match_list_to_string(m1),  match_list_to_string(m2)))
+    assert False 
 
 def match_list_to_string(matches):
     string = '['

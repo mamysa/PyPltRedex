@@ -210,8 +210,7 @@ class TermCodegen(term.TermTransformer):
                     forb.AssignTo(tmp3).MethodCall(lst, 'append', tmp2)
 
                     fb.AssignTo(tmp0).FunctionCall(funcname, tmatch, *tparameters)
-                    fb.AssignTo(tmp1).MethodCall(tmp0, TermMethodTable.Kind)
-                    fb.If.NotEqual(tmp1, rpy.PyInt(TermKind.Sequence)).ThenBlock(ifb)
+                    fb.If.NotIsInstance(tmp0, 'Sequence').ThenBlock(ifb)
                     fb.AssignTo(tmp4).MethodCall(tmp0, TermMethodTable.Length)
                     fb.For(tmp5).InRange(tmp4).Block(forb)
 

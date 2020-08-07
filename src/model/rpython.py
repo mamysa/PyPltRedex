@@ -198,6 +198,13 @@ class LenExpr(Expr):
         assert isinstance(value, PyValue)
         self.value = value 
 
+class IsInstanceExpr(Expr):
+    def __init__(self, var, classname, neg=False):
+        assert isinstance(var, PyId)
+        self.var = var
+        self.classname = classname
+        self.neg = neg
+
 
 # ------------------------------------------------- 
 # Helper functions that take strings and return tuple of PyId.
@@ -431,6 +438,12 @@ class IfOrWhileBuilderPreStage1:
     def __init__(self, lastprestage, statements):
         self.lastprestage = lastprestage 
         self.statements = statements 
+
+    def IsInstance(self, var, classname):
+        return self.lastprestage(IsInstanceExpr(var, classname), self.statements)
+
+    def NotIsInstance(self, var, classname):
+        return self.lastprestage(IsInstanceExpr(var, classname, neg=True), self.statements)
 
     def Equal(self, lhs, rhs):
         return self.lastprestage(BinaryExpr(BinaryOp.Eq, lhs, rhs), self.statements)
@@ -735,6 +748,17 @@ class RPythonWriter:
         self.visit(expr.value)
         self.emit(')')
 
+    def visitIsInstanceExpr(self, expr):
+        assert isinstance(expr, IsInstanceExpr)
+        if expr.neg:
+            self.emit('not ')
+        self.emit('isinstance')
+        self.emit('(')
+        self.visit(expr.var)
+        self.emit(', ')
+        self.emit(expr.classname)
+        self.emit(')')
+
     def visitArrayGetExpr(self, expr):
         assert isinstance(expr, ArrayGetExpr)
         self.visit(expr.array)
@@ -770,12 +794,12 @@ class RPythonWriter:
 
     def visitPySet(self, pyset):
         assert isinstance(pyset, PySet)
-        self.emit('set')
-        self.emit('(')
-        self.emit('[')
-        self.emit_comma_separated_list(pyset.initializer)
-        self.emit(']')
-        self.emit(')')
+        self.emit('{')
+        for elem in pyset.initializer:
+            self.visit(elem)
+            self.emit(': None')
+            self.emit(',')
+        self.emit('}')
 
     def visitPyList(self, pylist):
         assert isinstance(pylist, PyList)

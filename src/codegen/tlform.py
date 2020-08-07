@@ -58,13 +58,21 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         # generate main
         fb = rpy.BlockBuilder()
         symgen = SymGen()
+        ## emit some dummy Terms to aid RPython with type inference.
+        tmp0, tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(5, symgen)
+        fb.AssignTo(tmp0).New('Integer', rpy.PyInt(0))
+        fb.AssignTo(tmp1).New('Float', rpy.PyFloat(0.0))
+        fb.AssignTo(tmp2).New('String', rpy.PyString("\"hello world!\""))
+        fb.AssignTo(tmp3).New('Boolean', rpy.PyString("#f"))
+        fb.AssignTo(tmp4).New('Variable', rpy.PyString("x"))
         for procedure in self.main_procedurecalls:
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
             fb.AssignTo(tmpi).FunctionCall(procedure)
         fb.Return(rpy.PyInt(0))
-        self.modulebuilder.Function('entrypoint').Block(fb)
+        self.modulebuilder.Function('entrypoint').WithParameters(rpy.PyId('argv')).Block(fb)
 
         #required entry procedure for Rpython.
+
         fb = rpy.BlockBuilder()
         fb.Return(rpy.PyTuple(rpy.PyId('entrypoint'), rpy.PyNone()))
         self.modulebuilder.Function('target').WithParameters(rpy.PyVarArg('args')).Block(fb)
@@ -73,7 +81,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         # for python2.7 compatibility.
         ifb = rpy.BlockBuilder()
         tmp = rpy.gen_pyid_temporaries(1, self.symgen)
-        ifb.AssignTo(tmp).FunctionCall('entrypoint')
+        ifb.AssignTo(tmp).FunctionCall('entrypoint', rpy.PyList())
         self.modulebuilder.If.Equal(rpy.PyId('__name__'), rpy.PyString('__main__')).ThenBlock(ifb)
 
         return rpy.Module(self.modulebuilder.build())

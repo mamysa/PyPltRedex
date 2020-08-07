@@ -16,8 +16,12 @@ class Term:
     def kind(self):
         return self.__kind
 
+    def append(self, term):
+        raise Exception('unsupported operation')
+
 class Integer(Term):
     def __init__(self, value):
+        assert isinstance(value, int) 
         Term.__init__(self, TermKind.Integer)
         self.__value = value
 
@@ -40,6 +44,7 @@ class Integer(Term):
 
 class Float(Term):
     def __init__(self, value):
+        assert isinstance(value, float) 
         Term.__init__(self, TermKind.Float)
         self.__value = value
         
@@ -62,6 +67,7 @@ class Float(Term):
 
 class String(Term):
     def __init__(self, value):
+        assert isinstance(value, str) 
         Term.__init__(self, TermKind.String)
         self.__value = value
 
@@ -84,6 +90,7 @@ class String(Term):
 
 class Boolean(Term):
     def __init__(self, value):
+        assert isinstance(value, str) 
         Term.__init__(self, TermKind.Boolean)
         self.__value = value
 
@@ -106,6 +113,7 @@ class Boolean(Term):
 
 class Variable(Term):
     def __init__(self, value):
+        assert isinstance(value, str) 
         Term.__init__(self, TermKind.Variable)
         self.__value = value
 
@@ -188,48 +196,48 @@ class Sequence(Term):
         return False
 
 def term_is_number(term):
-    return term.kind() in [TermKind.Float, TermKind.Integer]
+    return isinstance(term, Float) or isinstance(term, Integer)
 
 def term_is_integer(term):
-    return term.kind() == TermKind.Integer
+    return isinstance(term, Integer) 
 
 def term_is_float(term):
-    return term.kind() == TermKind.Float
+    return isinstance(term, Float) 
 
 def term_is_natural_number(term):
-    return term.kind() == TermKind.Integer and term.value() >= 0
+    return isinstance(term, Integer) and term.value() >= 0
 
 def term_is_hole(term):
-    return term.kind() == TermKind.Hole
+    return isinstance(term, Hole) 
 
 def term_is_string(term):
-    return term.kind() == TermKind.String
+    return isinstance(term, String) 
 
 def term_is_boolean(term):
-    return term.kind() == TermKind.Boolean
+    return isinstance(term, Boolean) 
 
 def consume_literal_integer(term, match, head, tail, literal):
-    if term.kind() == TermKind.Integer and term.value() == literal:
+    if isinstance(term, Integer) and term.value() == literal:
         return [ (match, head+1, tail) ]
     return []
 
 def consume_literal_float(term, match, head, tail, literal):
-    if term.kind() == TermKind.Float and abs(literal - term.value()) < 0.001:
+    if isinstance(term, Float) and abs(literal - term.value()) < 0.001:
         return [ (match, head+1, tail) ]
     return []
 
 def consume_literal_string(term, match, head, tail, literal):
-    if term.kind() == TermKind.String and term.value() == literal:
+    if isinstance(term, String) and term.value() == literal:
         return [ (match, head+1, tail) ]
     return []
 
 def consume_literal_boolean(term, match, head, tail, literal):
-    if term.kind() == TermKind.Boolean and term.value() == literal:
+    if isinstance(term, Boolean) and term.value() == literal:
         return [ (match, head+1, tail) ]
     return []
 
 def consume_variable(term, match, head, tail, literal):
-    if term.kind() == TermKind.Variable and term.value() == literal:
+    if isinstance(term, Variable) and term.value() == literal:
         return [ (match, head+1, tail) ]
     return []
 

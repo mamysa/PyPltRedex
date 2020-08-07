@@ -272,8 +272,7 @@ class PatternCodegen(pattern.PatternTransformer):
             ifb = rpy.BlockBuilder()
             ifb.Return(rpy.PyList())
             
-            fb.AssignTo(tmpi).MethodCall(term, TermMethodTable.Kind)
-            fb.If.NotEqual(tmpi, rpy.PyInt(TermKind.Sequence)).ThenBlock(ifb)
+            fb.If.NotIsInstance(term, 'Sequence').ThenBlock(ifb)
 
             # 'enter' the term
             # subhead = 0
@@ -553,8 +552,8 @@ class PatternCodegen(pattern.PatternTransformer):
             fb.AssignTo(inpat2match).New('Match', self._assignable_symbols_to_rpylist(assignable_syms2))
             fb.AssignTo(pat2matches).FunctionCall(matchpat2, term, inpat2match, rpy.PyInt(0), rpy.PyInt(1))
             fb.If.LengthOf(pat2matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb1)
-            fb.AssignTo(tmp4).MethodCall(term, TermMethodTable.Kind)
-            fb.If.Equal(tmp4, rpy.PyInt(TermKind.Sequence)).ThenBlock(ifb3)
+            #fb.AssignTo(tmp4).MethodCall(term, TermMethodTable.Kind)
+            fb.If.IsInstance(term, 'Sequence').ThenBlock(ifb3)
             fb.Return(matches)
 
             self.modulebuilder.SingleLineComment('{}'.format(repr(pat)))
@@ -681,8 +680,7 @@ class PatternCodegen(pattern.PatternTransformer):
                 ifb1.If.NotContains(tmp1).In(var).ThenBlock(ifb2)
 
                 fb = rpy.BlockBuilder()
-                fb.AssignTo(tmp0).MethodCall(term, TermMethodTable.Kind)
-                fb.If.Equal(tmp0, rpy.PyInt(TermKind.Variable)).ThenBlock(ifb1)
+                fb.If.IsInstance(term, 'Variable').ThenBlock(ifb1)
                 fb.Return(rpy.PyBoolean(False))
 
                 self.modulebuilder.SingleLineComment('#Is this term {}?'.format(pat.prefix))
