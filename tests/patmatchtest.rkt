@@ -162,3 +162,12 @@
 ;any pattern
 (redex-match-assert-equal Lc (any_1 ...) (term (1 #false "hello world!" 12.44 (1337) ()))
   ((match (bind any_1 (1 #false "hello world!" 12.44 (1337) ())))))
+
+(redex-match-assert-equal Lc 
+  (number_1 -12 real_1 -0.1 string_1 "hello world!" boolean_1 #t variable-not-otherwise-mentioned_1 ohno) 
+  (term (24 -12 1.0 -0.1 "this is a string" "hello world!" #f #t ohyes ohno))
+  ((match (bind number_1 24) 
+          (bind real_1 1.0) 
+          (bind string_1 "this is a string") 
+          (bind boolean_1 #f)
+          (bind variable-not-otherwise-mentioned_1 ohyes))))
