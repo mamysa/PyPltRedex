@@ -18,6 +18,10 @@
 # s == suffixes[j]: increment j and s by 1.
 # Iterate until the end of the list.
 # Return string prefix + s.
+
+from rpython.rlib import listsort
+IntSorter = listsort.make_timsort_class()
+
 def decompose_variable(var):
     i = len(var) - 1
     if not (ord(var[i]) >= 48 and ord(var[i]) <= 57):
@@ -25,10 +29,11 @@ def decompose_variable(var):
     while ord(var[i]) >= 48 and ord(var[i]) <= 57:
         i -= 1
     i = i + 1
-    return True, var[:i], var[i:]
+    assert i >= 0
+    return True, var[0:i], var[i:len(var)]
 
 def variable_not_in(term, variable):
-    if variable.kind() != TermKind.Variable:
+    if not isinstance(variable, Variable):
         raise Exception('variable_not_in: contract violation - expected variable')
 
     prefixes = find_variables(term) 
@@ -47,7 +52,7 @@ def variable_not_in(term, variable):
     numbers = [0] * len(prefixes[variable_prefix])
     for i, n in enumerate(prefixes[variable_prefix]):
         numbers[i] = int(n)
-    numbers = sorted(numbers)
+    IntSorter(numbers).sort()
     if numbers[0] != -1:
         return Variable(variable_prefix)
     i, j = 1, 1
@@ -70,7 +75,7 @@ def find_variables(term):
     stack.append(term)
     while len(stack) != 0:
         term = stack.pop()
-        if term.kind() == TermKind.Variable:
+        if isinstance(term, Variable):
             variable_name = term.value()
             success, prefix, number = decompose_variable(variable_name)
             if success:
@@ -81,9 +86,9 @@ def find_variables(term):
                 if variable_name not in prefixes:
                     prefixes[variable_name] = []
                 prefixes[variable_name].append('-1')
-        if term.kind() == TermKind.Sequence:
+        if isinstance(term, Sequence):
             for i in range(term.length()):
                 childterm = term.get(i)
-                if childterm.kind() in [TermKind.Variable, TermKind.Sequence]:
+                if isinstance(childterm, Variable) or isinstance(childterm, Sequence):
                     stack.append(childterm)
     return prefixes

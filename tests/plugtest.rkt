@@ -1,7 +1,3 @@
-(define-language Lc 
-  (n ::= number)
-  (x ::= variable-not-otherwise-mentioned))
-
 (require-python-source "runtime/termops.py")
 
 (term-let-assert-equal

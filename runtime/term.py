@@ -263,10 +263,9 @@ def copy_path_and_replace_last(path, withterm):
         parent = path[i]
         parentcopy = parent.shallowcopy()
         assert isinstance(parentcopy, Sequence)
-
         childfound = False 
         for j, node in enumerate(parentcopy.seq):
-            if id(node) == id(path[i+1]):
+            if node is path[i+1]:
                 childfound = True
                 parentcopy.seq[j] = child
                 break
@@ -276,23 +275,22 @@ def copy_path_and_replace_last(path, withterm):
         i -= 1
     return child
 
-
 def locatehole(term, path):
     """
     Traverses the term and locates the hole.
     returns: path to the hole.
     """
     assert isinstance(term, Term)
-    if term.kind() == TermKind.Hole:
+    if isinstance(term, Hole):
         path.append(term)
         return True
-    if term.kind() == TermKind.Sequence:
+    if isinstance(term, Sequence):
         path.append(term)
         for i in range(term.length()):
             if locatehole(term.get(i), path):
                 return True
         path.pop()
-        return False
+    return False
 
 def plughole(into, term):
     path = []

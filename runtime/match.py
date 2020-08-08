@@ -134,14 +134,14 @@ class Match:
         lkeys = make_string_set(self.bindings.keys())
         rkeys = make_string_set(other.bindings.keys())
         intersection = string_set_intersection(lkeys, rkeys)
-        assert len(intersection) == 0, 'match_combine: contains duplicate bindings {}'.format(intersection)
+        assert len(intersection) == 0
         self.bindings.update(other.bindings)
 
 def combine_matches(match1, match2):
     m1k = make_string_set(match1.bindings.keys())
     m2k = make_string_set(match2.bindings.keys())
     intersection = string_set_intersection(m1k, m2k)
-    assert len(intersection) == 0, 'combine_matches: contains duplicate bindings {}'.format(intersection)
+    assert len(intersection) == 0
     nbindings = match1.bindings.copy()   
     nbindings.update(match2.bindings)    
     match = Match([])
