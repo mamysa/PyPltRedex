@@ -177,15 +177,14 @@ class Tokenizer:
                 if self.extract_if_contains('#false'): return (TokenKind.Boolean, '#f')
                 if self.extract_if_contains('#f')    : return (TokenKind.Boolean, '#f')
                 assert False, 'using reserved symbol #'
-
-            # otherwise, read until the next whitespace and identify the token 
-            # can be a number, identifier, etc.
+            
+            # int/float/ident state machine.
             if not is_delimeteter(self.peek()):
                 return self.state1()
 
-            assert False, 'unknown token kind'
+            raise Exception('unknown token')
 
-        return None #(TokenKind.EOF, '')
+        return (TokenKind.EOF, '')
 
 class Parser:
     def __init__(self, string):
@@ -193,35 +192,37 @@ class Parser:
         self.nexttoken = self.tokenizer.next()
 
     def peek(self):
-        if self.nexttoken == None:
+        token_kind, token = self.nexttoken
+        if token_kind == TokenKind.EOF:
             assert False, 'reached EOF'
-        return self.nexttoken[0]
+        return token_kind
 
     def iseof(self):
-        return self.nexttoken == None
+        token_kind, _ = self.nexttoken
+        return token_kind == TokenKind.EOF
 
     def peekv(self):
-        if self.nexttoken == None:
+        token_kind, token = self.nexttoken
+        if token_kind == TokenKind.EOF:
             assert False, 'reached EOF'
-        return self.nexttoken
+        return token_kind, token
 
     def expect(self, kind, tok=None):
-        if self.nexttoken == None:
+        token_kind, token = self.nexttoken
+        if token_kind == TokenKind.EOF:
             assert False, 'reached EOF'
-
-        if self.nexttoken[0] == kind:
+        if token_kind  == kind:
             if tok != None:
-                if self.nexttoken[1] == tok: 
-                    ret = self.nexttoken
+                if token == tok: 
                     self.nexttoken = self.tokenizer.next()
-                    return ret[1]
+                    return token
                 else:
-                    assert False, 'unexpected ' + tok
+                    assert False, 'unexpected %s' % token
             else:
                 ret = self.nexttoken
                 self.nexttoken = self.tokenizer.next()
-                return ret[1]
-        assert False, 'unexpected ' + tok
+                return token
+        assert False, 'unexpected %s' % token
 
     def parse_atom(self):
         if self.peek() == TokenKind.Integer:
