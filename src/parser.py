@@ -30,6 +30,7 @@ reserved = {
     'apply-reduction-relation' : 'APPLYREDUCTIONRELATION',
     'apply-reduction-relation-assert-equal': 'APPLYREDUCTIONRELATIONASSERTEQUAL',
     'parse-assert-equal' : 'PARSEASSERTEQUAL',
+    'read-from-stdin-and-apply-reduction-relation*' : 'READFROMSTDINANDAPPLYREDUCTIONRELATION',
 }
 
 tokens = [
@@ -41,6 +42,7 @@ tokens = [
     'RPAREN',
     'STRING',
     'REDDOMAIN',
+    'APPLYMF'
 ]
 
 
@@ -56,6 +58,7 @@ t_RPAREN = r'\)|\}|\]'
 # #true and #false have to be before #t #f otherwise it will be tokenized as (#t, rue) and (#f alse)
 t_BOOLEAN = r'\#true|\#false|\#t|\#f' 
 t_REDDOMAIN = '\#:domain' 
+t_APPLYMF   = '\#:apply-mf'
 
 def t_NEWLINE(t):
     r'\n+'
@@ -127,6 +130,7 @@ def p_top_level_form(t):
                    | apply-reduction-relation-assert-equal
                    | parse-assert-equal
                    | define-metafunction
+                   | read-from-stdin-and-apply-reduction-relation
     """
     t[0] = t[1]
 
@@ -137,6 +141,18 @@ def p_require_python_source(t):
     filename = trimstringlit(t[3]) 
     assert os.path.isfile(filename)
     t[0] = tlform.RequirePythonSource(filename)
+
+# ---------------------READFROMSTDINANDAPPLYREDUCTIONRELATION
+def p_read_from_stdin_and_apply_red(p):
+    """
+    read-from-stdin-and-apply-reduction-relation : LPAREN READFROMSTDINANDAPPLYREDUCTIONRELATION IDENT RPAREN
+                                                 | LPAREN READFROMSTDINANDAPPLYREDUCTIONRELATION IDENT APPLYMF IDENT RPAREN
+    """
+    if len(p) == 5:
+        p[0] = tlform.ReadFromStdinAndApplyReductionRelation(p[3])
+    else:
+        p[0] = tlform.ReadFromStdinAndApplyReductionRelation(p[3], metafunctionname=p[5])
+
 
 # ---------------------DEFINE-LANGUAGE FORM -----------------------
 # define-language  ::= (define-language lang-name non-terminal-def ...+)

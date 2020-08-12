@@ -67,10 +67,10 @@ class Tokenizer:
         c = self.peek()
         if is_plusminus(c):
             return self.state2()
-        if c == '.':
-            raise Exception()
         if is_digit(c):
             return self.state3()
+        if is_delimeteter(c):
+            raise Exception()
         return self.state6()
 
     def state2(self):
@@ -264,3 +264,13 @@ class Parser:
             term = self.parse_atom()
         assert self.iseof()
         return term
+
+from rpython.rlib.streamio import DiskFile
+def read_from_stdin_and_parse():
+    STDIN_FD = 0
+    f = DiskFile(STDIN_FD)
+    contents = f.readall()
+    f.close()
+    term = Parser(contents).parse()
+    return term
+

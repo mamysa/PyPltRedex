@@ -156,3 +156,16 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         form.expected_termtemplate = self.__processtermtemplate(form.expected_termtemplate)
         return form
 
+    def _visitReadFromStdinAndApplyReductionRelation(self, form):
+        assert isinstance(form, tlform.ReadFromStdinAndApplyReductionRelation)
+        if form.metafunctionname != None:
+            try:
+                self.metafunctions[form.metafunctionname]
+            except KeyError:
+                raise CompilationError('read-from-stdin-and-apply-reduction-relation* : unknown metafunction {}'.format(form.metafunctionname))
+        try:
+            self.reductionrelations[form.reductionrelationname]
+        except KeyError:
+            raise CompilationError('read-from-stdin-and-apply-reduction-relation* : unknown reduction relation {}'.format(form.reductionrelationname))
+        return form
+

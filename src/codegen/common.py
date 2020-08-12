@@ -1,5 +1,8 @@
 import src.model.pattern as pattern
 import src.model.rpython as rpy
+
+ReadFromStdinAndParse = 'read_from_stdin_and_parse'
+
 class TermMethodTable:
     Value = 'value'
     Length = 'length'

@@ -11,7 +11,7 @@ from src.context import CompilationContext
 
 from src.codegen.common import TermHelperFuncs, MatchHelperFuncs, \
                           MatchMethodTable, TermKind, \
-                          TermMethodTable
+                          TermMethodTable, ReadFromStdinAndParse
 
 #------------------------------
 # Top-level form codegen
@@ -534,3 +534,38 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         nameof_this_func = self.symgen.get('parseassertequal')
         self.modulebuilder.Function(nameof_this_func).Block(fb)
         self.main_procedurecalls.append(nameof_this_func)
+
+    def _visitReadFromStdinAndApplyReductionRelation(self, form):
+        assert isinstance(form, tlform.ReadFromStdinAndApplyReductionRelation)
+
+        reduction_relation_func = self.context.get_reduction_relation(form.reductionrelationname)
+        symgen = SymGen()
+        term = rpy.gen_pyid_for('term')
+        tmp0, tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(5, symgen)
+
+        forb = rpy.BlockBuilder()
+        forb.AssignTo(tmp3).FunctionCall(reduction_relation_func, term)
+        forb.AssignTo(tmp2).Add(tmp2, tmp3)
+
+        wh = rpy.BlockBuilder()
+        wh.AssignTo(tmp2).PyList()
+        wh.For(term).In(tmp1).Block(forb)
+        wh.AssignTo(tmp1).PyId(tmp2)
+        wh.AssignTo(tmp4).FunctionCall(TermHelperFuncs.PrintTermList, tmp1)
+
+        fb = rpy.BlockBuilder()
+        fb.AssignTo(tmp0).FunctionCall(ReadFromStdinAndParse)
+        if form.metafunctionname != None:
+            mfname = self.context.get_metafunction(form.metafunctionname)
+            fb.AssignTo(tmp0).FunctionCall(mfname, tmp0)
+        fb.AssignTo(tmp1).PyList(tmp0)
+        fb.AssignTo(tmp4).FunctionCall(TermHelperFuncs.PrintTermList, tmp1)
+        fb.While.LengthOf(tmp1).NotEqual(rpy.PyInt(0)).Block(wh)
+
+        nameof_this_func = self.symgen.get('readfromstdinandeval')
+        self.modulebuilder.Function(nameof_this_func).Block(fb)
+        self.main_procedurecalls.append(nameof_this_func)
+
+        return form
+
+

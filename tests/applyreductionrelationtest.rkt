@@ -1,6 +1,6 @@
 (define-language Lc3
   (es ::= (e ...))
-  (e ::= (+ e e) n)
+  (e ::= (+ e e) (- e e) n)
   (n ::= number)
   (P ::= (e ... E e ...))
   (E ::= hole (+ E e) (+ n E)))
@@ -13,6 +13,19 @@
 (apply-reduction-relation-assert-equal red (term (1 (+ 4 5) 3 (+ (+ 1 2) 4) 5))
   ((term (1 1337 3 (+ (+ 1 2) 4) 5))
    (term (1 (+ 4 5) 3 (+ 1337 4) 5))))
+
+
+(define-reduction-relation red2 Lc3 #:domain es
+(--> (in-hole P (+ n_1 n_2))
+     (in-hole P 1337)
+     "add")
+(--> (in-hole P (- n_1 n_2))
+     (in-hole P 1336)
+     "sub"))
+
+(apply-reduction-relation-assert-equal red2 (term (1 (+ 4 5) 3 (+ (- 1 2) 4) 5))
+  ((term (1 1337 3 (+ (- 1 2) 4) 5))
+   (term (1 (+ 4 5) 3 (+ 1336 4) 5))))
 
 (define-reduction-relation badred Lc3 
 (--> (in-hole P 1337)
