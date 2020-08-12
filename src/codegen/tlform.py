@@ -279,9 +279,12 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         forb.AssignTo(tmp0).FunctionCall(nameof_termfn, match)
         if nameof_domaincheck is not None:
             ifb = rpy.BlockBuilder()
+            tmpa, tmpb = rpy.gen_pyid_temporaries(2, symgen)
+            ifb.AssignTo(tmpa).MethodCall(term, TermMethodTable.ToString)
+            ifb.AssignTo(tmpb).MethodCall(tmp0, TermMethodTable.ToString)
             ifb.RaiseException('reduction-relation \\"{}\\": term reduced from %s to %s via rule \\"{}\\" is outside domain' \
                     .format(reductionrelationname, rc.name), 
-                    term, tmp0)
+                    tmpa, tmpb)
             forb.AssignTo(tmp2).FunctionCall(nameof_domaincheck, tmp0)
             forb.If.LengthOf(tmp2).Equal(rpy.PyInt(0)).ThenBlock(ifb)
         forb.AssignTo(tmp1).MethodCall(terms, 'append', tmp0)
@@ -327,7 +330,9 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         if nameof_domaincheck != None:
             tmp0 = rpy.gen_pyid_temporaries(1, symgen)
             ifb = rpy.BlockBuilder()
-            ifb.RaiseException('reduction-relation not defined for %s', term)
+            tmpa = rpy.gen_pyid_temporaries(1, symgen)
+            ifb.AssignTo(tmpa).MethodCall(term, TermMethodTable.ToString)
+            ifb.RaiseException('reduction-relation not defined for %s', tmpa)
 
             fb.AssignTo(tmp0).FunctionCall(nameof_domaincheck, term)
             fb.If.LengthOf(tmp0).Equal(rpy.PyInt(0)).ThenBlock(ifb)
@@ -435,9 +440,11 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         forb.AssignTo(tmp3).FunctionCall(termfunc, tmp2)
         forb.AssignTo(tmp4).MethodCall(tmp1, 'append', tmp3)
 
+        tmpa = rpy.gen_pyid_temporaries(1, symgen)
         ifb2 = rpy.BlockBuilder()
+        ifb2.AssignTo(tmpa).MethodCall(argterm, TermMethodTable.ToString)
         ifb2.RaiseException('meta-function {}: clause {} produced multiple terms when matching term %s' \
-                           .format(metafunction.contract.name, caseid), argterm)
+                           .format(metafunction.contract.name, caseid), tmpa)
 
         fb = rpy.BlockBuilder()
         fb.AssignTo(tmp0).FunctionCall(matchfunc, argterm)
@@ -485,8 +492,10 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         argterm = rpy.gen_pyid_for('argterm')
         tmp0, tmp1, tmp2 = rpy.gen_pyid_temporaries(3, symgen)
 
+        tmpa = rpy.gen_pyid_temporaries(1, symgen)
         ifbd = rpy.BlockBuilder()
-        ifbd.RaiseException('meta-function {}: term %s not in my domain'.format(mfname), argterm)
+        ifbd.AssignTo(tmpa).MethodCall(argterm, TermMethodTable.ToString)
+        ifbd.RaiseException('meta-function {}: term %s not in my domain'.format(mfname), tmpa)
 
         fb = rpy.BlockBuilder()
         fb.AssignTo(tmp0).FunctionCall(domainmatchfunc, argterm)
@@ -496,8 +505,10 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
             tmpi, tmpj, tmpk = rpy.gen_pyid_temporaries(3, symgen)
             mfcasefunc = self._codegenMetafunctionCase(form, mfcase, i, nameof_function)
 
+            tmpa = rpy.gen_pyid_temporaries(1, symgen)
             ifbi1 = rpy.BlockBuilder()
-            ifbi1.RaiseException('meta-function {}: term %s not in my codomain'.format(mfname), tmpj)
+            ifbi1.AssignTo(tmpa).MethodCall(tmpj, TermMethodTable.ToString)
+            ifbi1.RaiseException('meta-function {}: term %s not in my codomain'.format(mfname), tmpa)
 
             ifbi2 = rpy.BlockBuilder()
             ifbi2.AssignTo(tmpj).ArrayGet(tmpi, rpy.PyInt(0))

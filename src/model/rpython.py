@@ -685,10 +685,9 @@ class RPythonWriter:
     def visitRaiseExceptionStmt(self, stmt):
         assert isinstance(stmt, RaiseExceptionStmt)
         self.emit_indentstring()
-        self.emit('raise')
-        self.emit_space()
-        self.emit('Exception(')
+        self.emit('print(')
         self.emit('"')
+        self.emit('Exception: ')
         self.emit(stmt.message)
         self.emit('"')
         if len(stmt.formatelems) != 0:
@@ -701,6 +700,11 @@ class RPythonWriter:
             self.emit(',')
             self.emit(')')
         self.emit(')')
+        self.emit_newline()
+        self.emit_indentstring()
+        self.emit('raise')
+        self.emit_space()
+        self.emit('Exception()')
         self.emit_newline()
 
     def visitBinaryExpr(self, expr):
