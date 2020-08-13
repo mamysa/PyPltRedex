@@ -567,8 +567,11 @@ class PatternCodegen(pattern.PatternTransformer):
             symgen = SymGen()
 
             m, h, t = rpy.gen_pyid_for('m', 'h', 't')
-            forb = rpy.BlockBuilder()
+            fb = rpy.BlockBuilder()
+            fb.AssignTo(tmp0).FunctionCall(lookupfuncname, term, match, head, tail, rpy.PyList())
             if pat.constraintchecks != None:
+                fb.AssignTo(matches).PyList()
+                forb = rpy.BlockBuilder()
                 for chck in pat.constraintchecks:
                     tmpi = rpy.gen_pyid_temporaries(1, symgen)
                     ifb = rpy.BlockBuilder()
@@ -579,12 +582,10 @@ class PatternCodegen(pattern.PatternTransformer):
 
                 tmp = rpy.gen_pyid_temporaries(1, symgen)
                 forb.AssignTo(tmp).MethodCall(matches, 'append', rpy.PyTuple(m, h, t))
-
-            fb = rpy.BlockBuilder()
-            fb.AssignTo(matches).PyList()
-            fb.AssignTo(tmp0).FunctionCall(lookupfuncname, term, match, head, tail, rpy.PyList())
-            fb.For(m, h, t).In(tmp0).Block(forb)
-            fb.Return(matches)
+                fb.For(m, h, t).In(tmp0).Block(forb)
+                fb.Return(matches)
+            else:
+                fb.Return(tmp0)
 
             self.modulebuilder.Function(functionname).WithParameters(term, match, head, tail).Block(fb)
 
