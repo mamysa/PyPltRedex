@@ -23,12 +23,12 @@ class DefineLanguage_IdRewriter(pattern.PatternTransformer):
 
     def transformBuiltInPat(self, node):
         assert isinstance(node, pattern.BuiltInPat)
-        nsym = self.symgen.get(node.prefix)
+        nsym = self.symgen.get(node.prefix+'_')
         return pattern.BuiltInPat(node.kind, node.prefix, nsym).copymetadatafrom(node)
 
     def transformNt(self, node):
         assert isinstance(node, pattern.Nt)
-        nsym = self.symgen.get(node.prefix)
+        nsym = self.symgen.get(node.prefix+'_')
         return pattern.Nt(node.prefix, nsym).copymetadatafrom(node)
 
 

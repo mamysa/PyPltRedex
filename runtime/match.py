@@ -148,6 +148,22 @@ def combine_matches(match1, match2):
     match.bindings = nbindings
     return match
 
+def match_cartesian_product_add_binding_to(matches1, matches2, to, head, tail):
+    """
+    computes cartesian product between matches in matches1 and matches2. 
+    Resulting bindings are added to existing match wth, which is copied beforehand.
+    head and tail must be precomputed.
+    """
+    out = []
+    for m1, h1, t1 in matches1:
+        for m2, h2, t2 in matches2:
+            combined = combine_matches(m1, m2)
+            retmatch = to.deepcopy()
+            for key in combined.bindings:
+                retmatch.addtobinding(key, combined.getbinding(key))
+            out.append((retmatch,head,tail))
+    return out
+
 def assert_compare_match_lists(m1, m2):
     if len(m1) == len(m2):
         for i, m in enumerate(m1):
@@ -170,3 +186,4 @@ def match_list_to_string(matches):
 
 def print_match_list(matches):
     print(match_list_to_string(matches))
+

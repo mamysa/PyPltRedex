@@ -521,16 +521,19 @@ class PatternCodegen(pattern.PatternTransformer):
             forb1 = rpy.BlockBuilder()
             forb1.For(m2, h2, t2).In(pat2matches).Block(forb2)
 
-            forb0 = rpy.BlockBuilder()
-            forb0.AssignTo(tmp11).Add(head, rpy.PyInt(1))
-            forb0.For(m1, h1, t1).In(pat1matches).Block(forb1)
+            ifb0 = rpy.BlockBuilder()
+            ifb0.AssignTo(tmp11).Add(head, rpy.PyInt(1))
+            ifb0.AssignTo(tmp2).FunctionCall(MatchHelperFuncs.CartesianProductAndCombineWith, pat1matches, pat2matches, match, tmp11, tail)
+            ifb0.AssignTo(matches).Add(matches, tmp2)
+
+            #ifb0.For(m1, h1, t1).In(pat1matches).Block(forb1)
 
             ifb1 = rpy.BlockBuilder()
             ifb1.AssignTo(inpat1match).New('Match', self._assignable_symbols_to_rpylist(assignable_syms1))
             ifb1.AssignTo(tmp0).Add(path, rpy.PyList(term))
             ifb1.AssignTo(tmp1).FunctionCall(TermHelperFuncs.CopyPathAndReplaceLast, tmp0, hole)
             ifb1.AssignTo(pat1matches).FunctionCall(matchpat1, tmp1, inpat1match, rpy.PyInt(0), rpy.PyInt(1)) 
-            ifb1.If.LengthOf(pat1matches).NotEqual(rpy.PyInt(0)).ThenBlock(forb0)
+            ifb1.If.LengthOf(pat1matches).NotEqual(rpy.PyInt(0)).ThenBlock(ifb0)
 
             # ---------------
 

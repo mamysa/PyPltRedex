@@ -37,6 +37,7 @@ class TermHelperFuncs:
 class MatchHelperFuncs:
     CombineMatches = 'combine_matches'
     PrintMatchList = 'print_match_list'
+    CartesianProductAndCombineWith = 'match_cartesian_product_add_binding_to'
 
 class MatchMethodTable:
     AddToBinding ='addtobinding'
