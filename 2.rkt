@@ -101,6 +101,9 @@
 ; (4) (λ y.t)[x → e] = λy.(t[x → e]) if x ≠ y and y not in fv(e)
 ; (5) (λ y.t)[x → e] = λz.(t[y → z][x → e]) if x ≠ y, z is fresh (i.e. z not in fv(e) U fv(t))
 ; (6) (λ y.t)[x → e] = (λ y.t) if x = y
+; x - variable to be replaced
+; e - value x has to be replaced with
+; e - in expression.
 (define-metafunction Lc 
   subs : x e e -> e
   [(subs x e x) e]

@@ -152,6 +152,9 @@ class RaiseExceptionStmt(Stmt):
 
 class Expr(PyAst):
     pass
+class IsNone(Expr):
+    def __init__(self, var):
+        self.var = var
 
 class BinaryExpr(Expr):
     def __init__(self, op, lhs, rhs):
@@ -445,6 +448,9 @@ class IfOrWhileBuilderPreStage1:
     def NotIsInstance(self, var, classname):
         return self.lastprestage(IsInstanceExpr(var, classname, neg=True), self.statements)
 
+    def IsNone(self, var):
+        return self.lastprestage(IsNone(var), self.statements)
+
     def Equal(self, lhs, rhs):
         return self.lastprestage(BinaryExpr(BinaryOp.Eq, lhs, rhs), self.statements)
 
@@ -626,6 +632,7 @@ class RPythonWriter:
             self.visit(s)
         self._dedent()
 
+
     def visitWhileStmt(self, stmt):
         assert isinstance(stmt, WhileStmt)
         self.emit_indentstring()
@@ -744,6 +751,10 @@ class RPythonWriter:
         self.emit('in')
         self.emit_space()
         self.visit(expr.rhs)
+
+    def visitIsNone(self, expr):
+        self.visit(expr.var)
+        self.emit(' is None')
 
     def visitLenExpr(self, expr):
         assert isinstance(expr, LenExpr)

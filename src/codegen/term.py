@@ -73,6 +73,7 @@ class TermCodegen(term.TermTransformer):
             funcname = self.context.get_function_for_term_template(t)
 
             tmatch, tparameters, _ = self._gen_inputs(t)
+            assert len(tparameters) == 0
             tmpi = rpy.gen_pyid_temporaries(1, symgen)
             pycallarguments.append(tmpi)
             fb.AssignTo(tmpi).FunctionCall(funcname, tmatch, *tparameters)

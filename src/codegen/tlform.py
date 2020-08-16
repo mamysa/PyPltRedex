@@ -417,6 +417,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         #    return tmp1 
         #  for tmp2 in tmp0:
         #    tmp3 = termfunc(tmp2)
+        #    if tmp3 == None: continue
         #    tmp4 = tmp1.append(tmp3)
         #  tmp5 = aretermsequalpairwise(tmp1)
         #  if tmp5 != True:
@@ -436,8 +437,16 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         ifb1 = rpy.BlockBuilder()
         ifb1.Return(tmp1)
 
+        ifbx = rpy.BlockBuilder()
+        ifbx.Continue
+
         forb = rpy.BlockBuilder()
         forb.AssignTo(tmp3).FunctionCall(termfunc, tmp2)
+
+        ##FIXME temporary hack to simulate side-conditions in metafunctions.
+        ##You'd use hand-written python function that returns None upon side-condition
+        ## failure. Python functions are not allowed to return None otherwise.
+        forb.If.IsNone(tmp3).ThenBlock(ifbx) 
         forb.AssignTo(tmp4).MethodCall(tmp1, 'append', tmp3)
 
         tmpa = rpy.gen_pyid_temporaries(1, symgen)
@@ -449,8 +458,8 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb = rpy.BlockBuilder()
         fb.AssignTo(tmp0).FunctionCall(matchfunc, argterm)
         fb.AssignTo(tmp1).PyList()
-        fb.If.LengthOf(tmp0).Equal(rpy.PyInt(0)).ThenBlock(ifb1)
         fb.For(tmp2).In(tmp0).Block(forb)
+        fb.If.LengthOf(tmp1).Equal(rpy.PyInt(0)).ThenBlock(ifb1)
         fb.AssignTo(tmp5).FunctionCall(TermHelperFuncs.AreTermsEqualPairwise, tmp1)
         fb.If.NotEqual(tmp5, rpy.PyBoolean(True)).ThenBlock(ifb2)
         fb.AssignTo(tmp6).ArrayGet(tmp1, rpy.PyInt(0))

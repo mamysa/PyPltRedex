@@ -149,7 +149,10 @@ class TermTransformer:
 
     def transformPyCall(self, pycall):
         assert isinstance(pycall, PyCall)
-        return PyCall(pycall.mode, pycall.functionname, pycall.termargs).copyattributesfrom(pycall)
+        ntermargs = []
+        for termtemplate in pycall.termargs:
+            ntermargs.append( self.transform(termtemplate) )
+        return PyCall(pycall.mode, pycall.functionname, ntermargs).copyattributesfrom(pycall)
 
     def transformTermLiteral(self, node):
         return node
