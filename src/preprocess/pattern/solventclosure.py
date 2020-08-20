@@ -9,8 +9,14 @@ class DefineLanguage_NtClosureSolver:
 
     def run(self):
         # compute initial sets.
+        # FIXME THESE closures are incorrect, something to fix when reimplementing EllipsisMatchMode.
         closureof = {}
         closureof['number'] = set([])
+        closureof['integer'] = set([])
+        closureof['real'] = set([])
+        closureof['boolean'] = set([])
+        closureof['string'] = set([])
+        closureof['any'] = set([])         
         closureof['hole'] = set([])
         closureof['variable-not-otherwise-mentioned'] = set([])
         for ntdef in self.definelanguage.nts.values():
