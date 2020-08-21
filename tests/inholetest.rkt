@@ -87,11 +87,11 @@
 (define-language Imp
   (Com  ::= skip (if Bexp (Com ...) else (Com ...)))
   (Aexp ::= int)
-  (Bexp ::= bool (Aexp <= Aexp))
+  (Bexp ::= bool (Aexp <= Aexp) (Bexpr and Bexpr))
   (int ::= integer)
   (bool ::= boolean) 
   (P ::= (if E (Com ...) else (Com ...)) hole)
-  (E ::= (E <= Aexp) (int <= E) hole))
+  (E ::= (E <= Aexp) (int <= E) (E and Bexp) (bool and E) hole))
 
 (redex-match-assert-equal Imp (in-hole P (int_1 <= int_2)) 
   (term (if (3 <= 6) (skip) else (skip))) 
@@ -104,3 +104,21 @@
           (bind P (if hole (skip) else (skip)))
           (bind number_1 (1 2 3))
           (bind number_2 4))))
+                                           
+
+(redex-match-assert-equal Imp (number_1 ... (in-hole P (int_1 <= int_2))  number_2)
+  (term (1 2 3 (if ((3 <= 6) and #f) (skip) else (skip)) 4))
+  ((match (bind int_1 3) 
+          (bind int_2 6) 
+          (bind P (if (hole and #f) (skip) else (skip)))
+          (bind number_1 (1 2 3))
+          (bind number_2 4))))
+
+(redex-match-assert-equal Imp (number_1 ... (in-hole P (int_1 <= int_2))  number_2)
+  (term (1 2 3 (if (#f and (3 <= 6)) (skip) else (skip)) 4))
+  ((match (bind int_1 3) 
+          (bind int_2 6) 
+          (bind P (if (#f and hole) (skip) else (skip)))
+          (bind number_1 (1 2 3))
+          (bind number_2 4))))
+
