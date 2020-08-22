@@ -5,8 +5,8 @@
   (Program ::= (Loc (Com ...)))
   (Com  ::= skip
            (var = Aexp)
-           (if Bexp Com ... else Com ...)
-           (while Bexp Com ...))
+           (if Bexp Com Com ... else Com Com ...)
+           (while Bexp Com Com ...))
   (Aexp ::= var int (Aexp + Aexp) (Aexp * Aexp))
   (Bexp ::= bool (Aexp <= Aexp) (Bexp and Bexp) (Bexp or Bexp) (not Bexp))
   (var ::= variable-not-otherwise-mentioned)

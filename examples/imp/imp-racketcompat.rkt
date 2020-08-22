@@ -3,17 +3,17 @@
 
 (define-language Imp
   (Loc ::= ((var int) ...))
-  (Program := (Loc (Com ...)))
+  (Program ::= (Loc (Com ...)))
 
-  (Com  := skip
+  (Com  ::= skip
            (var = Aexp)
-           (if Bexp Com ... else Com ...)
-           (while Bexp Com ...))
-  (Aexp := var int (Aexp + Aexp) (Aexp * Aexp))
-  (Bexp := bool (Aexp <= Aexp) (Bexp and Bexp) (Bexp or Bexp) (not Bexp))
-  (var := variable-not-otherwise-mentioned)
-  (int := integer)
-  (bool := boolean) 
+           (if Bexp Com Com ... else Com Com ...)
+           (while Bexp Com Com ...))
+  (Aexp ::= var int (Aexp + Aexp) (Aexp * Aexp))
+  (Bexp ::= bool (Aexp <= Aexp) (Bexp and Bexp) (Bexp or Bexp) (not Bexp))
+  (var ::= variable-not-otherwise-mentioned)
+  (int ::= integer)
+  (bool ::= boolean) 
 
   (P ::= (var = E) (if E Com ... else Com ...) hole)
   (E ::= (E + Aexp) (int + E) (E * Aexp) (int * E) hole 
@@ -67,7 +67,7 @@
 
     [--> (Loc ((in-hole P (int_1 * int_2)) Com ...))
          (Loc ((in-hole P ,(* (term int_1) (term int_2))) Com ...))
-         "integer-add"]
+         "integer-mul"]
 
     [--> (Loc ((in-hole P (bool_1 and bool_2)) Com ...))
          (Loc ((in-hole P ,(and (term bool_1) (term bool_2))) Com ...))
@@ -86,16 +86,6 @@
          "less-equal"]))
 
 
-(traces imp-red 
-  (term (() 
-   ((i = 1)
-    (j = 2)
-    (k = 0)
-    [while (i <= 1)
-      [while (j <= 2)
-        (k = (i + j))
-        (j = (j + 1))]
-      (i = (i + 1))]
-    (j = 1337)
-    ))))
+
    
+;(generate-term Imp  Program 5)
