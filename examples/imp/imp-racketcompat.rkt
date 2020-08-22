@@ -1,8 +1,6 @@
 #lang racket
 (require redex)
 
-
-
 (define-language Imp
   (Loc ::= ((var int) ...))
   (Program := (Loc (Com ...)))
@@ -10,9 +8,7 @@
   (Com  := skip
            (var = Aexp)
            (if Bexp Com ... else Com ...)
-           (while Bexp Com ...)
-        
-        )
+           (while Bexp Com ...))
   (Aexp := var int (Aexp + Aexp) (Aexp * Aexp))
   (Bexp := bool (Aexp <= Aexp) (Bexp and Bexp) (Bexp or Bexp) (not Bexp))
   (var := variable-not-otherwise-mentioned)
@@ -23,19 +19,8 @@
   (E ::= (E + Aexp) (int + E) (E * Aexp) (int * E) hole 
          (E <= Aexp) (int <= E)  (not E)     
          (E and Bexp) (bool and E)
-         (E or  Bexp) (bool or  E)
-         ) )
+         (E or  Bexp) (bool or  E)))
      
-
-(define-metafunction Imp 
-  arithmetic-op : Aexp -> int 
-  [(arithmetic-op (int_1 + int_2)) ,(+ (term int_1) (term int_2))]
-  [(arithmetic-op (int_1 * int_2)) ,(* (term int_1) (term int_2))])
-
-(define-metafunction Imp 
-  boolean-op : Bexp -> bool 
-  [(boolean-op (int_1 <= int_2)) ,(<= (term int_1) (term int_2))])
-
 (define-metafunction Imp
   var-lookup : Loc var -> int
   [(var-lookup ((var_1 int_1) ... (var int) (var_2 int_2) ...) var) int]
@@ -51,8 +36,6 @@
 (define imp-red 
   (reduction-relation Imp
   #:domain Program 
-
-
     [--> (Loc ((while Bexp Com_1 ...) Com_2 ...))
          (Loc ((if Bexp Com_1 ... (while Bexp Com_1 ...) 
                 else skip) Com_2 ...))
@@ -78,9 +61,12 @@
          (Loc (Com_2 ... Com ...))
          "if-false"]
 
-
     [--> (Loc ((in-hole P (int_1 + int_2)) Com ...))
          (Loc ((in-hole P ,(+ (term int_1) (term int_2))) Com ...))
+         "integer-add"]
+
+    [--> (Loc ((in-hole P (int_1 * int_2)) Com ...))
+         (Loc ((in-hole P ,(* (term int_1) (term int_2))) Com ...))
          "integer-add"]
 
     [--> (Loc ((in-hole P (bool_1 and bool_2)) Com ...))

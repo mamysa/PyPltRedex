@@ -561,7 +561,7 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         reduction_relation_func = self.context.get_reduction_relation(form.reductionrelationname)
         symgen = SymGen()
         term = rpy.gen_pyid_for('term')
-        tmp0, tmp1, tmp2, tmp3, tmp4 = rpy.gen_pyid_temporaries(5, symgen)
+        tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7 = rpy.gen_pyid_temporaries(8, symgen)
 
         forb = rpy.BlockBuilder()
         forb.AssignTo(tmp3).FunctionCall(reduction_relation_func, term)
@@ -577,7 +577,10 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         fb.AssignTo(tmp0).FunctionCall(ReadFromStdinAndParse)
         if form.metafunctionname != None:
             mfname = self.context.get_metafunction(form.metafunctionname)
-            fb.AssignTo(tmp0).FunctionCall(mfname, tmp0)
+            fb.AssignTo(tmp5).New('Variable', rpy.PyString(form.metafunctionname))
+            fb.AssignTo(tmp6).New('Sequence', rpy.PyList(tmp5, tmp0))
+            fb.AssignTo(tmp0).FunctionCall(mfname, tmp6)
+
         fb.AssignTo(tmp1).PyList(tmp0)
         fb.AssignTo(tmp4).FunctionCall(TermHelperFuncs.PrintTermList, tmp1)
         fb.While.LengthOf(tmp1).NotEqual(rpy.PyInt(0)).Block(wh)
