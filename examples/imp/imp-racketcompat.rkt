@@ -19,7 +19,7 @@
   (int := integer)
   (bool := boolean) 
 
-  (P ::= (var = E) (while E (Com ...)) (if E (Com ...) else (Com ...)) hole)
+  (P ::= (var = E) (if E (Com ...) else (Com ...)) hole)
   (E ::= (E + Aexp) (int + E) (E * Aexp) (int * E) hole 
          (E <= Aexp) (int <= E)  (not E)     
          (E and Bexp) (bool and E)
@@ -51,6 +51,13 @@
 (define imp-red 
   (reduction-relation Imp
   #:domain Program 
+
+
+    [--> (Loc ((while Bexp (Com_1 ...)) Com_2 ...))
+         (Loc ((if Bexp (Com_1 ... (while Bexp (Com_1 ...)) )
+                else (skip)) Com_2 ...))
+         "while"]
+
     [ --> (Loc ((in-hole P (var = int)) Com ...))
           ((var-assign Loc var int) (Com ...))
           "var-assign"]
@@ -71,6 +78,7 @@
          (Loc (Com_2 ... Com ...))
          "if-false"]
 
+
     [--> (Loc ((in-hole P (int_1 + int_2)) Com ...))
          (Loc ((in-hole P ,(+ (term int_1) (term int_2))) Com ...))
          "integer-add"]
@@ -90,25 +98,3 @@
     [--> (Loc ((in-hole P (int_1 <= int_2)) Com ...))
          (Loc ((in-hole P ,(<= (term int_1) (term int_2))) Com ...))
          "less-equal"]))
-
-
-
-(redex-match Imp Com (term (if (1 <= 34) ((x = 1)) else ())))
-
-
-(traces imp-red (term (() 
-  ( 
-    (if (not ((5 <= 4) or #f))
-      (skip)
-      else 
-      ((x = 12)))
-    (z = 3) ))))
-;(traces imp-red (term ((2 + 1) <= (3 * -5))))
-
-  
-
-
-
-
-
-  
