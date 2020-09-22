@@ -351,7 +351,7 @@ class DefineLanguage_HoleReachabilitySolver:
 
         if not hashole:
             for ntdef in self.definelanguage.nts.values():
-                ntdef.nt.addmetadata(pattern.PatNumHoles(NumberOfHoles.Zero, NumberOfHoles.Zero))
+                ntdef.nt.addattribute(pattern.PatternAttribute.NumberOfHoles, (NumberOfHoles.Zero, NumberOfHoles.Zero))
             return
 
         for leaf in self.ntgraph.leafs:
@@ -379,7 +379,7 @@ class DefineLanguage_HoleReachabilitySolver:
                 ntmax = NumberOfHoles.max(ntmax, pmax)
 
             calculatednts[nt] = (ntmin, ntmax)
-            ntdef.nt.addmetadata(pattern.PatNumHoles(ntmin, ntmax))
+            ntdef.nt.addattribute(pattern.PatternAttribute.NumberOfHoles, (ntmin, ntmax))
             return ntmin, ntmax
 
         for nt, ntdef in self.definelanguage.nts.items():

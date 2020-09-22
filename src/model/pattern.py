@@ -1,7 +1,15 @@
 import enum
 import copy
+from src.model.astbase import ASTBase
+
 from functools import reduce
 import operator
+
+class PatternAttribute(enum.Enum):
+    PatternVariables = "PatternVariables"
+    PatternVariableEllipsisDepths = "PatternVariableEllipsisDepths"
+    PatternVariablesToRemove = "PatternVariablesToRemove"
+    NumberOfHoles = "NumberOfHoles"
 
 class LitKind(enum.Enum):
     Integer = 0
@@ -22,26 +30,9 @@ class BuiltInPatKind(enum.Enum):
     VariableExcept = 'variable-except'
     Hole = 'hole'
 
-class Pat:
+class Pat(ASTBase):
     def __init__(self):
-        self._metadata = {}
-
-    def addmetadata(self, metadata):
-        assert isinstance(metadata, PatMetadata)
-        self._metadata[type(metadata)] = metadata
-        return self
-
-    def removemetadata(self, typ):
-        assert typ in self._metadata
-        del self._metadata[typ]
-
-    def getmetadata(self, typ):
-        return self._metadata[typ]
-
-    def copymetadatafrom(self, node):
-        assert isinstance(node, Pat)
-        self._metadata = copy.copy(node._metadata)
-        return self
+        ASTBase.__init__(self)
 
 class Lit(Pat):
     """
@@ -55,7 +46,6 @@ class Lit(Pat):
 
     def __repr__(self):
         return 'Lit({}, {})'.format(self.lit, self.kind)
-
 
     def __eq__(self, other):
         if isinstance(other, Lit):
@@ -239,17 +229,17 @@ class PatternTransformer:
         seq = []
         for n in node.seq:
             seq.append(self.transform(n))
-        return PatSequence(seq).copymetadatafrom(node)
+        return PatSequence(seq).copyattributesfrom(node)
 
     def transformRepeat(self, node):
         assert isinstance(node, Repeat)
-        return Repeat(self.transform(node.pat), node.matchmode).copymetadatafrom(node)
+        return Repeat(self.transform(node.pat), node.matchmode).copyattributesfrom(node)
 
     def transformInHole(self, node):
         assert isinstance(node, InHole)
         pat1 = self.transform(node.pat1)
         pat2 = self.transform(node.pat2)
-        return InHole(pat1, pat2).copymetadatafrom(node) 
+        return InHole(pat1, pat2).copyattributesfrom(node) 
 
     def transformBuiltInPat(self, node):
         assert isinstance(node, BuiltInPat)
@@ -263,42 +253,3 @@ class PatternTransformer:
 
     def transformLit(self, node):
         return node
-
-
-# --- pattern nodes may store additional info such as line numbers, etc.
-# Some of this metadata will be added during analysis process. 
-# TODO see how this will interact with pattern optimization ...
-class PatMetadata:
-    pass
-
-# --- stores all the assignable symbols (i.e. those in Match) seen in the
-# pattern
-class PatAssignableSymbols(PatMetadata):
-    def __init__(self, syms):
-        super().__init__()
-        self.syms = syms
-
-# stores mapping of sym->ellipsis depth. To be used when generating terms.
-class PatAssignableSymbolDepths(PatMetadata):
-    def __init__(self, syms):
-        super().__init__()
-        self.syms = syms
-
-class PatNumHoles(PatMetadata):
-    def __init__(self, numholesmin, numholesmax):
-        super().__init__()
-        self.numholesmin = numholesmin
-        self.numholesmax = numholesmax
-
-    def __repr__(self):
-        return '({}, {})'.format(self.numholesmin, self.numholesmax)
-
-    def __eq__(self, other):
-        if isinstance(other, PatNumHoles):
-            return self.numholesmin == other.numholesmin \
-               and self.numholesmax == other.numholesmax
-
-class PatConstraintCheckSymsToRemove(PatMetadata):
-    def __init__(self, arr):
-        self.arr = arr
-

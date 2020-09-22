@@ -1,7 +1,7 @@
 import unittest
 from src.preprocess.pattern import NumberOfHoles, DefineLanguage_HoleReachabilitySolver, NtGraphBuilder
 from src.preprocess.pattern.checkinhole import PatternNumHolesChecker 
-from src.model.pattern import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode, PatNumHoles , InHole
+from src.model.pattern import PatSequence, BuiltInPat, Nt, Repeat, Lit, LitKind, BuiltInPatKind, RepeatMatchMode, InHole
 from src.model.tlform import DefineLanguage, Module
 from src.context import CompilationContext
 from src.parser import parse_string

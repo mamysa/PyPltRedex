@@ -16,7 +16,7 @@ class DefineLanguage_IdRewriter(pattern.PatternTransformer):
             npats = []
             for pat in ntdef.patterns:
                 npat = self.transform(pat)
-                npat.copymetadatafrom(pat)
+                npat.copyattributesfrom(pat)
                 npats.append(npat)
             ntdefs.append(tlform.DefineLanguage.NtDefinition(ntdef.nt, npats))
         return tlform.DefineLanguage(self.definelanguage.name, ntdefs)
@@ -24,12 +24,12 @@ class DefineLanguage_IdRewriter(pattern.PatternTransformer):
     def transformBuiltInPat(self, node):
         assert isinstance(node, pattern.BuiltInPat)
         nsym = self.symgen.get(node.prefix+'_')
-        return pattern.BuiltInPat(node.kind, node.prefix, nsym).copymetadatafrom(node)
+        return pattern.BuiltInPat(node.kind, node.prefix, nsym).copyattributesfrom(node)
 
     def transformNt(self, node):
         assert isinstance(node, pattern.Nt)
         nsym = self.symgen.get(node.prefix+'_')
-        return pattern.Nt(node.prefix, nsym).copymetadatafrom(node)
+        return pattern.Nt(node.prefix, nsym).copyattributesfrom(node)
 
 
 class Pattern_IdRewriter(DefineLanguage_IdRewriter):

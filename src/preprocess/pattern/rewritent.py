@@ -22,7 +22,7 @@ class NtResolver(pattern.PatternTransformer):
         assert isinstance(node, pattern.UnresolvedSym)
         prefix = extract_prefix(node.sym)
         if prefix in self.ntsyms:
-            return pattern.Nt(prefix, node.sym).copymetadatafrom(node)
+            return pattern.Nt(prefix, node.sym).copyattributesfrom(node)
 
         # do not allow underscores for holes.
         if prefix == 'hole' and prefix != node.sym:
@@ -30,7 +30,7 @@ class NtResolver(pattern.PatternTransformer):
 
         try:
             case = pattern.BuiltInPatKind(prefix).name
-            return pattern.BuiltInPat(pattern.BuiltInPatKind[case], prefix, node.sym).copymetadatafrom(node)
+            return pattern.BuiltInPat(pattern.BuiltInPatKind[case], prefix, node.sym).copyattributesfrom(node)
         except ValueError:
             pass
 
@@ -39,7 +39,7 @@ class NtResolver(pattern.PatternTransformer):
             raise Exception('define-language: before underscore must be either a non-terminal or build-in pattern {}'.format(node.sym))
 
         self.variables.add(node.sym) # for variable-not-defined patterns.
-        return pattern.Lit(node.sym, pattern.LitKind.Variable).copymetadatafrom(node)
+        return pattern.Lit(node.sym, pattern.LitKind.Variable).copyattributesfrom(node)
 
 
 class Pattern_NtRewriter(NtResolver):
@@ -61,7 +61,7 @@ class DefineLanguage_NtRewriter(NtResolver):
             npats = []
             for pat in ntdef.patterns:
                 npat = self.transform(pat)
-                npat.copymetadatafrom(pat)
+                npat.copyattributesfrom(pat)
                 npats.append(npat)
             ntdefs.append(tlform.DefineLanguage.NtDefinition(ntdef.nt, npats))
         return tlform.DefineLanguage(self.definelanguage.name, ntdefs), self.variables

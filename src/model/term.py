@@ -1,6 +1,8 @@
 import enum 
 import copy
 
+from src.model.astbase import ASTBase 
+
 class TermLiteralKind:
     Variable = 0
     Integer = 1
@@ -15,27 +17,9 @@ class TermAttribute(enum.Enum):
     InArg   = 'InArg'
     ForEach = 'ForEach'
 
-class Term:
+class Term(ASTBase):
     def __init__(self):
-        self._attributes = {} 
-
-    def addattribute(self, key, val):
-        if key in self._attributes:
-            raise Exception('key {} is already assigned!'.format(key))
-        self._attributes[key] = val
-        return self
-
-    def getattribute(self, key):
-        return self._attributes[key]
-
-    def copyattributesfrom(self, node):
-        assert isinstance(node, Term)
-        self._attributes = copy.copy(node._attributes)
-        return self
-
-    def removeattribute(self, key):
-        del self._attributes[key]
-        return self
+        ASTBase.__init__(self)
 
 class InHole(Term):
     def __init__(self, term1, term2):
