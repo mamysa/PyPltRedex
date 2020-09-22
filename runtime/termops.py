@@ -24,3 +24,12 @@ def mmap3mul2(n_1, n_2, n_3):
     seq.append( Integer(2 * n_3.value()) )
     return Sequence(seq)
 
+def map_multiply(ns, n):
+    seq = []
+    for i in range(ns.length()):
+        v = ns.get(i).value() * n.value()
+        seq.append(Integer(v))
+    return Sequence(seq)
+
+
+

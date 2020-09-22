@@ -14,7 +14,7 @@ class AssignableSymbolExtractor(pattern.PatternTransformer):
     def transformRepeat(self, node):
         assert isinstance(node, pattern.Repeat)
         _, variables = self.transform(node.pat)
-        return node.addmetadata(pattern.PatAssignableSymbols(variables)), variables
+        return node.addattribute(pattern.PatternAttribute.PatternVariables, variables), variables
 
     def transformCheckConstraint(self, node):
         return node, set([])
@@ -27,8 +27,8 @@ class AssignableSymbolExtractor(pattern.PatternTransformer):
         assert isinstance(node, pattern.InHole)
         _, pat1variables = self.transform(node.pat1)
         _, pat2variables = self.transform(node.pat2)
-        node.pat1.addmetadata(pattern.PatAssignableSymbols(pat1variables))
-        node.pat2.addmetadata(pattern.PatAssignableSymbols(pat2variables))
+        node.pat1.addattribute(pattern.PatternAttribute.PatternVariables, pat1variables)
+        node.pat2.addattribute(pattern.PatternAttribute.PatternVariables, pat2variables)
         variables = pat1variables.union(pat2variables)
         return node, variables
 
@@ -49,8 +49,7 @@ class Pattern_AssignableSymbolExtractor(AssignableSymbolExtractor):
 
     def run(self):
         pat, variables = self.transform(self.pat)
-        return pat.addmetadata(pattern.PatAssignableSymbols(variables))
-        return pat 
+        return pat.addattribute(pattern.PatternAttribute.PatternVariables, variables)
 
 class DefineLanguage_AssignableSymbolExtractor(AssignableSymbolExtractor):
     def __init__(self, definelanguage):
@@ -62,7 +61,7 @@ class DefineLanguage_AssignableSymbolExtractor(AssignableSymbolExtractor):
             npats = []
             for pat in ntdef.patterns:
                 npat, variables = self.transform(pat)
-                npat.copymetadatafrom(pat).addmetadata(pattern.PatAssignableSymbols(variables))
+                npat.copyattributesfrom(pat).addattribute(pattern.PatternAttribute.PatternVariables, variables)
                 npats.append(npat)
             ntdefs.append(tlform.DefineLanguage.NtDefinition(ntdef.nt, npats))
         return tlform.DefineLanguage(self.definelanguage.name, ntdefs)

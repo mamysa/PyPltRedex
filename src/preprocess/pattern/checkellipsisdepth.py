@@ -14,7 +14,7 @@ class Pattern_EllipsisDepthChecker(pattern.PatternTransformer):
 
     def run(self):
         pat, variables = self.transform(self.pat)
-        return pat.addmetadata(pattern.PatAssignableSymbolDepths(variables))
+        return pat.addattribute(pattern.PatternAttribute.PatternVariableEllipsisDepths, variables)
 
     def _merge_variable_maps(self, m1, m2):
         m1k = set(list(m1.keys())) 
@@ -33,14 +33,14 @@ class Pattern_EllipsisDepthChecker(pattern.PatternTransformer):
             npat, npatvariables = self.transform(pat)
             seq.append(npat)
             variables = self._merge_variable_maps(variables, npatvariables)
-        return pattern.PatSequence(seq).copymetadatafrom(node), variables
+        return pattern.PatSequence(seq).copyattributesfrom(node), variables
 
     def transformRepeat(self, node):
         assert isinstance(node, pattern.Repeat)
         self.depth += 1
         pat, variables = self.transform(node.pat)
         self.depth -= 1
-        return pattern.Repeat(pat).copymetadatafrom(node), variables 
+        return pattern.Repeat(pat).copyattributesfrom(node), variables 
 
     def transformUnresolvedSym(self, node):
         assert False, 'UnresolvedSym not allowed'
@@ -54,7 +54,7 @@ class Pattern_EllipsisDepthChecker(pattern.PatternTransformer):
         pat1, pat1variables = self.transform(node.pat1)
         pat2, pat2variables = self.transform(node.pat2)
         variables = self._merge_variable_maps(pat1variables, pat2variables)
-        return pattern.InHole(pat1, pat2).copymetadatafrom(node), variables
+        return pattern.InHole(pat1, pat2).copyattributesfrom(node), variables
 
     def transformBuiltInPat(self, node):
         assert isinstance(node, pattern.BuiltInPat)

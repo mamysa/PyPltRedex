@@ -42,7 +42,7 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
             graph.dump(form.name)
             print('------ Debug Nt hole counts for language {}: ------'.format(form.name))
             for nt, ntdef in form.nts.items():
-                print('{}: {}'.format(nt, repr(ntdef.nt.getmetadata(pattern.PatNumHoles))))
+                print('{}: {}'.format(nt, ntdef.nt.getattribute(pattern.PatternAttribute.NumberOfHoles)))
             print('\n') 
         #form = DefineLanguage_EllipsisMatchModeRewriter(form, closures).run()
         form = DefineLanguage_AssignableSymbolExtractor(form).run()
@@ -111,8 +111,8 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
     def processReductionCase(self, reductioncase, languagename):
         assert isinstance(reductioncase, tlform.DefineReductionRelation.ReductionCase)
         reductioncase.pattern = self.__processpattern(reductioncase.pattern, languagename)
-        assignablesymsdepths = reductioncase.pattern.getmetadata(pattern.PatAssignableSymbolDepths)
-        reductioncase.termtemplate = self.__processtermtemplate(reductioncase.termtemplate, assignments=assignablesymsdepths.syms)
+        assignablesymsdepths = reductioncase.pattern.getattribute(pattern.PatternAttribute.PatternVariableEllipsisDepths)
+        reductioncase.termtemplate = self.__processtermtemplate(reductioncase.termtemplate, assignments=assignablesymsdepths)
 
     def _visitDefineReductionRelation(self, form):
         assert isinstance(form, tlform.DefineReductionRelation)
@@ -138,8 +138,8 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
         for i, case in enumerate(form.cases):
             form.cases[i].patternsequence = self.__processpattern(case.patternsequence, form.languagename)
-            assignablesymsdepths = form.cases[i].patternsequence.getmetadata(pattern.PatAssignableSymbolDepths)
-            form.cases[i].termtemplate = self.__processtermtemplate(form.cases[i].termtemplate, assignments=assignablesymsdepths.syms)
+            assignablesymsdepths = form.cases[i].patternsequence.getattribute(pattern.PatternAttribute.PatternVariableEllipsisDepths)
+            form.cases[i].termtemplate = self.__processtermtemplate(form.cases[i].termtemplate, assignments=assignablesymsdepths)
         return form
 
     def _visitApplyReductionRelationAssertEqual(self, form):

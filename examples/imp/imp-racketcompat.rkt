@@ -88,4 +88,14 @@
 
 
    
-;(generate-term Imp  Program 5)
+(for ([i (in-range 1000)])
+(apply-reduction-relation* imp-red 
+(term (() 
+{
+	(N = 20)
+	(product = 1)
+	(i = 1)
+	[while (i <= N)
+		(product = (product * i))
+		(i = (i + 1))]
+}))))

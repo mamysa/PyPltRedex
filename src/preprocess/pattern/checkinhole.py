@@ -42,8 +42,7 @@ class PatternNumHolesChecker(pattern.PatternTransformer):
     def transformNt(self, node):
         assert isinstance(node, pattern.Nt)
         ntdef = self.definelanguage.nts[node.prefix]
-        n = ntdef.nt.getmetadata(pattern.PatNumHoles)
-        return n.numholesmin, n.numholesmax
+        return ntdef.nt.getattribute(pattern.PatternAttribute.NumberOfHoles)
 
     def transformLit(self, node):
         return NumberOfHoles.Zero, NumberOfHoles.Zero

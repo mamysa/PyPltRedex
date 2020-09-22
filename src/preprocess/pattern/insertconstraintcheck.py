@@ -16,7 +16,7 @@ class Pattern_ConstraintCheckInserter(pattern.PatternTransformer):
 
     def run(self):
         pat, _ = self.transform(self.pattern)
-        pat.addmetadata(pattern.PatConstraintCheckSymsToRemove(self.symstoremove))
+        pat.addattribute(pattern.PatternAttribute.PatternVariablesToRemove, self.symstoremove)
         return pat
 
     def _merge_variable_maps(self, m1, m2):
@@ -42,7 +42,7 @@ class Pattern_ConstraintCheckInserter(pattern.PatternTransformer):
         syms, syms2check = self._merge_variable_maps(syms1, syms2)
         for sym1, sym2 in syms2check:
             constraintchecks.append(pattern.CheckConstraint(sym1, sym2))
-        return pattern.InHole(npat1, npat2, constraintchecks).copymetadatafrom(node), syms
+        return pattern.InHole(npat1, npat2, constraintchecks).copyattributesfrom(node), syms
     
     def transformPatSequence(self, node):
         assert isinstance(node, pattern.PatSequence)
@@ -57,12 +57,12 @@ class Pattern_ConstraintCheckInserter(pattern.PatternTransformer):
             syms, syms2check = self._merge_variable_maps(syms, nsyms)
             for sym1, sym2 in syms2check:
                 nseq.append(pattern.CheckConstraint(sym1, sym2))
-        return pattern.PatSequence(nseq).copymetadatafrom(node), syms
+        return pattern.PatSequence(nseq).copyattributesfrom(node), syms
 
     def transformRepeat(self, node):
         assert isinstance(node, pattern.Repeat)
         pat, syms = self.transform(node.pat)
-        return pattern.Repeat(pat, node.matchmode).copymetadatafrom(node), syms
+        return pattern.Repeat(pat, node.matchmode).copyattributesfrom(node), syms
 
     def transformNt(self, node):
         assert isinstance(node, pattern.Nt)
@@ -72,7 +72,7 @@ class Pattern_ConstraintCheckInserter(pattern.PatternTransformer):
             nsym = node.sym
         else:
             self.symstoremove.append(nsym)
-        return pattern.Nt(node.prefix, nsym).copymetadatafrom(node), {node.sym : nsym}
+        return pattern.Nt(node.prefix, nsym).copyattributesfrom(node), {node.sym : nsym}
 
     def transformBuiltInPat(self, node):
         assert isinstance(node, pattern.BuiltInPat)
@@ -84,7 +84,7 @@ class Pattern_ConstraintCheckInserter(pattern.PatternTransformer):
                 nsym = node.sym
             else:
                 self.symstoremove.append(nsym)
-            return pattern.BuiltInPat(node.kind, node.prefix, nsym).copymetadatafrom(node), {node.sym : nsym}
+            return pattern.BuiltInPat(node.kind, node.prefix, nsym).copyattributesfrom(node), {node.sym : nsym}
         return node, {}
 
     def transformLit(self, pat):

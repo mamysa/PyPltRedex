@@ -30,8 +30,7 @@ class PatternCodegen(pattern.PatternTransformer):
             nameof_this_func = 'lang_{}_{}_toplevel'.format(self.languagename, self.symgen.get('pat'))
             self.context.add_toplevel_function_for_pattern(self.languagename, repr(self.pattern), nameof_this_func)
 
-            assignable_symbols = self.pattern.getmetadata(pattern.PatAssignableSymbols)
-            assignable_symbols = assignable_symbols.syms
+            assignable_symbols = self.pattern.getattribute(pattern.PatternAttribute.PatternVariables)
             symgen = SymGen()
 
             func2call = self.context.get_function_for_pattern(self.languagename, repr(self.pattern))
@@ -42,8 +41,8 @@ class PatternCodegen(pattern.PatternTransformer):
 
             forb = rpy.BlockBuilder()
             try: 
-                symstoremove = self.pattern.getmetadata(pattern.PatConstraintCheckSymsToRemove)
-                for sym in symstoremove.arr:
+                symstoremove = self.pattern.getattribute(pattern.PatternAttribute.PatternVariablesToRemove)
+                for sym in symstoremove:
                     tmpi = rpy.gen_pyid_temporaries(1, symgen)
                     forb.AssignTo(tmpi).MethodCall(m, MatchMethodTable.RemoveKey, rpy.PyString(sym))
             except: 
@@ -100,9 +99,7 @@ class PatternCodegen(pattern.PatternTransformer):
             functionname = self.context.get_function_for_pattern(self.languagename, repr(repeat.pat))
 
             # retrieve all bindable elements
-            assignable_symbols = repeat.getmetadata(pattern.PatAssignableSymbols)
-            assignable_symbols = assignable_symbols.syms
-
+            assignable_symbols = repeat.getattribute(pattern.PatternAttribute.PatternVariables)
 
             symgen = SymGen()
             term, match, head, tail = rpy.gen_pyid_for('term', 'match', 'head', 'tail')
@@ -455,11 +452,8 @@ class PatternCodegen(pattern.PatternTransformer):
             matchpat1 = self.context.get_function_for_pattern(self.languagename, repr(pat1))
             matchpat2 = self.context.get_function_for_pattern(self.languagename, repr(pat2))
 
-
-            assignable_syms1 = pat1.getmetadata(pattern.PatAssignableSymbols)
-            assignable_syms1 = assignable_syms1.syms
-            assignable_syms2 = pat2.getmetadata(pattern.PatAssignableSymbols)
-            assignable_syms2 = assignable_syms2.syms
+            assignable_syms1 = pat1.getattribute(pattern.PatternAttribute.PatternVariables)
+            assignable_syms2 = pat2.getattribute(pattern.PatternAttribute.PatternVariables)
             assignable_syms_all = assignable_syms1.union(assignable_syms2)
 
             # def inhole(term, match, head, tail, path):
