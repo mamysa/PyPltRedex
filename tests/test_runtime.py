@@ -1,8 +1,11 @@
 import shutil 
 import subprocess
 import unittest
+import os
 
-from src.__main__ import entrypoint , BASEDIR
+from src.__main__ import entrypoint 
+
+RPYTHON_SOURCE_DIR = 'rpyout_temp'
 
 testcases = [
     'tests/patmatchtest.rkt',
@@ -21,19 +24,24 @@ def runpython(filename):
 
 def make_arg_obj(src):
     return type('Args', (object,),
-            {'src': src, 'dump_ast': False, 'debug_dump_ntgraph': False})
+            {'src': src, 'dump_ast': False, 'debug_dump_ntgraph': False, 
+                'output_directory': RPYTHON_SOURCE_DIR, })
 
 def gentestcase(filename):
     def testcase(self):
         print('\n')
         print('------------------------------- Run {} ---------------'.format(filename))
         entrypoint(make_arg_obj(filename))
-        exitcode = runpython('{}/out.py'.format(BASEDIR))
+        exitcode = runpython('{}/out.py'.format(RPYTHON_SOURCE_DIR))
         self.assertEqual(exitcode, 0)
     return testcase
 
 class TestRuntimeCode(unittest.TestCase):
-    pass
+    @classmethod
+    def tearDownClass(cls):
+        os.remove('{}/out.py'.format(RPYTHON_SOURCE_DIR))
+        os.rmdir(RPYTHON_SOURCE_DIR)
 
 for i, testcase in enumerate(testcases):
     setattr(TestRuntimeCode, 'test_{}'.format(i), gentestcase(testcase))
+
