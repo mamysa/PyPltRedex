@@ -585,49 +585,6 @@ class PatternCodegen(pattern.PatternTransformer):
 
     def transformBuiltInPat(self, pat):
         assert isinstance(pat, pattern.BuiltInPat) 
-        if pat.kind == pattern.BuiltInPatKind.Number:
-            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
-                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
-                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
-                isafunc = self.context.get_isa_function_name(self.languagename, pat.prefix)
-                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsNumber, repr(pat), sym=pat.sym)
-            return pat
-
-        if pat.kind == pattern.BuiltInPatKind.Integer:
-            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
-                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
-                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
-                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsInteger, repr(pat), sym=pat.sym)
-            return pat
-
-        if pat.kind == pattern.BuiltInPatKind.Natural:
-            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
-                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
-                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
-                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsNatural, repr(pat), sym=pat.sym)
-            return pat
-
-        if pat.kind == pattern.BuiltInPatKind.Float:
-            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
-                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
-                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
-                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsFloat, repr(pat), sym=pat.sym)
-            return pat
-
-        if pat.kind == pattern.BuiltInPatKind.String:
-            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
-                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
-                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
-                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsString, repr(pat), sym=pat.sym)
-            return pat
-
-        if pat.kind == pattern.BuiltInPatKind.Boolean:
-            if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
-                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
-                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
-                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsBoolean, repr(pat), sym=pat.sym)
-            return pat
-
         if pat.kind == pattern.BuiltInPatKind.Any:
             if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
                 nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
@@ -649,7 +606,7 @@ class PatternCodegen(pattern.PatternTransformer):
                 self.modulebuilder.Function(nameof_this_func).WithParameters(term, match, head, tail).Block(fb)
             return pat
 
-        if pat.kind == pattern.BuiltInPatKind.VariableNotOtherwiseDefined:
+        elif pat.kind == pattern.BuiltInPatKind.VariableNotOtherwiseDefined:
             # generate isa function for variable-not-otherwise-mentioned here because we need to reference
             # compile-time generated language-specific array 'langname_variable_mentioned'
             if self.context.get_isa_function_name(self.languagename, pat.prefix) is None:
@@ -698,16 +655,30 @@ class PatternCodegen(pattern.PatternTransformer):
                 isafunc = self.context.get_isa_function_name(self.languagename, pat.prefix)
                 self._gen_match_function_for_primitive(nameof_this_func, isafunc, repr(pat), sym=pat.sym)
             return pat
-
-        if pat.kind == pattern.BuiltInPatKind.Hole:
+        else:
             if self.context.get_function_for_pattern(self.languagename, repr(pat)) is None:
-                nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
-                self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
-                isafunc = self.context.get_isa_function_name(self.languagename, pat.prefix)
-                self._gen_match_function_for_primitive(nameof_this_func, TermHelperFuncs.TermIsHole, repr(pat))
-            return pat
-        assert False, 'unsupported pattern' 
+                pat_isA_tab = {
+                    pattern.BuiltInPatKind.Number:  TermHelperFuncs.TermIsNumber,
+                    pattern.BuiltInPatKind.Integer: TermHelperFuncs.TermIsInteger,
+                    pattern.BuiltInPatKind.Natural: TermHelperFuncs.TermIsNatural,
+                    pattern.BuiltInPatKind.Float:   TermHelperFuncs.TermIsFloat,
+                    pattern.BuiltInPatKind.String:  TermHelperFuncs.TermIsString,
+                    pattern.BuiltInPatKind.Boolean: TermHelperFuncs.TermIsBoolean,
+                    pattern.BuiltInPatKind.Hole:    TermHelperFuncs.TermIsHole,
+                }
 
+                try:
+                    term_func = pat_isA_tab[pat.kind]
+                    nameof_this_func = 'match_lang_{}_builtin_{}'.format(self.languagename, self.symgen.get())
+                    self.context.add_function_for_pattern(self.languagename, repr(pat), nameof_this_func)
+                    if pat.kind == pattern.BuiltInPatKind.Hole:
+                        # 'hole' key is not present in the final Match object.
+                        self._gen_match_function_for_primitive(nameof_this_func, term_func, repr(pat))
+                    else:
+                        self._gen_match_function_for_primitive(nameof_this_func, term_func, repr(pat), sym=pat.sym)
+                except KeyError:
+                    assert False, 'unsupported pattern' + pat.kind
+            return pat
 
     def gen_procedure_for_lit(self, lit, consumeprocedure, exactvalue):
         if self.context.get_function_for_pattern(self.languagename, repr(lit)) is not None:
