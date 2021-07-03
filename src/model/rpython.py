@@ -73,6 +73,7 @@ class BinaryOp(enum.Enum):
     NotEq = '!='
     GrEq = '>='
     Lt   = '<'
+    And  = 'and'
 
 # Few classes like IfStmt/WhileStmt start out with empty bodies and 
 # statements have to be appended to them using +=.
@@ -287,6 +288,10 @@ class BlockBuilder:
                 stmt = AssignStmt(self.args, BinaryExpr(BinaryOp.Add, lhs, rhs))
                 self.parent.statements.append(stmt) 
 
+            def And(self, lhs, rhs):
+                stmt = AssignStmt(self.args, BinaryExpr(BinaryOp.And, lhs, rhs))
+                self.parent.statements.append(stmt) 
+
             def Subtract(self, lhs, rhs):
                 stmt = AssignStmt(self.args, BinaryExpr(BinaryOp.Sub, lhs, rhs))
                 self.parent.statements.append(stmt) 
@@ -311,7 +316,9 @@ class BlockBuilder:
                 stmt = AssignStmt(self.args, ident)
                 self.parent.statements.append(stmt) 
 
-
+            def PyBoolean(self, value):
+                stmt = AssignStmt(self.args, PyBoolean(value))
+                self.parent.statements.append(stmt) 
 
             def New(self, typename, *args):
                 stmt = AssignStmt(self.args, NewExpr(typename, list(args)))

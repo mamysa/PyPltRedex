@@ -108,6 +108,16 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
         form.expected = self.__processtermtemplate(form.expected)
         return form
 
+    def processMetafunctionCase(self, metafunctioncase, languagename):
+        assert isinstance(metafunctioncase, tlform.DefineMetafunction.MetafunctionCase)
+        metafunctioncase.patternsequence = self.__processpattern(metafunctioncase.patternsequence, languagename)
+        assignablesymsdepths = metafunctioncase.patternsequence.getattribute(pattern.PatternAttribute.PatternVariableEllipsisDepths)
+        metafunctioncase.termtemplate = self.__processtermtemplate(metafunctioncase.termtemplate, assignments=assignablesymsdepths)
+        # TODO include pattern variables from where clauses into assignments list.
+        for sidecondition in metafunctioncase.sideconditions:
+            npycall = self.__processtermtemplate(sidecondition.pythoncall, assignments=assignablesymsdepths)
+            sidecondition.pythoncall = npycall
+
     def processReductionCase(self, reductioncase, languagename):
         assert isinstance(reductioncase, tlform.DefineReductionRelation.ReductionCase)
         reductioncase.pattern = self.__processpattern(reductioncase.pattern, languagename)
@@ -135,11 +145,8 @@ class TopLevelProcessor(tlform.TopLevelFormVisitor):
 
         form.contract.domain = self.__processdomaincheck(form.contract.domain, form.languagename)
         form.contract.codomain = self.__processdomaincheck(form.contract.codomain, form.languagename)
-
-        for i, case in enumerate(form.cases):
-            form.cases[i].patternsequence = self.__processpattern(case.patternsequence, form.languagename)
-            assignablesymsdepths = form.cases[i].patternsequence.getattribute(pattern.PatternAttribute.PatternVariableEllipsisDepths)
-            form.cases[i].termtemplate = self.__processtermtemplate(form.cases[i].termtemplate, assignments=assignablesymsdepths)
+        for case in form.cases:
+            self.processMetafunctionCase(case, form.languagename)
         return form
 
     def _visitApplyReductionRelationAssertEqual(self, form):

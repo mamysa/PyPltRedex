@@ -1,3 +1,5 @@
+(require-python-source "tests/runtime_python_ops.py")
+
 (define-language A 
     (e ::= (e e) v)
     (v ::= (lambda x e) n x)
@@ -180,3 +182,53 @@
 (term-let-assert-equal ()
   (term (nums2vars_2 (var2int_2 a) (var2int_2 b)))
   (term (p q)))
+
+
+; Testing sideconditions
+
+(define-metafunction A 
+  mf-with-sideconditions-1 : (n ...) -> (n ...)
+  [(mf-with-sideconditions-1 (n_1 ... n_2 ...)) (n_1 ...)
+  (side-condition ,(b_length_equal (term (n_1 ...)) (term 4)))]
+  [(mf-with-sideconditions-1 (n_1 ... n_2 ...)) (n_1 ...)
+  (side-condition ,(b_length_equal (term (n_2 ...)) (term 2)))]
+  [(mf-with-sideconditions-1 (n_1 ... n_2 ...)) (1339)])
+
+(define-metafunction A
+  mf-with-sideconditions-2 : (n ... n) -> (n)
+  [(mf-with-sideconditions-2 (n_1 ... n_2)) (,(sequence_int_sum (term (n_1 ...))))
+   (side-condition ,(b_length_equal (term (n_1 ...)) (term 3)))
+   (side-condition ,(b_int_is_even (term n_2)))]
+  [(mf-with-sideconditions-2 (n_1 ... n_2)) (1337)
+   (side-condition ,(b_int_is_even (term n_2)))]
+  [(mf-with-sideconditions-2 (n ...)) (-1)])
+
+(term-let-assert-equal ()
+  (term (mf-with-sideconditions-1( 1 2 3 4 5 6 7)))
+  (term (1 2 3 4)))
+
+(term-let-assert-equal ()
+  (term (mf-with-sideconditions-1 (1337 2 3)))
+  (term (1337)))
+
+(term-let-assert-equal ()
+  (term (mf-with-sideconditions-1 (1337)))
+  (term (1339)))
+
+(term-let-assert-equal ()
+	(term (mf-with-sideconditions-2 (7 2 3 4)))
+	(term (12)))
+
+(term-let-assert-equal ()
+	(term (mf-with-sideconditions-2 (7 4 3 4)))
+	(term (14)))
+
+
+(term-let-assert-equal ()
+	(term (mf-with-sideconditions-2 (7 2 4)))
+	(term (1337)))
+
+(term-let-assert-equal ()
+	(term (mf-with-sideconditions-2 (7 2 3 5)))
+	(term (-1)))
+

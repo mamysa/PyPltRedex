@@ -416,9 +416,17 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         #  if len(tmp0) == 0:
         #    return tmp1 
         #  for tmp2 in tmp0:
-        #    tmp3 = termfunc(tmp2)
-        #    if tmp3 == None: continue
-        #    tmp4 = tmp1.append(tmp3)
+        #    sidecond1 = sidecondition_1(...) 
+        #    sidecond2 = sidecondition_2(...) 
+        #    ...
+        #    sidecondn = sidecondition_n(...) 
+        #    sidecondval = True
+        #    sidecondval = sidecondval and sidecond1
+        #    ...
+        #    sidecondval = sidecondval and sidecondn
+        #    if sidecondval:
+        #      tmp3 = termfunc(tmp2)
+        #      tmp4 = tmp1.append(tmp3)
         #  tmp5 = aretermsequalpairwise(tmp1)
         #  if tmp5 != True:
         #    raise Exception('mfcase 1 matched (term) in len(tmp{i}) ways, single match is expected')
@@ -430,25 +438,31 @@ class TopLevelFormCodegen(tlform.TopLevelFormVisitor):
         matchfunc = self.context.get_toplevel_function_for_pattern(metafunction.languagename, repr(case.patternsequence))
         termfunc = self.context.get_function_for_term_template(case.termtemplate)
 
+
         symgen = SymGen()
         argterm = rpy.gen_pyid_for('argterm')
+        sidecondval = rpy.gen_pyid_for('sidecondval')
         tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6 = rpy.gen_pyid_temporaries(7, symgen)
+
 
         ifb1 = rpy.BlockBuilder()
         ifb1.Return(tmp1)
 
-        ifbx = rpy.BlockBuilder()
-        ifbx.Continue
+        ifb3 = rpy.BlockBuilder()
+        ifb3.AssignTo(tmp3).FunctionCall(termfunc, tmp2)
+        ifb3.AssignTo(tmp4).MethodCall(tmp1, 'append', tmp3)
+
 
         forb = rpy.BlockBuilder()
-        forb.AssignTo(tmp3).FunctionCall(termfunc, tmp2)
-
-        ##FIXME temporary hack to simulate side-conditions in metafunctions.
-        ##You'd use hand-written python function that returns None upon side-condition
-        ## failure. Python functions are not allowed to return None otherwise.
-        forb.If.IsNone(tmp3).ThenBlock(ifbx) 
-        forb.AssignTo(tmp4).MethodCall(tmp1, 'append', tmp3)
-
+        forb.AssignTo(sidecondval).PyBoolean(True)
+        for sidecondition in case.sideconditions:
+            TermCodegen(self.modulebuilder, self.context).transform(sidecondition.pythoncall)
+            sidecondfunc = self.context.get_function_for_term_template(sidecondition.pythoncall)
+            sidecondval_i = rpy.gen_pyid_temporary_with_sym('sidecondval', symgen)
+            forb.AssignTo(sidecondval_i).FunctionCall(sidecondfunc, tmp2)
+            forb.AssignTo(sidecondval).And(sidecondval, sidecondval_i)
+        forb.If.Equal(sidecondval, rpy.PyBoolean(True)).ThenBlock(ifb3)
+        
         tmpa = rpy.gen_pyid_temporaries(1, symgen)
         ifb2 = rpy.BlockBuilder()
         ifb2.AssignTo(tmpa).MethodCall(argterm, TermMethodTable.ToString)
