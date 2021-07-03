@@ -1,4 +1,5 @@
 import src.model.pattern as pattern
+from src.model.term import PyCall, PyCallInsertionMode
 from src.util import CompilationError
 
 # object containing other top-level forms...
@@ -59,13 +60,25 @@ class DefineLanguage(TopLevelForm):
 
 class DefineMetafunction(TopLevelForm):
     class MetafunctionCase:
-        def __init__(self, name, patternsequence, termtemplate):
-            self.name = name
-            self.patternsequence = pattern.PatSequence([pattern.Lit(name, pattern.LitKind.Variable)] + patternsequence)
+        class SideCondition:
+            def __init__(self, pythoncall):
+                assert isinstance(pythoncall, PyCall)
+                assert pythoncall.mode == PyCallInsertionMode.Append
+                self.pythoncall = pythoncall
+
+            def __repr__(self):
+                return 'SideCondition({})'.format(self.pythoncall)
+
+        def __init__(self, patternsequence, termtemplate, sideconditions=None):
+            assert isinstance(patternsequence, pattern.PatSequence)
+            self.patternsequence = patternsequence
             self.termtemplate = termtemplate
+            self.sideconditions = sideconditions
+            if self.sideconditions == None:
+                self.sideconditions = []
 
         def __repr__(self):
-            return 'MetaFunctionCase({}, {}, {})'.format(self.name, self.patternsequence, self.termtemplate)
+            return 'MetaFunctionCase({}, {}, side-conditions: {})'.format(self.patternsequence, self.termtemplate, self.sideconditions)
 
     class MetafunctionContract:
         def __init__(self, name, domain, codomain):
@@ -81,7 +94,8 @@ class DefineMetafunction(TopLevelForm):
         self.contract = contract
         self.cases = cases
         for case in self.cases:
-            if case.name != contract.name:
+            name = case.patternsequence[0]
+            if not (isinstance(name, pattern.Lit) and name.kind == pattern.LitKind.Variable and name.lit == contract.name):
                 raise CompilationError('each metafunction case must begin with {}'.format(contract.name))
 
     def __repr__(self):

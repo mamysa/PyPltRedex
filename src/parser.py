@@ -31,6 +31,7 @@ reserved = {
     'apply-reduction-relation-assert-equal': 'APPLYREDUCTIONRELATIONASSERTEQUAL',
     'parse-assert-equal' : 'PARSEASSERTEQUAL',
     'read-from-stdin-and-apply-reduction-relation*' : 'READFROMSTDINANDAPPLYREDUCTIONRELATION',
+    'side-condition' : 'SIDECONDITION',
 }
 
 tokens = [
@@ -228,13 +229,49 @@ def p_metafunction_case_list(t):
 
 def p_metafunction_case(p):
     """
-    metafunction-case : LPAREN LPAREN IDENT RPAREN term-template RPAREN
-                      | LPAREN LPAREN IDENT pattern-sequence RPAREN term-template RPAREN
+    metafunction-case : LPAREN metafunction-case-pattern term-template RPAREN
+                      | LPAREN metafunction-case-pattern term-template metafunction-case-extra-list RPAREN
     """
-    if len(p) == 7:
-        p[0] = tlform.DefineMetafunction.MetafunctionCase(p[3], [], p[5])
+    if len(p) == 5:
+        p[0] = tlform.DefineMetafunction.MetafunctionCase(p[2], p[3])
+    else: 
+        # TODO split where/side-condition clauses into two separate lists
+        p[0] = tlform.DefineMetafunction.MetafunctionCase(p[2], p[3], sideconditions=p[4])
+
+def p_metafunction_case_extra_list(p):
+    """
+    metafunction-case-extra-list : metafunction-case-extra-list metafunction-case-extra
+                                 | metafunction-case-extra
+    """
+    if len(p) == 2:
+        p[0] = [p[1]]
     else:
-        p[0] = tlform.DefineMetafunction.MetafunctionCase(p[3], p[4], p[6])
+        p[0] = p[1] 
+        p[0].append(p[2])
+
+def p_metafunction_case_extra(p):
+    """
+    metafunction-case-extra : metafunction-case-extra-sidecondition
+    """
+    p[0] = p[1]
+
+def p_metafunction_case_extra_sidecondition(p):
+    """
+    metafunction-case-extra-sidecondition : LPAREN SIDECONDITION COMMA LPAREN IDENT list-of-term-template-top RPAREN RPAREN
+    """
+    # TODO do we want to stick to existing syntax or make it more obvious that python function must return boolean?
+    pycall = term.PyCall(term.PyCallInsertionMode.Append, p[5], p[6])
+    p[0] = tlform.DefineMetafunction.MetafunctionCase.SideCondition(pycall)
+
+def p_metafunction_case_pattern(p):
+    """
+    metafunction-case-pattern : LPAREN IDENT RPAREN
+                              | LPAREN IDENT pattern-sequence RPAREN
+    """
+    patternsequence = [pat.Lit(p[2], pat.LitKind.Variable)]
+    if len(p) == 5:
+        patternsequence.extend(p[3]) 
+    p[0] = pat.PatSequence(patternsequence)
 
 # --------------------- DEFINE-REDUCTION-RELATION FORM ---------
 # define-reduction-relation ::= ( define-reduction-relation IDENT IDENT domain reduction-case ... )
