@@ -63,7 +63,7 @@ class DefineMetafunction(TopLevelForm):
         class SideCondition:
             def __init__(self, pythoncall):
                 assert isinstance(pythoncall, PyCall)
-                assert pythoncall.mode == PyCallInsertionMode.Append
+                assert pythoncall.mode == PyCallInsertionMode.SideConditionAssertBoolean
                 self.pythoncall = pythoncall
 
             def __repr__(self):

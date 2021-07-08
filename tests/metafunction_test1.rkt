@@ -189,18 +189,18 @@
 (define-metafunction A 
   mf-with-sideconditions-1 : (n ...) -> (n ...)
   [(mf-with-sideconditions-1 (n_1 ... n_2 ...)) (n_1 ...)
-  (side-condition ,(b_length_equal (term (n_1 ...)) (term 4)))]
+  (side-condition ?(b_length_equal (term (n_1 ...)) (term 4)))]
   [(mf-with-sideconditions-1 (n_1 ... n_2 ...)) (n_1 ...)
-  (side-condition ,(b_length_equal (term (n_2 ...)) (term 2)))]
+  (side-condition ?(b_length_equal (term (n_2 ...)) (term 2)))]
   [(mf-with-sideconditions-1 (n_1 ... n_2 ...)) (1339)])
 
 (define-metafunction A
   mf-with-sideconditions-2 : (n ... n) -> (n)
   [(mf-with-sideconditions-2 (n_1 ... n_2)) (,(sequence_int_sum (term (n_1 ...))))
-   (side-condition ,(b_length_equal (term (n_1 ...)) (term 3)))
-   (side-condition ,(b_int_is_even (term n_2)))]
+   (side-condition ?(b_length_equal (term (n_1 ...)) (term 3)))
+   (side-condition ?(b_int_is_even (term n_2)))]
   [(mf-with-sideconditions-2 (n_1 ... n_2)) (1337)
-   (side-condition ,(b_int_is_even (term n_2)))]
+   (side-condition ?(b_int_is_even (term n_2)))]
   [(mf-with-sideconditions-2 (n ...)) (-1)])
 
 (term-let-assert-equal ()

@@ -82,6 +82,15 @@ class TermCodegen(term.TermTransformer):
         tmpi = rpy.gen_pyid_temporaries(1, symgen)
 
         fb.AssignTo(tmpi).FunctionCall(pycall.functionname, *pycallarguments)
+
+        ifb = rpy.BlockBuilder()
+        if pycall.mode == term.PyCallInsertionMode.SideConditionAssertBoolean:
+            ifb.RaiseException('side-condition: python function must return bool')
+            fb.If.NotIsInstance(tmpi, 'bool').ThenBlock(ifb)
+        else:
+            ifb.RaiseException('side-condition: python function must return Term')
+            fb.If.NotIsInstance(tmpi, 'Term').ThenBlock(ifb)
+
         fb.Return(tmpi)
 
         self.modulebuilder.SingleLineComment(repr(pycall))
@@ -187,7 +196,7 @@ class TermCodegen(term.TermTransformer):
                 funcname = self.context.get_function_for_term_template(t)
                 tmatch, tparameters, _ = self._gen_inputs(t)
                 assert len(tparameters) == 0
-
+                assert t.mode in [term.PyCallInsertionMode.Append, term.PyCallInsertionMode.Extend]
                 if t.mode == term.PyCallInsertionMode.Append:
                     tmp0, tmp1 = rpy.gen_pyid_temporaries(2, symgen)
                     fb.AssignTo(tmp0).FunctionCall(funcname, tmatch, *tparameters)

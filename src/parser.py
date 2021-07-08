@@ -19,6 +19,7 @@ reserved = {
     'match'          : 'MATCH',
     'bind'           : 'BIND',
     'term-let-assert-equal' : 'TERMLETASSERTEQUAL',
+    '?'              : 'QUESTIONMARK',
     ','              : 'COMMA',
     ',@'             : 'COMMAATSIGN',
     '->'             : 'LEFTARROW',
@@ -257,11 +258,15 @@ def p_metafunction_case_extra(p):
 
 def p_metafunction_case_extra_sidecondition(p):
     """
-    metafunction-case-extra-sidecondition : LPAREN SIDECONDITION COMMA LPAREN IDENT list-of-term-template-top RPAREN RPAREN
+    metafunction-case-extra-sidecondition : LPAREN SIDECONDITION python-call-must-ret-bool RPAREN
     """
-    # TODO do we want to stick to existing syntax or make it more obvious that python function must return boolean?
-    pycall = term.PyCall(term.PyCallInsertionMode.Append, p[5], p[6])
-    p[0] = tlform.DefineMetafunction.MetafunctionCase.SideCondition(pycall)
+    p[0] = tlform.DefineMetafunction.MetafunctionCase.SideCondition(p[3])
+
+def p_metafunction_case_extra_sidecondition_pythoncall(p):
+    """
+    python-call-must-ret-bool : QUESTIONMARK LPAREN IDENT list-of-term-template-top RPAREN
+    """
+    p[0] = term.PyCall(term.PyCallInsertionMode.SideConditionAssertBoolean, p[3], p[4])
 
 def p_metafunction_case_pattern(p):
     """

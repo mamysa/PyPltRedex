@@ -81,6 +81,7 @@ class PatternVariable(Term):
 class PyCallInsertionMode(enum.Enum):
     Append = 0
     Extend = 1
+    SideConditionAssertBoolean = 2
 
 class PyCall(Term):
     def __init__(self, mode, functionname, termargs):
